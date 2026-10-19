@@ -10,6 +10,7 @@ from .mcp_server import run_mcp_server
 from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
+from .guard import check_code_health
 
 def main():
     parser = argparse.ArgumentParser(
@@ -74,6 +75,15 @@ def main():
     decouple_parser.add_argument("--test", help="Test command to run for headless verification (e.g. 'pytest tests/test_inhibitor_and_server.py')")
     decouple_parser.add_argument("--dry-run", action="store_true", help="Simulate AST split and show diff without modifying files")
 
+    # Command: check (Compiler-Grade Preflight & Architecture Health Guard)
+    check_parser = subparsers.add_parser(
+        "check",
+        help="Sub-15ms preflight check: detects undefined/hallucinated symbols, circular import cycles, and coupling leaks"
+    )
+    check_parser.add_argument("file", help="Path to Python file to check")
+    check_parser.add_argument("--root", default=".", help="Project root directory (default: .)")
+    check_parser.add_argument("--json", action="store_true", help="Output JSON result")
+
     # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
 
@@ -103,6 +113,10 @@ def main():
             
             if res.get("pipeline") == "retrieval_only":
                 print(f"\n{res.get('context')}")
+            elif res.get("pipeline") == "bypass_recommended":
+                print(f"\n⚡ [arch-sidecar notice] Compact file detected (<120 lines).")
+                print(f"   Reason: {res.get('strategy_reason')}")
+                print(f"   Recommendation: Direct edit with native tools has lower complexity than AST slicing. Decoupling bypassed.")
             else:
                 if res.get("success"):
                     print(f"✅ Extracted: {', '.join(res.get('extracted_symbols', []))}")
@@ -116,8 +130,19 @@ def main():
                         print(f"\n🧪 Verification Gate: {gate} ({tv.get('command')}) in {tv.get('duration_ms')}ms")
                 else:
                     print(f"❌ Workflow Blocked/Failed: {res.get('error')}", file=sys.stderr)
+                    for h in res.get("circular_hazards", []):
+                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+                    for h in res.get("global_state_hazards", []):
+                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+                    if res.get("minimal_safe_closure"):
+                        print(f"   💡 Minimal self-contained symbol closure: --symbols {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
                     if res.get("rolled_back"):
                         print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
+                    tv = res.get("test_verification")
+                    if tv and tv.get("output"):
+                        print(f"\n--- Verification Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
                     sys.exit(1)
 
     elif args.command == "plan":
@@ -133,9 +158,12 @@ def main():
             print(json.dumps(res, indent=2))
         else:
             print(res["context"])
+            notice = ""
+            if res.get("recommendation") == "BYPASS_DECOUPLING":
+                notice = "\n⚡ [arch-sidecar advisory] Compact target detected (<120 lines). Direct file editing via native tools is recommended over AST decoupling."
             print(
                 f"\n# [arch-sidecar plan] Strategy: {res['strategy']} | Budget: {res['token_breakdown']['token_budget']} | "
-                f"Context Tokens: ~{res['estimated_tokens']} | Savings vs Whole Codebase: {res['token_breakdown']['savings_vs_codebase_pct']}%",
+                f"Context Tokens: ~{res['estimated_tokens']} | Savings vs Whole Codebase: {res['token_breakdown']['savings_vs_codebase_pct']}%{notice}",
                 file=sys.stderr
             )
 
@@ -189,7 +217,7 @@ def main():
             print(f"✅ Decoupled successfully in {res['execution_time_ms']}ms:")
             print(f"   Symbols: {', '.join(res['extracted_symbols'])}")
             print(f"   From: {res['from_file']}")
-            print(f"   To:   {res['to_file']}")
+            print(f"   To:   {res['to_file']} (import target: {res.get('import_target')})")
             if res.get("diff"):
                 print("\n--- Diff Generated ---")
                 print(res["diff"])
@@ -201,9 +229,37 @@ def main():
                     print(tv["output"])
         else:
             print(f"❌ Decoupling failed: {res.get('error')}", file=sys.stderr)
-            if res.get("test_verification"):
+            for h in res.get("circular_hazards", []):
+                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+            for h in res.get("global_state_hazards", []):
+                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+            if res.get("minimal_safe_closure"):
+                print(f"   💡 Minimal self-contained symbol closure: {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
+            if res.get("rolled_back"):
+                print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
+            if res.get("test_verification") and res["test_verification"].get("output"):
                 print(f"Test failure output:\n{res['test_verification'].get('output')}", file=sys.stderr)
             sys.exit(1)
+
+    elif args.command == "check":
+        res = check_code_health(args.file, project_root=args.root)
+        if args.json:
+            print(json.dumps(res, indent=2))
+        else:
+            if res.get("success"):
+                print(f"✅ [arch-sidecar check] Clean! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)")
+                print(f"   Target: {res.get('file')} | 0 errors | 0 warnings")
+            else:
+                print(f"❌ [arch-sidecar check] Preflight Issues Found! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)", file=sys.stderr)
+                print(f"   Target: {res.get('file')} | {res.get('errors')} error(s) | {res.get('warnings')} warning(s)", file=sys.stderr)
+                for issue in res.get("issues", []):
+                    sev = issue.get("severity")
+                    print(f"   [{sev}] Line {issue.get('line')}: {issue.get('message')}", file=sys.stderr)
+                    if issue.get("recommendation"):
+                        print(f"          ↳ Fix: {issue.get('recommendation')}", file=sys.stderr)
+                sys.exit(1)
 
     elif args.command == "serve":
         run_mcp_server()

@@ -14,6 +14,7 @@ from .uncertainty import (
     scan_codebase_uncertainty,
 )
 from .workflow import run_workflow, WorkflowStage
+from .guard import check_code_health
 
 __all__ = [
     "generate_digest",
@@ -27,6 +28,7 @@ __all__ = [
     "scan_codebase_uncertainty",
     "run_workflow",
     "WorkflowStage",
+    "check_code_health",
 ]
 
 __version__ = "0.2.0"

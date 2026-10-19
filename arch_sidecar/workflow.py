@@ -75,32 +75,11 @@ def run_workflow(
 
     # Check if task requires code transformation
     refactor_keywords = {"decouple", "extract", "move", "split", "refactor into", "separate"}
-    is_refactor_task = any(kw in task.lower() for kw in refactor_keywords) or (from_file and to_file and resolved_symbols)
-
-    if not is_refactor_task or not (from_file and to_file and resolved_symbols):
-        # Task is inspection, query, or read-only audit. Stop pipeline cleanly without forced AST transforms.
-        total_time_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
-        telemetry["status"] = "COMPLETED_RETRIEVAL"
-        telemetry["total_latency_ms"] = total_time_ms
-        telemetry["total_tokens"] = plan_tokens
-
-        return {
-            "success": True,
-            "pipeline": "retrieval_only",
-            "task": task,
-            "stages_executed": stages_executed,
-            "strategy": plan_res["strategy"],
-            "strategy_reason": plan_res["strategy_reason"],
-            "context": plan_res["context"],
-            "telemetry": telemetry,
-            "message": "Task evaluated as informational/inspection. Context plan generated without code modification."
-        }
-
-    # Check if task is an explicit refactor request from caller
     explicit_refactor_request = bool(from_file and to_file and symbols)
+    is_refactor_task = any(kw in task.lower() for kw in refactor_keywords) or bool(from_file and to_file and resolved_symbols)
 
-    # If refactoring requested but not explicitly configured, check if planner recommended bypass for compact files
-    if not explicit_refactor_request and plan_res.get("recommendation") == "BYPASS_DECOUPLING":
+    # If refactoring requested on a compact file without explicit caller override, recommend bypass
+    if is_refactor_task and not explicit_refactor_request and plan_res.get("recommendation") == "BYPASS_DECOUPLING":
         total_time_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
         telemetry["status"] = "BYPASS_RECOMMENDED"
         telemetry["total_latency_ms"] = total_time_ms
@@ -118,6 +97,13 @@ def run_workflow(
             "telemetry": telemetry,
             "message": "Devrith Recommendation: Target file is compact. Direct file modification is more token-efficient than automated AST codemods. Decoupling bypassed."
         }
+
+    if not is_refactor_task or not (from_file and to_file and resolved_symbols):
+        # Task is inspection, query, or read-only audit. Stop pipeline cleanly without forced AST transforms.
+        total_time_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
+        telemetry["status"] = "COMPLETED_RETRIEVAL"
+        telemetry["total_latency_ms"] = total_time_ms
+        telemetry["total_tokens"] = plan_tokens
 
         return {
             "success": True,
@@ -186,9 +172,10 @@ def run_workflow(
             "pipeline": "full_refactor",
             "task": task,
             "stages_executed": stages_executed,
-            "extracted_symbols": resolved_symbols,
+            "extracted_symbols": decouple_res.get("extracted_symbols", resolved_symbols),
             "from_file": from_file,
             "to_file": to_file,
+            "import_target": decouple_res.get("import_target"),
             "diff": diff_str,
             "uncertainty_findings": [f.to_dict() for f in findings],
             "critical_uncertainties": [f.to_dict() for f in critical_uncertainties],
@@ -204,6 +191,10 @@ def run_workflow(
             "stages_executed": stages_executed,
             "error": decouple_res.get("error"),
             "rolled_back": decouple_res.get("rolled_back", False),
+            "circular_hazards": decouple_res.get("circular_hazards", []),
+            "global_state_hazards": decouple_res.get("global_state_hazards", []),
+            "minimal_safe_closure": decouple_res.get("minimal_safe_closure", []),
+            "remediation": decouple_res.get("remediation", []),
             "test_verification": test_verification,
             "uncertainty_findings": [f.to_dict() for f in findings],
             "telemetry": telemetry

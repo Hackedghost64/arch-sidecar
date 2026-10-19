@@ -93,9 +93,15 @@ def plan_adaptive_retrieval(
     static analysis (Resolved vs Potential vs Unknown).
     """
     root_abs = os.path.abspath(root_dir)
+    explicit_file_rel: Optional[str] = None
+    if os.path.isfile(root_abs):
+        explicit_file_rel = os.path.basename(root_abs)
+        root_abs = os.path.dirname(root_abs)
 
     # 1. Parse mentioned files and explicit symbol names from task
     mentioned_files = set(re.findall(r"\b[\w\-./]+\.(?:py|js|ts|json)\b", task))
+    if explicit_file_rel:
+        mentioned_files.add(explicit_file_rel)
     
     # 2. Walk project and index Python symbols
     all_python_files: List[Tuple[str, str]] = []
@@ -240,15 +246,23 @@ def plan_adaptive_retrieval(
 
     # Strategy: WHOLE_FILE
     if strategy == RetrievalStrategy.WHOLE_FILE:
-        target_file = scored_candidates[0]["file"] if scored_candidates else list(file_lines_map.keys())[0]
-        content = "".join(file_lines_map.get(target_file, []))
-        total_lines = len(file_lines_map.get(target_file, []))
+        target_file = explicit_file_rel if (explicit_file_rel and explicit_file_rel in file_lines_map) else (
+            scored_candidates[0]["file"] if scored_candidates else list(file_lines_map.keys())[0]
+        )
+        raw_lines = file_lines_map.get(target_file, [])
+        numbered_content = "".join(f"{i+1}: {line}" for i, line in enumerate(raw_lines))
+        total_lines = len(raw_lines)
         
+        cross_file_helpers = []
         # Include top candidates in ranking
         for c in scored_candidates:
             if c["file"] == target_file:
                 c["included"] = True
                 selected_symbols.append(c)
+                ranking_decisions.append(c)
+            elif len(cross_file_helpers) < 2 and c["score"] >= 35:
+                c["included"] = True
+                cross_file_helpers.append(c)
                 ranking_decisions.append(c)
             else:
                 c["included"] = False
@@ -262,12 +276,20 @@ def plan_adaptive_retrieval(
         output = [
             f"# Adaptive Context Plan (Strategy: `{strategy.value}`)",
             f"> **Strategy Rationale:** {strategy_reason}",
-            f"> 💡 **Devrith Recommendation:** Target file is compact ({total_lines} lines). Direct file modification has lower complexity than AST slicing. Do not run automated decoupling.\n",
+            f"> 💡 **Devrith Fast-Path:** `{target_file}` is compact ({total_lines} lines, 1-indexed below). Edit directly with native tools; skip `view_file` and `decouple`.\n",
             f"## Full File Context: `{target_file}` ({total_lines} lines)",
             "```python",
-            content.strip(),
+            numbered_content.rstrip(),
             "```\n"
         ]
+
+        if cross_file_helpers:
+            output.append("### Relevant Cross-File Dependencies:")
+            for h in cross_file_helpers:
+                output.append(f"#### `{h['name']}` ({h['file']}:{h['start_line']}-{h['end_line']})")
+                output.append("```python")
+                output.append(h["code"].strip())
+                output.append("```\n")
 
         if uncertainty_findings:
             output.append("### Uncertainty & Dynamic Reflection Notice:")

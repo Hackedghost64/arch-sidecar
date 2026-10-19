@@ -10,6 +10,7 @@ from .decouple import prefactor_decouple
 from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
+from .guard import check_code_health
 
 SERVER_NAME = "arch-sidecar"
 SERVER_VERSION = "0.2.0"
@@ -192,6 +193,25 @@ TOOLS = [
             },
             "required": ["task"]
         }
+    },
+    {
+        "name": "check_code_health",
+        "description": "Compiler-Grade Preflight & Architecture Health Guard: Sub-15ms static verification that detects syntax errors, undefined/hallucinated symbols, broken local imports, and circular import cycles before running tests.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_path": {
+                    "type": "string",
+                    "description": "Path to the Python file to verify"
+                },
+                "project_root": {
+                    "type": "string",
+                    "description": "Project root directory (default: '.')",
+                    "default": "."
+                }
+            },
+            "required": ["target_path"]
+        }
     }
 ]
 
@@ -311,6 +331,20 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                 dry_run=dry_run,
                 token_budget=token_budget
             )
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(res, indent=2)
+                    }
+                ],
+                "isError": not res.get("success", False)
+            }
+
+        elif name == "check_code_health":
+            target_path = arguments["target_path"]
+            project_root = arguments.get("project_root", ".")
+            res = check_code_health(target_path=target_path, project_root=project_root)
             return {
                 "content": [
                     {

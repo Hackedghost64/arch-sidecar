@@ -83,7 +83,8 @@ get_used_names_in_nodes = get_free_variables_in_nodes
 def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used_names: Set[str]) -> List[str]:
     """
     Scans the imports in source_tree and extracts the exact lines of imports
-    that define any of the names in used_names.
+    that define any of the names in used_names (plus `from __future__ import ...`
+    compiler directives, which govern postponed evaluation of type annotations).
     """
     extracted_imports = []
     seen = set()
@@ -106,12 +107,13 @@ def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used
                     seen.add(stmt)
 
         elif isinstance(node, ast.ImportFrom):
-            needed = False
-            for alias in node.names:
-                name_in_scope = alias.asname or alias.name
-                if name_in_scope in used_names:
-                    needed = True
-                    break
+            needed = (node.module == "__future__")
+            if not needed:
+                for alias in node.names:
+                    name_in_scope = alias.asname or alias.name
+                    if name_in_scope in used_names:
+                        needed = True
+                        break
             if needed:
                 start = node.lineno - 1
                 end = getattr(node, "end_lineno", node.lineno)
@@ -146,6 +148,9 @@ def detect_coupling_hazards(
             for t in node.targets:
                 if isinstance(t, ast.Name) and t.id not in extracted_symbols:
                     remaining_local_constants[t.id] = "module_constant"
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id not in extracted_symbols:
+                remaining_local_constants[node.target.id] = "module_constant"
                     
     circular_hazards = []
     global_hazards = []
@@ -167,8 +172,153 @@ def detect_coupling_hazards(
                 "hazard": f"Unbound module global: extracted code references local module constant '{name}'",
                 "recommendation": f"Pass '{name}' as a parameter or extract '{name}' to a shared config module."
             })
-            
+
     return circular_hazards, global_hazards
+
+
+def compute_minimal_safe_closure(
+    from_tree: ast.Module,
+    initial_symbols: List[str]
+) -> List[str]:
+    """
+    Computes the transitive closure of local callables and constants in `from_tree`
+    required by `initial_symbols` so the extracted slice has zero back-references
+    to `from_tree`.
+    """
+    local_defs: Dict[str, List[ast.AST]] = {}
+    def_order: List[str] = []
+
+    for node in from_tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name not in local_defs:
+                local_defs[node.name] = []
+                def_order.append(node.name)
+            local_defs[node.name].append(node)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name):
+                    if t.id not in local_defs:
+                        local_defs[t.id] = []
+                        def_order.append(t.id)
+                    local_defs[t.id].append(node)
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            name = node.target.id
+            if name not in local_defs:
+                local_defs[name] = []
+                def_order.append(name)
+            local_defs[name].append(node)
+
+    closure_set: Set[str] = set(initial_symbols)
+    queue: List[str] = list(initial_symbols)
+
+    while queue:
+        curr = queue.pop(0)
+        nodes = local_defs.get(curr, [])
+        if not nodes:
+            continue
+        used = get_used_names_in_nodes(nodes) - BUILTIN_NAMES
+        for dep in def_order:
+            if dep in used and dep not in closure_set:
+                closure_set.add(dep)
+                queue.append(dep)
+
+    # Return in initial order followed by discovered dependencies in source definition order
+    ordered = list(dict.fromkeys(initial_symbols))
+    for sym in def_order:
+        if sym in closure_set and sym not in ordered:
+            ordered.append(sym)
+    return ordered
+
+
+def is_in_package(file_path: str) -> bool:
+    """Checks whether the directory containing file_path is a Python package (contains __init__.py)."""
+    dir_path = os.path.dirname(os.path.abspath(file_path))
+    return os.path.exists(os.path.join(dir_path, "__init__.py"))
+
+
+def get_package_root(file_path: str) -> str:
+    """Walks upward to find the topmost ancestor directory that has __init__.py."""
+    current = os.path.dirname(os.path.abspath(file_path))
+    pkg_root = current
+    while os.path.exists(os.path.join(current, "__init__.py")):
+        pkg_root = current
+        parent = os.path.dirname(current)
+        if parent == current:
+            break
+        current = parent
+    return pkg_root
+
+
+def compute_relative_import_path(from_file: str, to_file: str, project_root: str = ".") -> str:
+    """
+    Computes the correct import target for `from_file` importing `to_file`:
+    1. Same package & same directory: '.<module>' (e.g. `from ._formatter import HelpFormatter`)
+    2. Same package & subpackage/parent: '.sub.<module>' or '..<module>'
+    3. Cross-package (different top-level packages or standalone -> package): 'otherpkg.<module>'
+    4. Standalone scripts in same directory without __init__.py: '<module>'
+    """
+    from_abs = os.path.abspath(from_file)
+    to_abs = os.path.abspath(to_file)
+    from_dir = os.path.dirname(from_abs)
+    to_dir = os.path.dirname(to_abs)
+    to_mod = os.path.splitext(os.path.basename(to_abs))[0]
+
+    from_in_pkg = is_in_package(from_abs)
+    to_in_pkg = is_in_package(to_abs)
+
+    if from_in_pkg:
+        from_pkg_root = get_package_root(from_abs)
+        if from_dir == to_dir:
+            return f".{to_mod}"
+
+        # Same top-level package hierarchy:
+        # Either to_dir already has __init__.py with the same package root,
+        # or to_dir does not exist on disk yet and lives inside from_pkg_root.
+        same_pkg = (
+            (to_in_pkg and get_package_root(to_abs) == from_pkg_root)
+            or (not os.path.exists(to_dir) and (to_dir == from_pkg_root or to_dir.startswith(from_pkg_root + os.sep)))
+        )
+        if same_pkg:
+            try:
+                rel_dir = os.path.relpath(to_dir, from_dir)
+            except ValueError:
+                return to_mod
+
+            parts = rel_dir.split(os.sep)
+            up_levels = 0
+            down_parts = []
+            for p in parts:
+                if p == "..":
+                    up_levels += 1
+                elif p != ".":
+                    down_parts.append(p)
+
+            dots = "." * (up_levels + 1)
+            if down_parts:
+                return f"{dots}{'.'.join(down_parts)}.{to_mod}"
+            else:
+                return f"{dots}{to_mod}"
+
+    # Cross-package or standalone script importing from a package
+    if to_in_pkg:
+        to_pkg_root = get_package_root(to_abs)
+        sys_path_base = os.path.dirname(to_pkg_root)
+        rel_pkg_dir = os.path.relpath(to_dir, sys_path_base)
+        return f"{rel_pkg_dir.replace(os.sep, '.')}.{to_mod}"
+
+    # Different non-package subdirectories under project_root
+    if from_dir != to_dir:
+        root_abs = os.path.abspath(project_root)
+        if to_dir.startswith(root_abs + os.sep):
+            rel_dir = os.path.relpath(to_dir, root_abs)
+            parts = [p for p in rel_dir.split(os.sep) if p not in (".", "")]
+            if parts and parts[0] == "src":
+                parts = parts[1:]
+            if parts:
+                return f"{'.'.join(parts)}.{to_mod}"
+
+    return to_mod
+
 
 def prefactor_decouple(
     symbol: str | List[str],
@@ -212,22 +362,39 @@ def prefactor_decouple(
             "error": f"SyntaxError in source file {from_path}: {e}"
         }
 
-    # Locate the AST nodes for each requested symbol
-    symbols_to_extract = set(symbols)
+    # Locate ALL AST nodes for each requested symbol (including all @overload defs and top-level constants)
+    requested_symbols = set(symbols)
+    found_symbols: Set[str] = set()
     nodes_to_extract: List[Tuple[str, ast.AST, int, int]] = []
     
     for node in from_tree.body:
         if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-            if node.name in symbols_to_extract:
-                start_line = node.lineno - 1
+            if node.name in requested_symbols:
+                dec_lines = [d.lineno for d in getattr(node, "decorator_list", []) if hasattr(d, "lineno")]
+                start_line = (min([node.lineno] + dec_lines) if dec_lines else node.lineno) - 1
                 end_line = getattr(node, "end_lineno", node.lineno)
                 nodes_to_extract.append((node.name, node, start_line, end_line))
-                symbols_to_extract.remove(node.name)
+                found_symbols.add(node.name)
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id in requested_symbols:
+                    start_line = node.lineno - 1
+                    end_line = getattr(node, "end_lineno", node.lineno)
+                    nodes_to_extract.append((t.id, node, start_line, end_line))
+                    found_symbols.add(t.id)
+                    break
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+            if node.target.id in requested_symbols:
+                start_line = node.lineno - 1
+                end_line = getattr(node, "end_lineno", node.lineno)
+                nodes_to_extract.append((node.target.id, node, start_line, end_line))
+                found_symbols.add(node.target.id)
 
-    if symbols_to_extract:
+    missing_symbols = [s for s in symbols if s not in found_symbols]
+    if missing_symbols:
         return {
             "success": False,
-            "error": f"Symbols not found in {from_path}: {list(symbols_to_extract)}"
+            "error": f"Symbols not found in {from_path}: {missing_symbols}"
         }
 
     # Collect used names inside the extracted symbols
@@ -237,6 +404,7 @@ def prefactor_decouple(
     # Pre-flight check: detect circular dependency hazards and unbound global state
     extracted_names_set = {item[0] for item in nodes_to_extract}
     circular_hazards, global_hazards = detect_coupling_hazards(from_tree, extracted_names_set, used_names)
+    safe_closure = compute_minimal_safe_closure(from_tree, symbols)
     
     if circular_hazards and not allow_circular:
         return {
@@ -244,7 +412,10 @@ def prefactor_decouple(
             "error": "Refactoring blocked: Circular import hazard detected.",
             "circular_hazards": circular_hazards,
             "global_state_hazards": global_hazards,
-            "remediation": [h["recommendation"] for h in circular_hazards]
+            "minimal_safe_closure": safe_closure,
+            "remediation": [h["recommendation"] for h in circular_hazards] + [
+                f"Minimal self-contained symbol closure: {','.join(safe_closure)}"
+            ]
         }
 
     if global_hazards and not allow_globals:
@@ -253,7 +424,10 @@ def prefactor_decouple(
             "error": "Refactoring blocked: Unbound module global state / constant detected.",
             "circular_hazards": circular_hazards,
             "global_state_hazards": global_hazards,
-            "remediation": [h["recommendation"] for h in global_hazards]
+            "minimal_safe_closure": safe_closure,
+            "remediation": [h["recommendation"] for h in global_hazards] + [
+                f"Minimal self-contained symbol closure: {','.join(safe_closure)}"
+            ]
         }
 
     # Identify relevant imports from from_file
@@ -274,7 +448,6 @@ def prefactor_decouple(
         line_ranges_to_remove.append((actual_start, end_idx))
 
     # Determine module name for import in from_file
-    rel_to_from = os.path.relpath(to_path, os.path.dirname(from_path))
     to_module_name = os.path.splitext(os.path.basename(to_path))[0]
     
     # Check if to_file already exists
@@ -317,16 +490,15 @@ def prefactor_decouple(
             if end > last_import_line:
                 last_import_line = end
 
-    extracted_symbol_names = [item[0] for item in nodes_to_extract]
-    import_stmt = f"from {to_module_name} import {', '.join(extracted_symbol_names)}\n"
+    extracted_symbol_names = list(dict.fromkeys(item[0] for item in nodes_to_extract))
+    import_target = compute_relative_import_path(from_path, to_path, project_root=root_abs)
+    import_stmt = f"from {import_target} import {', '.join(extracted_symbol_names)}\n"
     
     # Insert new import statement
     updated_from_lines.insert(last_import_line, import_stmt)
 
     # Add backwards-compatible alias if requested (so cli.SleepInhibitor is explicitly preserved)
     if add_backward_compat_alias:
-        # Note: 'from system import SleepInhibitor' already puts SleepInhibitor in cli module namespace,
-        # but we also add an explicit alias comment / statement for clarity and linter certainty
         alias_block = [
             f"# Backward-compatibility aliases (decoupled into {to_module_name}.py)\n"
         ]
@@ -384,7 +556,9 @@ def prefactor_decouple(
     # Verification 2: Headless Test Gate (e.g. pytest) with Transactional Rollback
     test_result = None
     rolled_back = False
+    error_msg = None
     if run_tests and not dry_run:
+        t_test = time.perf_counter()
         try:
             res = subprocess.run(
                 run_tests,
@@ -394,11 +568,13 @@ def prefactor_decouple(
                 text=True,
                 timeout=30
             )
+            test_duration_ms = round((time.perf_counter() - t_test) * 1000, 2)
             test_passed = (res.returncode == 0)
             test_result = {
                 "command": run_tests,
                 "passed": test_passed,
                 "returncode": res.returncode,
+                "duration_ms": test_duration_ms,
                 "output": (res.stdout + res.stderr).strip()
             }
             if not test_passed:
@@ -412,6 +588,7 @@ def prefactor_decouple(
                     if os.path.exists(to_path):
                         os.remove(to_path)
                 rolled_back = True
+                error_msg = f"Verification gate failed (exit code {res.returncode}). Transactional rollback restored files."
         except Exception as e:
             # Rollback on test execution error
             with open(from_path, "w", encoding="utf-8") as f:
@@ -423,6 +600,7 @@ def prefactor_decouple(
                 if os.path.exists(to_path):
                     os.remove(to_path)
             rolled_back = True
+            error_msg = f"Verification gate raised exception: {e}. Transactional rollback restored files."
             test_result = {
                 "command": run_tests,
                 "passed": False,
@@ -430,12 +608,14 @@ def prefactor_decouple(
             }
 
     duration_ms = (time.perf_counter() - t_start) * 1000
+    is_success = True if (test_result is None or test_result.get("passed", True)) else False
 
-    return {
-        "success": True if (test_result is None or test_result.get("passed", True)) else False,
+    result_payload: Dict[str, Any] = {
+        "success": is_success,
         "extracted_symbols": extracted_symbol_names,
         "from_file": os.path.relpath(from_path, root_abs),
         "to_file": os.path.relpath(to_path, root_abs),
+        "import_target": import_target,
         "created_new_module": not to_file_existed,
         "execution_time_ms": round(duration_ms, 2),
         "diff": combined_diff,
@@ -443,4 +623,8 @@ def prefactor_decouple(
         "rolled_back": rolled_back,
         "circular_hazards": circular_hazards,
         "global_state_hazards": global_hazards,
+        "minimal_safe_closure": safe_closure,
     }
+    if error_msg:
+        result_payload["error"] = error_msg
+    return result_payload

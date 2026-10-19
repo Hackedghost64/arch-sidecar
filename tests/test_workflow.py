@@ -175,3 +175,44 @@ def quick_math(x: int) -> int:
         assert res["pipeline"] == "bypass_recommended"
         assert res["recommendation"] == "BYPASS_DECOUPLING"
         assert "compact" in res["message"].lower()
+
+
+def test_planner_direct_file_path_and_line_numbers():
+    """
+    Passing a direct file path to plan_adaptive_retrieval works seamlessly,
+    emits 1-indexed line numbers in WHOLE_FILE mode, and attaches cross-file dependency signatures.
+    """
+    from arch_sidecar.planner import plan_adaptive_retrieval, RetrievalStrategy
+
+    db_code = """class Database:
+    async def get_watchlist(self) -> list[dict]:
+        return [{"id": 1}]
+
+db = Database()
+"""
+    routes_code = """from db import db
+
+def list_watchlist():
+    return db
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        db_file = os.path.join(tmpdir, "db.py")
+        routes_file = os.path.join(tmpdir, "user_routes.py")
+        with open(db_file, "w") as f:
+            f.write(db_code)
+        with open(routes_file, "w") as f:
+            f.write(routes_code)
+
+        # Pass the file path directly as root_dir
+        res = plan_adaptive_retrieval(
+            task="Add watchlist count endpoint in user_routes.py calling get_watchlist",
+            root_dir=routes_file
+        )
+        assert res["strategy"] == RetrievalStrategy.WHOLE_FILE
+        assert res["recommendation"] == "BYPASS_DECOUPLING"
+        # Verify 1-indexed line numbers are present so agent can edit without an extra view_file call
+        assert "1: from db import db" in res["context"]
+        assert "3: def list_watchlist():" in res["context"]
+        # Verify cross-file dependency signature (`get_watchlist` from `db.py`) is included
+        assert "get_watchlist" in res["context"]
+

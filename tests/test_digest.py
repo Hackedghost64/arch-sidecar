@@ -69,3 +69,57 @@ def test_minified_file_detection():
     finally:
         os.remove(norm_path)
         os.remove(mini_path)
+
+def test_parse_jvm_and_c_cpp_files():
+    from arch_sidecar.digest import parse_jvm_file, parse_c_cpp_file
+
+    kotlin_code = """
+package com.example.app
+
+data class User(val id: String, val name: String)
+
+class UserRepository {
+    suspend fun fetchUser(id: String): User {
+        return User(id, "Test")
+    }
+}
+"""
+    c_code = """
+#include <stdio.h>
+#include <stdint.h>
+
+#define MAX_BUFFER 1024
+
+typedef struct {
+    uint32_t width;
+    uint32_t height;
+} ImageMetadata;
+
+void process_frame(const uint8_t* buffer, size_t len);
+"""
+
+    with tempfile.NamedTemporaryFile("w", suffix=".kt", delete=False) as f:
+        f.write(kotlin_code)
+        f.flush()
+        kt_path = f.name
+
+    with tempfile.NamedTemporaryFile("w", suffix=".c", delete=False) as f:
+        f.write(c_code)
+        f.flush()
+        c_path = f.name
+
+    try:
+        kt_summary = parse_jvm_file(kt_path)
+        assert "data class User" in kt_summary
+        assert "class UserRepository" in kt_summary
+        assert "suspend fun fetchUser" in kt_summary
+
+        c_summary = parse_c_cpp_file(c_path)
+        assert "#include <stdio.h>" in c_summary
+        assert "#define MAX_BUFFER 1024" in c_summary
+        assert "typedef struct" in c_summary
+        assert "void process_frame" in c_summary
+    finally:
+        os.remove(kt_path)
+        os.remove(c_path)
+

@@ -155,6 +155,52 @@ def parse_ts_js_file(filepath: str) -> str:
         
     return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
 
+def parse_jvm_file(filepath: str) -> str:
+    """Extract declarations and signatures from Kotlin (.kt) or Java (.java) files."""
+    summary: List[str] = []
+    keywords = [
+        "fun ", "suspend fun ", "data class ", "sealed class ", "enum class ",
+        "class ", "interface ", "record ", "object ", "companion object",
+        "public ", "private ", "protected ", "package ", "import "
+    ]
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+                    continue
+                if any(stripped.startswith(k) or f" {k}" in stripped for k in keywords):
+                    clean = stripped.split("{")[0].strip()
+                    summary.append(f"  {clean}")
+    except Exception as e:
+        return f"  [Error reading JVM: {e}]\n"
+    return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
+
+def parse_c_cpp_file(filepath: str) -> str:
+    """Extract declarations, structs, and definitions from C/C++ files."""
+    summary: List[str] = []
+    keywords = [
+        "#include", "#define", "struct ", "typedef struct", "enum ", "union ",
+        "class ", "namespace ", "extern ", "template<", "void ", "int ", "char ",
+        "bool ", "float ", "double ", "uint8_t", "uint16_t", "uint32_t", "uint64_t",
+        "int32_t", "int64_t", "size_t", "static "
+    ]
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            for line in f:
+                stripped = line.strip()
+                if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
+                    continue
+                if any(stripped.startswith(k) or f" {k}" in stripped for k in keywords):
+                    clean = stripped.split("{")[0].strip()
+                    if clean.endswith(";"):
+                        clean = clean[:-1].strip()
+                    if clean:
+                        summary.append(f"  {clean}")
+    except Exception as e:
+        return f"  [Error reading C/C++: {e}]\n"
+    return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
+
 def parse_generic_file(filepath: str) -> str:
     """Generic fallback for other languages (Go, Rust, Dart, etc.)."""
     summary: List[str] = []
@@ -191,7 +237,14 @@ def generate_digest(
     output.append(f"# Root: {root_abs}\n")
 
     files_indexed = 0
-    scanned_extensions = {".py", ".ts", ".js", ".jsx", ".tsx", ".dart", ".go", ".rs", ".java", ".kt"}
+    scanned_extensions = {
+        ".py",
+        ".ts", ".js", ".jsx", ".tsx",
+        ".dart",
+        ".go", ".rs",
+        ".java", ".kt",
+        ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"
+    }
 
     for root, dirs, files in os.walk(root_abs):
         # Filter directories in-place
@@ -223,6 +276,10 @@ def generate_digest(
                 output.append(parse_python_file(full_path))
             elif ext.lower() in {".ts", ".js", ".tsx", ".jsx"}:
                 output.append(parse_ts_js_file(full_path))
+            elif ext.lower() in {".java", ".kt"}:
+                output.append(parse_jvm_file(full_path))
+            elif ext.lower() in {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"}:
+                output.append(parse_c_cpp_file(full_path))
             else:
                 output.append(parse_generic_file(full_path))
 

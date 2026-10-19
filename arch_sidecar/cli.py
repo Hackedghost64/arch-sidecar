@@ -146,7 +146,7 @@ def main():
             for item in ledger.get("unverified_or_residual_risks", []):
                 print(f"    ⚠️  {item}")
             if not ledger.get("unverified_or_residual_risks"):
-                print("    ✓ None — all static preflight and runtime test checks passed.")
+                print("    ℹ️  No issues identified by configured AST & test checks; runtime behavior not covered by tests remains unverified.")
 
             if not res.get("success"):
                 tv = res.get("test_verification")

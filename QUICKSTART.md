@@ -1,0 +1,93 @@
+# Devrith Quickstart & Onboarding Guide
+**Zero to architecture-aware agent in under 5 minutes.**
+
+Devrith (`arch-sidecar`) acts as an architectural co-processor for AI coding agents (Claude Code, Cursor, Codex, Gemini/Antigravity). It eliminates expensive trial-and-error exploration loops by providing 1-indexed targeted context, dependency blast radius, compiler-grade preflight checks, and verifiable execution ledgers.
+
+---
+
+## 1. Installation
+
+### From Source (Current Beta)
+```bash
+git clone https://github.com/divyamm/arch-sidecar.git
+cd arch-sidecar
+pip install -e .
+```
+
+Verify the installation:
+```bash
+arch-sidecar --version
+# arch-sidecar 0.3.0 (Devrith Engine)
+```
+
+---
+
+## 2. Connect to Your AI Coding Agent
+
+Devrith exposes a native Model Context Protocol (MCP) server so your agent can automatically call architectural tools.
+
+### Claude Code CLI
+```bash
+claude mcp add devrith arch-sidecar serve
+```
+
+### Cursor (`~/.cursor/mcp.json` or `.cursor/mcp.json`)
+```json
+{
+  "mcpServers": {
+    "devrith": {
+      "command": "arch-sidecar",
+      "args": ["serve"]
+    }
+  }
+}
+```
+
+### Google Antigravity / Gemini CLI (`agy`)
+```bash
+agy mcp add devrith arch-sidecar serve
+```
+
+---
+
+## 3. The 3 Primary Workflows
+
+### A. Implementing Features (`feature_workflow`)
+Instead of having an agent wander through 10+ files with `view_file` and `grep`:
+
+```bash
+# 1. Orientation: Returns targeted 1-indexed source & companion test context in <300ms
+arch-sidecar feature "Add write_table method to HelpFormatter in formatting.py" /path/to/repo
+
+# 2. Verification: Runs AST scope/import preflight and targeted pytest suite
+arch-sidecar feature "Add write_table method to HelpFormatter in formatting.py" /path/to/repo --verify
+```
+
+### B. Safe Refactoring & Symbol Extraction (`workflow`)
+Deterministic AST symbol relocation with transactional rollback on test failure:
+
+```bash
+arch-sidecar workflow "Extract HelpFormatter out of formatting.py into _formatter.py" /path/to/repo \
+  --from src/click/formatting.py \
+  --to src/click/_formatter.py \
+  --symbols HelpFormatter,measure_table \
+  --test "pytest tests/test_formatting.py"
+```
+
+### C. Architectural Impact & Hazard Detection (`plan` / `decouple`)
+Detect circular import hazards, dynamic reflection sites (`getattr`, `eval`), and caller blast radius before editing:
+
+```bash
+arch-sidecar plan "Decouple dispatch_action from service.py" /path/to/repo
+```
+
+---
+
+## 4. The Verification Principle
+
+> **"Understand before changing. Check before trusting. Verify before claiming success."**
+
+When running with `--verify`, Devrith produces a structured **Verification Ledger**:
+- **Statically Verified:** Lexical scope, undefined identifiers, unresolved local imports, AST syntax validity.
+- **Runtime Verified:** Target test suite execution with exact exit codes and execution times.
+- **Unverified / Residual Risks:** Candidly highlights unexercised paths, unmeasured test coverage, and dynamic reflection hazards.

@@ -1,0 +1,78 @@
+[
+  {
+    "repo": "anime-cli",
+    "category": "Mixed-stack Monolith (>1,200 lines)",
+    "expected_benefit": "HIGH (Large speedup, prevents file-reading sprawl)",
+    "avg_digest_tokens": 4006,
+    "avg_digest_latency_ms": 87.31,
+    "avg_locate_latency_ms": 55.11,
+    "raw_trials": {
+      "digest_ms": [
+        90.35,
+        84.65,
+        86.93
+      ],
+      "locate_ms": [
+        56.66,
+        56.11,
+        52.56
+      ]
+    }
+  },
+  {
+    "repo": "pallets/flask",
+    "category": "Modular Python Framework",
+    "expected_benefit": "HIGH (Precise symbol resolution across package)",
+    "avg_digest_tokens": 4005,
+    "avg_digest_latency_ms": 102.63,
+    "avg_locate_latency_ms": 179.23,
+    "raw_trials": {
+      "digest_ms": [
+        103.61,
+        105.01,
+        99.26
+      ],
+      "locate_ms": [
+        176.47,
+        177.88,
+        183.33
+      ]
+    }
+  },
+  {
+    "repo": "psf/requests",
+    "category": "Interconnected Class Hierarchy",
+    "expected_benefit": "HIGH (Intercepts circular dependencies pre-flight)",
+    "avg_digest_tokens": 4000,
+    "avg_digest_latency_ms": 73.53,
+    "avg_locate_latency_ms": 121.52,
+    "raw_trials": {
+      "digest_ms": [
+        75.83,
+        75.55,
+        69.2
+      ],
+      "locate_ms": [
+        123.73,
+        119.14,
+        121.69
+      ]
+    }
+  },
+  {
+    "repo": "gupta-traders",
+    "category": "TypeScript / React Frontend with dist/ & node_modules/",
+    "expected_benefit": "HIGH (Junk filtering prevents 50M token ingestion)",
+    "avg_digest_tokens": 2059,
+    "avg_digest_latency_ms": 7.24,
+    "avg_locate_latency_ms": null,
+    "raw_trials": {
+      "digest_ms": [
+        9.44,
+        7.21,
+        5.06
+      ],
+      "locate_ms": []
+    }
+  }
+]

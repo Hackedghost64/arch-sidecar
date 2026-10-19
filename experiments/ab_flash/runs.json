@@ -1,0 +1,14 @@
+{
+  "t1_anime_baseline_1": "a9f28267-84de-4ef9-be43-e928403e139e",
+  "t1_anime_baseline_2": "e63730bb-34e7-4fc2-82c8-7ac53b038817",
+  "t1_anime_sidecar_1": "fef768f4-f464-4f66-9b22-bdf23ff2eeba",
+  "t1_anime_sidecar_2": "afdd6a99-0c14-4992-9826-7ab227f4af84",
+  "t2_requests_baseline_1": "5eef8dfb-0242-4c34-a3f0-2112c5c34a41",
+  "t2_requests_baseline_2": "aa09944e-3763-4c0d-b59f-f141fc727fc9",
+  "t2_requests_sidecar_1": "da8d25ea-a667-4759-9f52-799d615a7072",
+  "t2_requests_sidecar_2": "12e67fab-2bf0-4a0d-8fa3-4b142297796c",
+  "t3_flask_baseline_1": "eb3632dd-d5cd-4958-96ef-8916813a4bb9",
+  "t3_flask_baseline_2": "6a078f89-0ea3-4c87-acc0-c05ade65b57f",
+  "t3_flask_sidecar_1": "70fd3324-d7d2-4e9d-bb2a-057b6591a378",
+  "t3_flask_sidecar_2": "d52b1bc5-7e88-4b97-ac0c-68ad510c5085"
+}

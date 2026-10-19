@@ -1,0 +1,222 @@
+{
+  "t1_anime_baseline_1": {
+    "checks": {
+      "moved_SleepInhibitor": true,
+      "moved_start_cloudflared_tunnel": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 15,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t1_anime_baseline_2": {
+    "checks": {
+      "moved_SleepInhibitor": true,
+      "moved_start_cloudflared_tunnel": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 15,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t1_anime_sidecar_1": {
+    "checks": {
+      "moved_SleepInhibitor": true,
+      "moved_start_cloudflared_tunnel": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 15,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": []
+  },
+  "t1_anime_sidecar_2": {
+    "checks": {
+      "moved_SleepInhibitor": true,
+      "moved_start_cloudflared_tunnel": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 15,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": []
+  },
+  "t2_requests_baseline_1": {
+    "checks": {
+      "moved_to_key_val_list_with_3_overloads": true,
+      "moved_from_key_val_list": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 216,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t2_requests_baseline_2": {
+    "checks": {
+      "moved_to_key_val_list_with_3_overloads": true,
+      "moved_from_key_val_list": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 216,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t2_requests_sidecar_1": {
+    "checks": {
+      "moved_to_key_val_list_with_3_overloads": true,
+      "moved_from_key_val_list": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 216,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t2_requests_sidecar_2": {
+    "checks": {
+      "moved_to_key_val_list_with_3_overloads": true,
+      "moved_from_key_val_list": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 216,
+      "failed": 0,
+      "errors": 0
+    },
+    "unused_imports_new_module": [
+      "annotations"
+    ]
+  },
+  "t3_flask_baseline_1": {
+    "checks": {
+      "wsgi_app_entry": true,
+      "request_context_creates_ctx": true,
+      "from_environ": true,
+      "AppContext_push": true,
+      "full_dispatch_request": true,
+      "dispatch_request": true,
+      "helpers_url_for_delegates_to_current_app": true,
+      "RequestContext_merged_into_AppContext": true,
+      "cites_app_py_wsgi_line": true,
+      "cites_ctx_py_push_line": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "false_claims": {
+      "claims_RequestContext_class_defined": false
+    },
+    "report_chars": 10119
+  },
+  "t3_flask_baseline_2": {
+    "checks": {
+      "wsgi_app_entry": true,
+      "request_context_creates_ctx": true,
+      "from_environ": true,
+      "AppContext_push": true,
+      "full_dispatch_request": true,
+      "dispatch_request": true,
+      "helpers_url_for_delegates_to_current_app": true,
+      "RequestContext_merged_into_AppContext": true,
+      "cites_app_py_wsgi_line": true,
+      "cites_ctx_py_push_line": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "false_claims": {
+      "claims_RequestContext_class_defined": false
+    },
+    "report_chars": 10191
+  },
+  "t3_flask_sidecar_1": {
+    "checks": {
+      "wsgi_app_entry": true,
+      "request_context_creates_ctx": true,
+      "from_environ": true,
+      "AppContext_push": true,
+      "full_dispatch_request": true,
+      "dispatch_request": true,
+      "helpers_url_for_delegates_to_current_app": true,
+      "RequestContext_merged_into_AppContext": true,
+      "cites_app_py_wsgi_line": true,
+      "cites_ctx_py_push_line": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "false_claims": {
+      "claims_RequestContext_class_defined": false
+    },
+    "report_chars": 9114
+  },
+  "t3_flask_sidecar_2": {
+    "checks": {
+      "wsgi_app_entry": true,
+      "request_context_creates_ctx": true,
+      "from_environ": true,
+      "AppContext_push": true,
+      "full_dispatch_request": true,
+      "dispatch_request": true,
+      "helpers_url_for_delegates_to_current_app": true,
+      "RequestContext_merged_into_AppContext": true,
+      "cites_app_py_wsgi_line": true,
+      "cites_ctx_py_push_line": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "false_claims": {
+      "claims_RequestContext_class_defined": false
+    },
+    "report_chars": 9986
+  }
+}

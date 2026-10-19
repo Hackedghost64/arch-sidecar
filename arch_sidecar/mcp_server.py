@@ -12,6 +12,12 @@ from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
 from .feature_workflow import run_feature_workflow
+from .session_logger import (
+    generate_session_summary,
+    format_session_report_markdown,
+    format_session_report_terminal,
+    clear_sessions,
+)
 
 SERVER_NAME = "arch-sidecar"
 SERVER_VERSION = "0.3.0"
@@ -256,6 +262,49 @@ TOOLS = [
             },
             "required": ["target_path"]
         }
+    },
+    {
+        "name": "get_session_report",
+        "description": "View real-world test and execution telemetry report collected automatically by Devrith. Returns aggregate metrics (runs count, success rate, commands used, tests passed, preflight catches) and recent session details across all projects or filtered by repository.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "project_root": {
+                    "type": "string",
+                    "description": "Optional repository path to filter sessions by (default: None for all projects)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Maximum number of recent sessions to display (default: 20)",
+                    "default": 20
+                },
+                "format": {
+                    "type": "string",
+                    "enum": ["markdown", "json", "terminal"],
+                    "description": "Output format (default: 'markdown')",
+                    "default": "markdown"
+                }
+            }
+        }
+    },
+    {
+        "name": "export_test_report",
+        "description": "Generate and save a real-world test and benchmark report to a Markdown file on disk (e.g. REAL_WORLD_REPORT.md).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "output_path": {
+                    "type": "string",
+                    "description": "File path to save the report to (default: 'REAL_WORLD_REPORT.md')",
+                    "default": "REAL_WORLD_REPORT.md"
+                },
+                "project_root": {
+                    "type": "string",
+                    "description": "Optional repository path to filter sessions by (default: None for all projects)"
+                }
+            },
+            "required": ["output_path"]
+        }
     }
 ]
 
@@ -426,6 +475,45 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                     }
                 ],
                 "isError": not res.get("success", False)
+            }
+
+        elif name == "get_session_report":
+            project_root = arguments.get("project_root")
+            limit = arguments.get("limit", 20)
+            fmt = arguments.get("format", "markdown")
+            summary = generate_session_summary(project_root=project_root, limit=limit)
+            if fmt == "json":
+                out_text = json.dumps(summary, indent=2, default=str)
+            elif fmt == "terminal":
+                out_text = format_session_report_terminal(summary)
+            else:
+                out_text = format_session_report_markdown(summary, project_filter=project_root)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": out_text
+                    }
+                ],
+                "isError": False
+            }
+
+        elif name == "export_test_report":
+            output_path = arguments["output_path"]
+            project_root = arguments.get("project_root")
+            summary = generate_session_summary(project_root=project_root)
+            md_report = format_session_report_markdown(summary, project_filter=project_root)
+            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+            with open(output_path, "w", encoding="utf-8") as f:
+                f.write(md_report)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Successfully exported Devrith test report to {output_path} ({summary.get('total_sessions')} sessions recorded)."
+                    }
+                ],
+                "isError": False
             }
 
         else:

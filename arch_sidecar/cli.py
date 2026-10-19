@@ -12,6 +12,12 @@ from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
 from .feature_workflow import run_feature_workflow
+from .session_logger import (
+    generate_session_summary,
+    format_session_report_markdown,
+    format_session_report_terminal,
+    clear_sessions,
+)
 
 def main():
     parser = argparse.ArgumentParser(
@@ -101,6 +107,19 @@ def main():
 
     # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
+
+    # Command: report (Real-World Test & Execution Telemetry Dashboard)
+    report_parser = subparsers.add_parser(
+        "report",
+        aliases=["sessions"],
+        help="View real-world execution telemetry and test session report collected automatically by Devrith"
+    )
+    report_parser.add_argument("path", nargs="?", default=None, help="Optional project directory to filter sessions by (default: all)")
+    report_parser.add_argument("--json", action="store_true", help="Output raw telemetry summary JSON")
+    report_parser.add_argument("--markdown", "-m", action="store_true", help="Output GitHub Markdown format")
+    report_parser.add_argument("--export", "-o", help="Save the Markdown report to a file on disk (e.g. REAL_WORLD_REPORT.md)")
+    report_parser.add_argument("--limit", "-l", type=int, default=20, help="Maximum number of recent sessions to include (default: 20)")
+    report_parser.add_argument("--clear", action="store_true", help="Clear local session logs")
 
     args = parser.parse_args()
 
@@ -328,6 +347,25 @@ def main():
 
     elif args.command == "serve":
         run_mcp_server()
+
+    elif args.command in ("report", "sessions"):
+        if args.clear:
+            cleared = clear_sessions(args.path)
+            print(f"🗑️  Cleared {cleared} local session log entry/entries.")
+            return
+
+        summary = generate_session_summary(project_root=args.path, limit=args.limit)
+        if args.json:
+            print(json.dumps(summary, indent=2, default=str))
+        elif args.markdown:
+            print(format_session_report_markdown(summary, project_filter=args.path))
+        elif args.export:
+            md_content = format_session_report_markdown(summary, project_filter=args.path)
+            with open(args.export, "w", encoding="utf-8") as f:
+                f.write(md_content)
+            print(f"✅ Real-world test report exported to {args.export} ({summary.get('total_sessions')} sessions)")
+        else:
+            print(format_session_report_terminal(summary))
 
     else:
         if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):

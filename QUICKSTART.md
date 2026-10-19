@@ -91,3 +91,33 @@ When running with `--verify`, Devrith produces a structured **Verification Ledge
 - **Statically Verified:** Lexical scope, undefined identifiers, unresolved local imports, AST syntax validity.
 - **Runtime Verified:** Target test suite execution with exact exit codes and execution times.
 - **Unverified / Residual Risks:** Candidly highlights unexercised paths, unmeasured test coverage, and dynamic reflection hazards.
+
+---
+
+## 5. Automated Real-World Session Data & Test Reports
+
+Devrith automatically logs real-world execution telemetry locally (zero external network traffic) to `~/.devrith/sessions.jsonl` and project-level `.devrith/sessions.jsonl`.
+
+### View via Terminal Command
+```bash
+# Display rich ASCII terminal dashboard
+arch-sidecar report
+
+# Output GitHub-flavored Markdown
+arch-sidecar report --markdown
+
+# Export a formal test report to a markdown file
+arch-sidecar report --export REAL_WORLD_REPORT.md
+
+# View raw JSON telemetry metrics
+arch-sidecar report --json
+```
+
+### View by Prompting Your AI Agent
+Because Devrith's MCP server exposes `get_session_report` and `export_test_report`, you can prompt your connected coding agent (Claude Code, Cursor, Antigravity):
+- *"Show me the Devrith real-world test report"*
+- *"How many sessions has Devrith executed and what was the pass rate?"*
+- *"Export our benchmark test report to REAL_WORLD_REPORT.md"*
+
+The agent will query the local session store and render the live telemetry dashboard directly into the chat!
+

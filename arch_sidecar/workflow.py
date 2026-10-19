@@ -7,6 +7,7 @@ from .planner import plan_adaptive_retrieval, RetrievalStrategy
 from .uncertainty import scan_file_uncertainty, ConfidenceLevel
 from .decouple import prefactor_decouple
 from .utils import estimate_tokens
+from .session_logger import record_session
 
 class WorkflowStage:
     RETRIEVAL_PLAN = "retrieval_plan"
@@ -85,7 +86,20 @@ def run_workflow(
         telemetry["total_latency_ms"] = total_time_ms
         telemetry["total_tokens"] = plan_tokens
 
+        session_id = record_session(
+            command="workflow",
+            task=task,
+            project_root=root_abs,
+            success=True,
+            duration_ms=total_time_ms,
+            mode="bypass_recommended",
+            target_files=[from_file] if from_file else [],
+            target_symbols=resolved_symbols,
+            estimated_tokens=plan_tokens,
+        )
+
         return {
+            "session_id": session_id,
             "success": True,
             "pipeline": "bypass_recommended",
             "task": task,
@@ -105,7 +119,20 @@ def run_workflow(
         telemetry["total_latency_ms"] = total_time_ms
         telemetry["total_tokens"] = plan_tokens
 
+        session_id = record_session(
+            command="workflow",
+            task=task,
+            project_root=root_abs,
+            success=True,
+            duration_ms=total_time_ms,
+            mode="retrieval_only",
+            target_files=[from_file] if from_file else [],
+            target_symbols=resolved_symbols,
+            estimated_tokens=plan_tokens,
+        )
+
         return {
+            "session_id": session_id,
             "success": True,
             "pipeline": "retrieval_only",
             "task": task,
@@ -167,7 +194,20 @@ def run_workflow(
 
     if decouple_res.get("success"):
         telemetry["status"] = "VERIFIED" if (test_verification and test_verification.get("passed")) else "TRANSFORMED"
+        session_id = record_session(
+            command="workflow",
+            task=task,
+            project_root=root_abs,
+            success=True,
+            duration_ms=total_time_ms,
+            mode="dry_run" if dry_run else "refactor",
+            target_files=[f for f in [from_file, to_file] if f],
+            target_symbols=resolved_symbols,
+            estimated_tokens=plan_tokens + diff_tokens,
+            test_run=test_verification,
+        )
         return {
+            "session_id": session_id,
             "success": True,
             "pipeline": "full_refactor",
             "task": task,
@@ -184,7 +224,21 @@ def run_workflow(
         }
     else:
         telemetry["status"] = "ROLLED_BACK" if decouple_res.get("rolled_back") else "PREFLIGHT_BLOCKED"
+        session_id = record_session(
+            command="workflow",
+            task=task,
+            project_root=root_abs,
+            success=False,
+            duration_ms=total_time_ms,
+            mode="dry_run" if dry_run else "refactor",
+            target_files=[f for f in [from_file, to_file] if f],
+            target_symbols=resolved_symbols,
+            estimated_tokens=plan_tokens + diff_tokens,
+            test_run=test_verification,
+            error=decouple_res.get("error"),
+        )
         return {
+            "session_id": session_id,
             "success": False,
             "pipeline": "full_refactor",
             "task": task,

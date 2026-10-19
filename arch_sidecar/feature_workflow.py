@@ -9,6 +9,7 @@ from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary,
 from .context import SymbolFinder, find_references_in_file
 from .uncertainty import scan_file_uncertainty, ConfidenceLevel
 from .guard import check_code_health, resolve_local_module_path
+from .session_logger import record_session
 
 
 STOPWORDS = {
@@ -736,7 +737,27 @@ def run_feature_workflow(
 
     duration_ms = round((time.perf_counter() - t0) * 1000, 2)
 
+    session_id = record_session(
+        command="feature",
+        task=task,
+        project_root=root_abs,
+        success=overall_success,
+        duration_ms=duration_ms,
+        mode="verify" if verify else "plan_and_context",
+        target_files=[primary_file] if primary_file else (target_files or []),
+        target_symbols=[a["name"] for a in anchor_symbols[:3]],
+        estimated_tokens=estimate_tokens(context_markdown),
+        preflight=preflight_results,
+        test_run=test_verification,
+        verification_ledger={
+            "statically_verified": statically_verified,
+            "runtime_verified": runtime_verified,
+            "unverified_or_residual_risks": unverified_risks,
+        },
+    )
+
     return {
+        "session_id": session_id,
         "success": overall_success,
         "mode": "verify" if verify else "plan_and_context",
         "task": task,

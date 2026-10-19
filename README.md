@@ -8,11 +8,11 @@
 
 > **The Problem:** AI coding agents (Claude Code, Antigravity, Cursor, Windsurf) are brilliant architects, but terrible manual typists. Asking an LLM to split a 1,000-line bloated file burns 15,000 tokens, takes 45 seconds, and frequently introduces circular imports or hallucinated syntax.
 >
-> **The Solution:** `arch-sidecar` is the compiler-grade mechanical arm for coding agents. The LLM specifies the architectural decision; `arch-sidecar` performs the physical AST extraction in **under 10 milliseconds for 0 LLM tokens**—guaranteed syntax-safe, import-resolved via Free Variable Analysis, and protected against circular dependencies.
+> **The Solution:** `arch-sidecar` is the compiler-grade mechanical arm for coding agents. The LLM specifies the architectural decision; `arch-sidecar` performs the physical AST extraction in **under 15 milliseconds for 0 LLM tokens**—featuring deterministic AST-based code extraction with syntax validation, Free Variable dependency analysis, circular-import pre-flight checks, and transactional rollback.
 
 ---
 
-## 🥊 Head-to-Head Comparison
+## 🥊 Capability & Differentiation Matrix
 
 | Capability | Aider (Repo-Map) | Codemap | CALM | GritQL / Codemod | **`arch-sidecar`** |
 | :--- | :---: | :---: | :---: | :---: | :---: |
@@ -20,11 +20,12 @@
 | **Token Reduction** | ~80% | ~90% | ~85% | N/A | **94% – 96%** |
 | **Architectural Digest** | ✅ Yes | ✅ Yes | ✅ Yes | ❌ No | **✅ Yes (< 100ms AST skeleton)** |
 | **Surgical Symbol Context** | Partial | ✅ Yes | ✅ Yes | ❌ No | **✅ Yes (~500 tokens)** |
-| **Automated Code Extraction** | ❌ LLM rewrites file | ❌ No | ❌ No | ⚠️ Human-written DSL rules | **✅ Deterministic AST Codemod** |
-| **Extraction Latency** | 30–60s (LLM inference) | N/A | N/A | N/A | **1.8ms – 16ms** |
+| **Automated Code Extraction** | ❌ LLM rewrites file | ❌ Not supported | ❌ Not supported | ⚠️ Human-written DSL rules | **✅ Deterministic AST Codemod** |
+| **Extraction Latency** | 30–60s (LLM inference) | N/A | N/A | N/A | **1.8ms – 16ms (Local AST)** |
 | **LLM Tokens Burned on Refactor** | 5,000 – 15,000 tokens | N/A | N/A | 0 | **0 LLM Tokens** |
-| **Circular Import Defense** | ❌ No | ❌ No | ⚠️ Risk report | ❌ No | **✅ Pre-flight Intercept ($FV$)** |
-| **Scope Shadowing Analysis** | ❌ No | ❌ No | ❌ No | ❌ No | **✅ Compiler-Grade $FV = \text{Loaded} \setminus \text{Bound}$** |
+| **Circular Import Defense** | ❌ Not verified | ❌ Not verified | ⚠️ Risk report | ❌ Not verified | **✅ Pre-flight Intercept ($FV$)** |
+| **Scope Shadowing Analysis** | ❌ Not verified | ❌ Not verified | ❌ Not verified | ❌ Not verified | **✅ Compiler-Grade $FV = \text{Loaded} \setminus \text{Bound}$** |
+| **Transactional Rollback** | ❌ No | ❌ No | ❌ No | ❌ No | **✅ Auto-restore on test failure** |
 | **Backward-Compatibility Aliasing**| ❌ No | ❌ No | ❌ No | ❌ No | **✅ Automated (`Symbol = mod.Symbol`)** |
 
 ---
@@ -38,11 +39,12 @@ Delivers a 1,500-token AST skeleton digest in **< 100ms**, automatically pruning
 Uses AST dependency tracking to return only the exact function bodies, decorators, imports, and cross-repo callers/test references (~500 tokens) without opening full files.
 
 ### 3. `prefactor_decouple(symbol, from_file, to_file, run_tests="...")`
-Deterministic AST codemod that moves classes or functions in **< 10ms for 0 LLM tokens**:
+Deterministic AST codemod that moves classes or functions in **< 15ms for 0 LLM tokens**:
 - **Free Variable Analysis:** Implements $FV(E) = \text{Loaded}(E) \setminus \text{Bound}(E)$ to differentiate function parameters from module globals.
 - **Circular Import Interceptor:** Stops refactoring pre-flight if extracted code references remaining local functions or classes in the source module.
+- **Global State Protection:** Blocks un-extracted module globals and constants to prevent runtime `NameError`s.
+- **Transactional Rollback:** If headless test execution fails, restores both source and target files atomically to their exact pre-refactor state.
 - **Backward-Compatibility Aliasing:** Automatically injects re-export aliases in the source module so existing unit tests and callers don't break.
-- **Headless Test Gate:** Automatically triggers headless test verification (e.g. `pytest`).
 
 ---
 

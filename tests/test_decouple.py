@@ -118,5 +118,65 @@ def start_tunnel(port: int):
         # Must succeed with ZERO false positive hazards
         assert res["success"] is True
         assert len(res.get("circular_hazards", [])) == 0
-        assert len(res.get("global_state_hazards", [])) == 0
         assert "from tunnel import start_tunnel" in open(from_file).read()
+
+def test_global_state_hazard_blocked():
+    source = """
+# Module-level constant remaining in cli.py
+DEFAULT_TIMEOUT = 30
+
+def worker():
+    # Relies on unbound module global DEFAULT_TIMEOUT
+    return DEFAULT_TIMEOUT * 2
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "cli.py")
+        to_file = os.path.join(tmpdir, "worker.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="worker",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir,
+            allow_globals=False
+        )
+
+        assert res["success"] is False
+        assert "Unbound module global state" in res["error"]
+        assert any(h["symbol"] == "DEFAULT_TIMEOUT" for h in res["global_state_hazards"])
+        # Ensure file was not created
+        assert not os.path.exists(to_file)
+
+def test_transactional_refactoring_rollback_on_test_failure():
+    source = """
+def calculate():
+    return 42
+
+def runner():
+    return calculate()
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "math_cli.py")
+        to_file = os.path.join(tmpdir, "calc.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        # Force a failing test command: "exit 1"
+        res = prefactor_decouple(
+            symbol="calculate",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir,
+            run_tests="exit 1"
+        )
+
+        assert res["success"] is False
+        assert res["rolled_back"] is True
+        # Verify from_file is restored to exact pre-refactor state
+        with open(from_file) as f:
+            restored = f.read()
+        assert restored == source
+        # Verify newly created to_file was removed
+        assert not os.path.exists(to_file)

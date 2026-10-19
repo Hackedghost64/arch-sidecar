@@ -179,6 +179,7 @@ def prefactor_decouple(
     run_tests: Optional[str] = None,
     dry_run: bool = False,
     allow_circular: bool = False,
+    allow_globals: bool = False,
 ) -> Dict[str, Any]:
     """
     Deterministically decouples symbols from `from_file` into `to_file`.
@@ -244,6 +245,15 @@ def prefactor_decouple(
             "circular_hazards": circular_hazards,
             "global_state_hazards": global_hazards,
             "remediation": [h["recommendation"] for h in circular_hazards]
+        }
+
+    if global_hazards and not allow_globals:
+        return {
+            "success": False,
+            "error": "Refactoring blocked: Unbound module global state / constant detected.",
+            "circular_hazards": circular_hazards,
+            "global_state_hazards": global_hazards,
+            "remediation": [h["recommendation"] for h in global_hazards]
         }
 
     # Identify relevant imports from from_file
@@ -371,9 +381,10 @@ def prefactor_decouple(
         with open(from_path, "w", encoding="utf-8") as f:
             f.write(new_from_source)
 
-    # Verification 2: Headless Test Gate (e.g. pytest)
+    # Verification 2: Headless Test Gate (e.g. pytest) with Transactional Rollback
     test_result = None
-    if run_tests:
+    rolled_back = False
+    if run_tests and not dry_run:
         try:
             res = subprocess.run(
                 run_tests,
@@ -383,13 +394,35 @@ def prefactor_decouple(
                 text=True,
                 timeout=30
             )
+            test_passed = (res.returncode == 0)
             test_result = {
                 "command": run_tests,
-                "passed": res.returncode == 0,
+                "passed": test_passed,
                 "returncode": res.returncode,
                 "output": (res.stdout + res.stderr).strip()
             }
+            if not test_passed:
+                # Transactional Rollback: restore from_file and to_file to exact pre-refactor state
+                with open(from_path, "w", encoding="utf-8") as f:
+                    f.write(from_source)
+                if to_file_existed:
+                    with open(to_path, "w", encoding="utf-8") as f:
+                        f.write("".join(existing_to_lines))
+                else:
+                    if os.path.exists(to_path):
+                        os.remove(to_path)
+                rolled_back = True
         except Exception as e:
+            # Rollback on test execution error
+            with open(from_path, "w", encoding="utf-8") as f:
+                f.write(from_source)
+            if to_file_existed:
+                with open(to_path, "w", encoding="utf-8") as f:
+                    f.write("".join(existing_to_lines))
+            else:
+                if os.path.exists(to_path):
+                    os.remove(to_path)
+            rolled_back = True
             test_result = {
                 "command": run_tests,
                 "passed": False,
@@ -407,6 +440,7 @@ def prefactor_decouple(
         "execution_time_ms": round(duration_ms, 2),
         "diff": combined_diff,
         "test_verification": test_result,
+        "rolled_back": rolled_back,
         "circular_hazards": circular_hazards,
         "global_state_hazards": global_hazards,
     }

@@ -7,12 +7,50 @@ from typing import Dict, Any, Optional
 from .digest import generate_digest
 from .context import locate_surgical_context
 from .decouple import prefactor_decouple
+from .planner import plan_adaptive_retrieval
+from .uncertainty import scan_codebase_uncertainty
+from .workflow import run_workflow
 
 SERVER_NAME = "arch-sidecar"
-SERVER_VERSION = "0.1.0"
+SERVER_VERSION = "0.2.0"
 PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS = [
+    {
+        "name": "plan_adaptive_retrieval",
+        "description": "Task-Aware Adaptive Retrieval Engine: Dynamically selects whole-file (for small files <120 lines), targeted symbols, symbols + dependencies, or symbols + callers, with candidate ranking justifications, token budget limits, and uncertainty classification (Resolved vs Potential vs Unknown).",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Task description or target symbols/files (e.g. 'Extract SleepInhibitor and handle tunnel in cli.py')"
+                },
+                "root_dir": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                },
+                "target_symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of exact symbol names to focus on"
+                },
+                "token_budget": {
+                    "type": "integer",
+                    "description": "Maximum token budget for returned context (default: 3000)",
+                    "default": 3000
+                },
+                "strategy_override": {
+                    "type": "string",
+                    "enum": ["auto", "whole_file", "targeted_symbols", "symbols_and_dependencies", "symbols_and_callers", "ast_skeleton"],
+                    "description": "Optional strategy override (default: 'auto')",
+                    "default": "auto"
+                }
+            },
+            "required": ["task"]
+        }
+    },
     {
         "name": "get_architecture_digest",
         "description": "Instant Context: Generates a high-density, token-efficient (~1,500 token) AST skeleton of the entire codebase. Automatically filters out junk, dist, node_modules, and minified bundles.",
@@ -57,6 +95,20 @@ TOOLS = [
         }
     },
     {
+        "name": "scan_uncertainty",
+        "description": "Dynamic Reflection & Uncertainty Scanner: Audits Python AST for unresolvable runtime behavior (getattr, setattr, importlib, eval, exec) and classifies confidence as Resolved, Potential, or Unknown.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "root_dir": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                }
+            }
+        }
+    },
+    {
         "name": "prefactor_decouple",
         "description": "Deterministic Code Splitting: Surgical AST codemod that moves classes or functions from one file to another in 50ms, resolves and moves required imports, adds backward-compatibility aliases, and verifies tests.",
         "inputSchema": {
@@ -94,12 +146,84 @@ TOOLS = [
             },
             "required": ["symbol", "from_file", "to_file"]
         }
+    },
+    {
+        "name": "execute_refactor_workflow",
+        "description": "End-to-End Orchestrated Refactoring Engine: Executes the complete Task -> Context Plan -> Reflection Audit -> Dependency Preflight -> Deterministic AST Transformation -> Test Execution & Rollback pipeline. Changes are test-gated and rolled back on failure; correctness is only as strong as the supplied test command.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Task description (e.g. 'Decouple SleepInhibitor from cli.py into system.py')"
+                },
+                "project_root": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                },
+                "from_file": {
+                    "type": "string",
+                    "description": "Source file (optional; deduced from task/plan if omitted)"
+                },
+                "to_file": {
+                    "type": "string",
+                    "description": "Target file (optional; deduced from task/plan if omitted)"
+                },
+                "symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of exact symbol names to refactor"
+                },
+                "test_command": {
+                    "type": "string",
+                    "description": "Test command to run for verification gate (e.g. 'pytest tests/test_system.py')"
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "If true, simulates transformations without modifying disk",
+                    "default": False
+                },
+                "token_budget": {
+                    "type": "integer",
+                    "description": "Max token budget for context planning (default: 3000)",
+                    "default": 3000
+                }
+            },
+            "required": ["task"]
+        }
     }
 ]
 
 def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        if name == "get_architecture_digest":
+        if name == "plan_adaptive_retrieval":
+            task = arguments["task"]
+            root_dir = arguments.get("root_dir", ".")
+            target_symbols = arguments.get("target_symbols")
+            token_budget = arguments.get("token_budget", 3000)
+            strategy_override = arguments.get("strategy_override")
+            if strategy_override == "auto":
+                strategy_override = None
+
+            res = plan_adaptive_retrieval(
+                task=task,
+                root_dir=root_dir,
+                target_symbols=target_symbols,
+                token_budget=token_budget,
+                strategy_override=strategy_override
+            )
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": res["context"]
+                    }
+                ],
+                "isError": False
+            }
+
+        elif name == "get_architecture_digest":
             root_dir = arguments.get("root_dir", ".")
             max_tokens = arguments.get("max_tokens", 4000)
             res = generate_digest(root_dir=root_dir, max_tokens=max_tokens)
@@ -123,6 +247,19 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                     {
                         "type": "text",
                         "text": res["context"]
+                    }
+                ],
+                "isError": False
+            }
+
+        elif name == "scan_uncertainty":
+            root_dir = arguments.get("root_dir", ".")
+            res = scan_codebase_uncertainty(root_dir=root_dir)
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(res, indent=2)
                     }
                 ],
                 "isError": False
@@ -154,6 +291,36 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                 "isError": not res.get("success", False)
             }
 
+        elif name == "execute_refactor_workflow":
+            task = arguments["task"]
+            project_root = arguments.get("project_root", ".")
+            from_file = arguments.get("from_file")
+            to_file = arguments.get("to_file")
+            symbols = arguments.get("symbols")
+            test_command = arguments.get("test_command")
+            dry_run = arguments.get("dry_run", False)
+            token_budget = arguments.get("token_budget", 3000)
+
+            res = run_workflow(
+                task=task,
+                project_root=project_root,
+                from_file=from_file,
+                to_file=to_file,
+                symbols=symbols,
+                test_command=test_command,
+                dry_run=dry_run,
+                token_budget=token_budget
+            )
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": json.dumps(res, indent=2)
+                    }
+                ],
+                "isError": not res.get("success", False)
+            }
+
         else:
             return {
                 "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
@@ -169,7 +336,6 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
 
 def run_mcp_server():
     """Runs standard stdio JSON-RPC MCP server."""
-    # Read messages from stdin line by line
     for line in sys.stdin:
         line = line.strip()
         if not line:
@@ -202,7 +368,6 @@ def run_mcp_server():
                 }
             }
         elif method == "notifications/initialized":
-            # Notification does not return a response
             continue
         elif method == "tools/list":
             response["result"] = {

@@ -6,29 +6,79 @@ import subprocess
 import time
 from typing import Dict, List, Optional, Set, Any, Tuple
 
-class NameUsageCollector(ast.NodeVisitor):
-    """Collects all variable and module names referenced in an AST subtree."""
-    def __init__(self):
-        self.used_names: Set[str] = set()
+class FreeVariableAnalyzer(ast.NodeVisitor):
+    """
+    Compiler-grade Free Variable Analysis: FV(E) = Loaded(E) \\ Bound(E).
+    Tracks variable bindings across function parameters, assignments (Store),
+    loop targets, exception handlers, and nested definitions to eliminate
+    false-positive coupling hazards caused by shadowed parameters or local variables.
+    """
+    def __init__(self, root_nodes: List[ast.AST]):
+        self.root_nodes = set(root_nodes)
+        self.loaded_names: Set[str] = set()
+        self.bound_names: Set[str] = set()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        if node not in self.root_nodes:
+            self.bound_names.add(node.name)
+        self._bind_parameters(node.args)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        if node not in self.root_nodes:
+            self.bound_names.add(node.name)
+        self._bind_parameters(node.args)
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef):
+        if node not in self.root_nodes:
+            self.bound_names.add(node.name)
+        self.generic_visit(node)
+
+    def _bind_parameters(self, args: ast.arguments):
+        for arg in args.args:
+            self.bound_names.add(arg.arg)
+        if args.vararg:
+            self.bound_names.add(args.vararg.arg)
+        for arg in args.kwonlyargs:
+            self.bound_names.add(arg.arg)
+        if args.kwarg:
+            self.bound_names.add(args.kwarg.arg)
 
     def visit_Name(self, node: ast.Name):
-        self.used_names.add(node.id)
+        if isinstance(node.ctx, ast.Store):
+            self.bound_names.add(node.id)
+        elif isinstance(node.ctx, ast.Load):
+            self.loaded_names.add(node.id)
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute):
-        # e.g., subprocess.Popen -> capture 'subprocess'
+        # Extract root identifier (e.g., subprocess.Popen -> 'subprocess')
         curr = node
         while isinstance(curr, ast.Attribute):
             curr = curr.value
         if isinstance(curr, ast.Name):
-            self.used_names.add(curr.id)
+            if isinstance(curr.ctx, ast.Load):
+                self.loaded_names.add(curr.id)
         self.generic_visit(node)
 
-def get_used_names_in_nodes(nodes: List[ast.AST]) -> Set[str]:
-    collector = NameUsageCollector()
+    def visit_ExceptHandler(self, node: ast.ExceptHandler):
+        if node.name:
+            self.bound_names.add(node.name)
+        self.generic_visit(node)
+
+    def get_free_variables(self) -> Set[str]:
+        # Free variables required from enclosing module scope or external imports
+        return self.loaded_names - self.bound_names
+
+def get_free_variables_in_nodes(nodes: List[ast.AST]) -> Set[str]:
+    analyzer = FreeVariableAnalyzer(nodes)
     for n in nodes:
-        collector.visit(n)
-    return collector.used_names
+        analyzer.visit(n)
+    return analyzer.get_free_variables()
+
+# Alias for backward compatibility
+get_used_names_in_nodes = get_free_variables_in_nodes
 
 def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used_names: Set[str]) -> List[str]:
     """
@@ -72,6 +122,54 @@ def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used
 
     return extracted_imports
 
+import builtins
+BUILTIN_NAMES = set(dir(builtins))
+
+def detect_coupling_hazards(
+    from_tree: ast.Module,
+    extracted_symbols: Set[str],
+    used_names: Set[str]
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """
+    Analyzes whether extracted symbols reference remaining local functions/classes
+    (circular import hazard) or module-level constants (unbound global state).
+    """
+    remaining_local_callables: Dict[str, str] = {}
+    remaining_local_constants: Dict[str, str] = {}
+    
+    for node in from_tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if node.name not in extracted_symbols:
+                kind = "class" if isinstance(node, ast.ClassDef) else "function"
+                remaining_local_callables[node.name] = kind
+        elif isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id not in extracted_symbols:
+                    remaining_local_constants[t.id] = "module_constant"
+                    
+    circular_hazards = []
+    global_hazards = []
+    
+    non_builtin_used = used_names - BUILTIN_NAMES
+    
+    for name in non_builtin_used:
+        if name in remaining_local_callables:
+            circular_hazards.append({
+                "symbol": name,
+                "type": remaining_local_callables[name],
+                "hazard": f"Circular import hazard: extracted code calls remaining local symbol '{name}'",
+                "recommendation": f"Also extract '{name}' into the target module, or move it to a shared intermediate utility."
+            })
+        elif name in remaining_local_constants:
+            global_hazards.append({
+                "symbol": name,
+                "type": "constant",
+                "hazard": f"Unbound module global: extracted code references local module constant '{name}'",
+                "recommendation": f"Pass '{name}' as a parameter or extract '{name}' to a shared config module."
+            })
+            
+    return circular_hazards, global_hazards
+
 def prefactor_decouple(
     symbol: str | List[str],
     from_file: str,
@@ -80,6 +178,7 @@ def prefactor_decouple(
     add_backward_compat_alias: bool = True,
     run_tests: Optional[str] = None,
     dry_run: bool = False,
+    allow_circular: bool = False,
 ) -> Dict[str, Any]:
     """
     Deterministically decouples symbols from `from_file` into `to_file`.
@@ -134,6 +233,19 @@ def prefactor_decouple(
     ast_nodes = [item[1] for item in nodes_to_extract]
     used_names = get_used_names_in_nodes(ast_nodes)
     
+    # Pre-flight check: detect circular dependency hazards and unbound global state
+    extracted_names_set = {item[0] for item in nodes_to_extract}
+    circular_hazards, global_hazards = detect_coupling_hazards(from_tree, extracted_names_set, used_names)
+    
+    if circular_hazards and not allow_circular:
+        return {
+            "success": False,
+            "error": "Refactoring blocked: Circular import hazard detected.",
+            "circular_hazards": circular_hazards,
+            "global_state_hazards": global_hazards,
+            "remediation": [h["recommendation"] for h in circular_hazards]
+        }
+
     # Identify relevant imports from from_file
     needed_imports = find_relevant_imports(from_tree, from_lines, used_names)
 
@@ -295,4 +407,6 @@ def prefactor_decouple(
         "execution_time_ms": round(duration_ms, 2),
         "diff": combined_diff,
         "test_verification": test_result,
+        "circular_hazards": circular_hazards,
+        "global_state_hazards": global_hazards,
     }

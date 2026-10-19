@@ -58,3 +58,65 @@ def dispatch_cli():
         assert "def dispatch_cli():" in from_content
         # Ensure syntax is valid
         ast.parse(from_content)
+
+def test_circular_dependency_hazard_blocked():
+    source = """
+def banner():
+    print("Welcome")
+
+def cmd_stream():
+    banner()
+    return "streaming"
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "cli.py")
+        to_file = os.path.join(tmpdir, "stream.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="cmd_stream",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+
+        # Must be blocked by pre-flight check
+        assert res["success"] is False
+        assert "Circular import hazard" in res["error"] or len(res.get("circular_hazards", [])) > 0
+        hazards = res["circular_hazards"]
+        assert any(h["symbol"] == "banner" for h in hazards)
+
+def test_scope_shadowing_free_variable_analysis():
+    source = """
+# Module-level constant & function that remain in cli.py
+port = 8080
+
+def config():
+    return {"mode": "dark"}
+
+# Extracted function that shadows both 'port' (as param) and 'config' (as loop var)
+def start_tunnel(port: int):
+    items = ["cf-1", "cf-2"]
+    for config in items:
+        pass
+    return f"tunnel-on-{port}"
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "cli.py")
+        to_file = os.path.join(tmpdir, "tunnel.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="start_tunnel",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+
+        # Must succeed with ZERO false positive hazards
+        assert res["success"] is True
+        assert len(res.get("circular_hazards", [])) == 0
+        assert len(res.get("global_state_hazards", [])) == 0
+        assert "from tunnel import start_tunnel" in open(from_file).read()

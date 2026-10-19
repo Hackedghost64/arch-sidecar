@@ -10,6 +10,13 @@ class SymbolFinder(ast.NodeVisitor):
         self.lines = lines
         self.symbols: Dict[str, Dict[str, Any]] = {}
         self.imports: List[str] = []
+        self.constants: List[str] = []
+
+    def visit_Assign(self, node: ast.Assign):
+        for target in node.targets:
+            if isinstance(target, ast.Name) and (target.id.isupper() or target.id == "__all__"):
+                self.constants.append(target.id)
+        self.generic_visit(node)
 
     def visit_Import(self, node: ast.Import):
         start = node.lineno - 1
@@ -111,6 +118,9 @@ def locate_surgical_context(
     file_imports_map: Dict[str, List[str]] = {}
     all_python_files: List[str] = []
 
+    file_docstrings_map: Dict[str, Optional[str]] = {}
+    file_constants_map: Dict[str, List[str]] = {}
+
     # 1. First pass: find symbol definitions and imports
     for root, dirs, files in os.walk(root_abs):
         dirs[:] = [
@@ -132,6 +142,8 @@ def locate_surgical_context(
                     finder = SymbolFinder(rel_path, lines)
                     finder.visit(tree)
                     file_imports_map[rel_path] = finder.imports
+                    file_docstrings_map[rel_path] = ast.get_docstring(tree)
+                    file_constants_map[rel_path] = finder.constants
 
                     for sym_name, sym_info in finder.symbols.items():
                         # Check exact match or case-insensitive match
@@ -169,6 +181,16 @@ def locate_surgical_context(
         output.append(f"## Target Symbol: `{sym_name}` ({sym_info['type']})")
         output.append(f"Location: `{rel}:{start}-{end}`")
         
+        # Containing Module Context (docstring & constants)
+        mod_doc = file_docstrings_map.get(rel)
+        mod_consts = file_constants_map.get(rel, [])
+        if mod_doc or mod_consts:
+            output.append(f"### Containing Module Context (`{rel}`):")
+            if mod_doc:
+                output.append(f'"""{mod_doc.strip()}"""\n')
+            if mod_consts:
+                output.append(f"Module Constants: {', '.join(mod_consts[:8])}\n")
+
         # Relevant imports from same file
         rel_imports = file_imports_map.get(rel, [])
         if rel_imports:
@@ -189,6 +211,8 @@ def locate_surgical_context(
             output.append(f"- **{rel_file}**:")
             for r in refs[:5]:
                 output.append(f"  - Line {r['line_num']}: `{r['line']}`")
+
+    output.append("\n> **Retrieval Limitations Notice:** Static AST analysis extracts lexical definitions, docstrings, imports, and cross-file references. Dynamic imports (e.g. `importlib`), reflection, or environment-variable runtime branches must be verified through execution.")
 
     context_str = "\n".join(output)
     token_est = estimate_tokens(context_str)

@@ -1,14 +1,15 @@
 # `arch-sidecar`
-### Deterministic Refactoring Infrastructure & Architectural Sidecar for AI Coding Agents
+### Architecture-Aware Context Retrieval & Deterministic Refactoring for AI Coding Agents
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
-[![Tests Passing](https://img.shields.io/badge/tests-7%20passed-success.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-9%20passed-success.svg)](tests/)
+[![Empirical Case Study](https://img.shields.io/badge/Case%20Study-Documented-orange.svg)](CASE_STUDY.md)
 
-> **The Problem:** AI coding agents (Claude Code, Antigravity, Cursor, Windsurf) are brilliant architects, but terrible manual typists. Asking an LLM to split a 1,000-line bloated file burns 15,000 tokens, takes 45 seconds, and frequently introduces circular imports or hallucinated syntax.
+> `arch-sidecar` provides **architecture-aware context retrieval** (`digest` + `locate`) and **deterministic refactoring with pre-flight dependency safety** (`decouple`).
 >
-> **The Solution:** `arch-sidecar` is the compiler-grade mechanical arm for coding agents. The LLM specifies the architectural decision; `arch-sidecar` performs the physical AST extraction in **under 15 milliseconds for 0 LLM tokens**—featuring deterministic AST-based code extraction with syntax validation, Free Variable dependency analysis, circular-import pre-flight checks, and transactional rollback.
+> 📖 **Read the empirical benchmark:** [Case Study: Architecture-Aware Retrieval vs. Standard Exploration](CASE_STUDY.md)
 
 ---
 

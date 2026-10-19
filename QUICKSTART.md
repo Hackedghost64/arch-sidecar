@@ -121,3 +121,17 @@ Because Devrith's MCP server exposes `get_session_report` and `export_test_repor
 
 The agent will query the local session store and render the live telemetry dashboard directly into the chat!
 
+---
+
+## 6. Language Capabilities Scope
+
+To maintain complete transparency:
+- **Full Capabilities (Tier 1 — Full Support):** Currently **Python (`.py`)** is the primary language with full end-to-end capabilities:
+  - 1-indexed targeted context & companion test fast-paths (`feature_workflow`).
+  - Deterministic AST symbol decoupling without burning LLM tokens (`workflow`).
+  - Free Variable mathematical analysis ($FV = \text{Loaded} \setminus \text{Bound}$).
+  - Circular import cycle detection and prevention.
+  - Sub-15ms lexical scope and hallucinated identifier preflight checks (`check`).
+  - Transactional rollback on test failure.
+- **Architectural Orientation (Tier 2 — Skeleton & Digest):** **TypeScript, JavaScript, Kotlin, Java, C, C++, Go, Rust, and Dart** have full Architectural Digest support (`arch-sidecar digest` / `get_architecture_digest`), providing sub-100ms structural signature outlines while aggressively pruning `node_modules/`, `build/`, `dist/`, `CMakeFiles/`, `.gradle/`, and minified files.
+

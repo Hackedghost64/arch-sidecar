@@ -24,6 +24,12 @@ def main():
         prog="arch-sidecar",
         description="Universal Architectural Sidecar & Decoupling Engine (MCP Server + CLI)"
     )
+    parser.add_argument(
+        "--version", "-v",
+        action="version",
+        version="arch-sidecar 0.3.0 (Devrith Engine)",
+        help="Show version and exit"
+    )
     subparsers = parser.add_subparsers(dest="command", help="Subcommand to execute")
 
     # Command: feature (Evidence-Backed Feature Implementation Workflow)

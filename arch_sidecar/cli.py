@@ -11,6 +11,7 @@ from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
+from .feature_workflow import run_feature_workflow
 
 def main():
     parser = argparse.ArgumentParser(
@@ -18,6 +19,20 @@ def main():
         description="Universal Architectural Sidecar & Decoupling Engine (MCP Server + CLI)"
     )
     subparsers = parser.add_subparsers(dest="command", help="Subcommand to execute")
+
+    # Command: feature (Evidence-Backed Feature Implementation Workflow)
+    feat_parser = subparsers.add_parser(
+        "feature",
+        help="Evidence-Backed Feature Workflow: Intent -> Anchor Discovery -> Impact Map -> Actionable Plan -> 1-Indexed Context -> Preflight & Test Verification"
+    )
+    feat_parser.add_argument("task", help="Feature request description (e.g. 'Add /watchlist/count endpoint to user_routes.py')")
+    feat_parser.add_argument("path", nargs="?", default=".", help="Root directory or target file path (default: .)")
+    feat_parser.add_argument("--files", "-f", help="Comma-separated target files to focus on or verify")
+    feat_parser.add_argument("--symbols", "-s", help="Comma-separated symbol names to focus on")
+    feat_parser.add_argument("--verify", action="store_true", help="Run compiler-grade preflight + test verification on resulting changes and emit Verification Ledger")
+    feat_parser.add_argument("--test", help="Explicit test command to run during --verify (auto-discovered if omitted)")
+    feat_parser.add_argument("--budget", "-b", type=int, default=3200, help="Token budget for targeted context (default: 3200)")
+    feat_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
 
     # Command: workflow (End-to-End Orchestrated Pipeline)
     wf_parser = subparsers.add_parser(
@@ -89,7 +104,57 @@ def main():
 
     args = parser.parse_args()
 
-    if args.command == "workflow":
+    if args.command == "feature":
+        files_list = [f.strip() for f in args.files.split(",")] if args.files else None
+        syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+        res = run_feature_workflow(
+            task=args.task,
+            project_root=args.path,
+            target_files=files_list,
+            target_symbols=syms_list,
+            verify=args.verify,
+            test_command=args.test,
+            token_budget=args.budget,
+        )
+        if args.json:
+            print(json.dumps(res, indent=2))
+        elif not args.verify:
+            print(res["context"])
+            print(
+                f"\n# [arch-sidecar feature] Target: {res.get('primary_file')} | "
+                f"Context Tokens: ~{res.get('estimated_tokens')} | Duration: {res.get('duration_ms')}ms",
+                file=sys.stderr,
+            )
+        else:
+            status_icon = "✅" if res.get("success") else "❌"
+            print(f"{status_icon} [arch-sidecar feature --verify] Status: {'VERIFIED' if res.get('success') else 'FAILED'} ({res.get('duration_ms')}ms)")
+            ledger = res.get("verification_ledger", {})
+            print("\n📋 Verification & Evidence Ledger:")
+            print("  [Statically Verified]")
+            for item in ledger.get("statically_verified", []):
+                print(f"    ✓ {item}")
+            if not ledger.get("statically_verified"):
+                print("    - None (preflight failed)")
+
+            print("  [Runtime Verified]")
+            for item in ledger.get("runtime_verified", []):
+                print(f"    ✓ {item}")
+            if not ledger.get("runtime_verified"):
+                print("    - None")
+
+            print("  [Unverified / Residual Risks]")
+            for item in ledger.get("unverified_or_residual_risks", []):
+                print(f"    ⚠️  {item}")
+            if not ledger.get("unverified_or_residual_risks"):
+                print("    ✓ None — all static preflight and runtime test checks passed.")
+
+            if not res.get("success"):
+                tv = res.get("test_verification")
+                if tv and tv.get("output"):
+                    print(f"\n--- Test Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
+                sys.exit(1)
+
+    elif args.command == "workflow":
         syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
         res = run_workflow(
             task=args.task,

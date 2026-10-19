@@ -11,12 +11,56 @@ from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
+from .feature_workflow import run_feature_workflow
 
 SERVER_NAME = "arch-sidecar"
-SERVER_VERSION = "0.2.0"
+SERVER_VERSION = "0.3.0"
 PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS = [
+    {
+        "name": "feature_workflow",
+        "description": "Evidence-Backed Feature Implementation Workflow ('Understand before changing. Check before trusting. Verify before claiming success.'): (1) Understands requested feature intent, (2) Finds relevant existing anchor implementations, (3) Maps cross-file dependencies, callers, and test files, (4) Produces an actionable plan, (5) Supplies 1-indexed fast-path context, and when verify=True, (6) Runs compiler-grade preflight checks, (7) Executes test verification, and (8) Reports an explicit Verification Ledger of what is and isn't verified.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task": {
+                    "type": "string",
+                    "description": "Feature request description"
+                },
+                "project_root": {
+                    "type": "string",
+                    "description": "Path to repository root or target file (default: '.')",
+                    "default": "."
+                },
+                "target_files": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of target files to focus on or verify"
+                },
+                "target_symbols": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional list of symbol names to focus on"
+                },
+                "verify": {
+                    "type": "boolean",
+                    "description": "If true, runs preflight checks + test verification and returns the Verification Ledger",
+                    "default": False
+                },
+                "test_command": {
+                    "type": "string",
+                    "description": "Optional test command to run when verify=True (auto-discovered if omitted)"
+                },
+                "token_budget": {
+                    "type": "integer",
+                    "description": "Maximum token budget for context (default: 3200)",
+                    "default": 3200
+                }
+            },
+            "required": ["task"]
+        }
+    },
     {
         "name": "plan_adaptive_retrieval",
         "description": "Task-Aware Adaptive Retrieval Engine: Dynamically selects whole-file (for small files <120 lines), targeted symbols, symbols + dependencies, or symbols + callers, with candidate ranking justifications, token budget limits, and uncertainty classification (Resolved vs Potential vs Unknown).",
@@ -217,7 +261,36 @@ TOOLS = [
 
 def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        if name == "plan_adaptive_retrieval":
+        if name == "feature_workflow":
+            task = arguments["task"]
+            project_root = arguments.get("project_root", ".")
+            target_files = arguments.get("target_files")
+            target_symbols = arguments.get("target_symbols")
+            verify = arguments.get("verify", False)
+            test_command = arguments.get("test_command")
+            token_budget = arguments.get("token_budget", 3200)
+
+            res = run_feature_workflow(
+                task=task,
+                project_root=project_root,
+                target_files=target_files,
+                target_symbols=target_symbols,
+                verify=verify,
+                test_command=test_command,
+                token_budget=token_budget,
+            )
+            text_out = json.dumps(res, indent=2) if verify else res["context"]
+            return {
+                "content": [
+                    {
+                        "type": "text",
+                        "text": text_out
+                    }
+                ],
+                "isError": not res.get("success", False)
+            }
+
+        elif name == "plan_adaptive_retrieval":
             task = arguments["task"]
             root_dir = arguments.get("root_dir", ".")
             target_symbols = arguments.get("target_symbols")

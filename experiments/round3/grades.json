@@ -1,0 +1,64 @@
+{
+  "f1_click_baseline": {
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "write_table_defined": true,
+      "test_defined": true,
+      "formatting_tests_passed": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 38,
+      "failed": 0,
+      "output": "......................................                                   [100%]\n38 passed in 0.09s"
+    }
+  },
+  "f1_click_sidecar": {
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "write_table_defined": true,
+      "test_defined": true,
+      "formatting_tests_passed": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 38,
+      "failed": 0,
+      "output": "......................................                                   [100%]\n38 passed in 0.09s"
+    }
+  },
+  "f2_requests_baseline": {
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "redact_url_auth_defined": true,
+      "test_defined": true,
+      "utils_tests_passed": true,
+      "redact_behavior_verified": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 217,
+      "failed": 0,
+      "output": "==========================\ntests/test_utils.py::TestContentEncodingDetection::test_none\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta charset=\"UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\" />]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<?xml version=\"1.0\" encoding=\"UTF-8\"?>]\ntests/test_utils.py::TestContentEncodingDetection::test_precedence\n  /tmp/round3_runs/f2_requests_baseline/src/requests/utils.py:527: DeprecationWarning: In requests 3.0, get_encodings_from_content will be removed. For more information, please see the discussion on issue #2266. (This warning should only appear once.)\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n217 passed, 13 skipped, 6 warnings in 0.34s"
+    }
+  },
+  "f2_requests_sidecar": {
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "redact_url_auth_defined": true,
+      "test_defined": true,
+      "utils_tests_passed": true,
+      "redact_behavior_verified": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 217,
+      "failed": 0,
+      "output": "===========================\ntests/test_utils.py::TestContentEncodingDetection::test_none\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta charset=\"UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\" />]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<?xml version=\"1.0\" encoding=\"UTF-8\"?>]\ntests/test_utils.py::TestContentEncodingDetection::test_precedence\n  /tmp/round3_runs/f2_requests_sidecar/src/requests/utils.py:527: DeprecationWarning: In requests 3.0, get_encodings_from_content will be removed. For more information, please see the discussion on issue #2266. (This warning should only appear once.)\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n217 passed, 13 skipped, 6 warnings in 0.34s"
+    }
+  }
+}

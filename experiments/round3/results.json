@@ -1,0 +1,108 @@
+{
+  "f1_click_baseline": {
+    "conversation_id": "4b5fde03-3d94-46a8-9cbd-bc4829772607",
+    "input_tokens_uncached": 105306,
+    "cache_read_tokens": 994230,
+    "total_input_tokens": 1099536,
+    "output_tokens": 17736,
+    "total_tokens": 1117272,
+    "model_turns": 23,
+    "tool_calls": 21,
+    "sidecar_tool_calls": 0,
+    "tool_result_chars": 38522,
+    "wall_seconds": 230.0,
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "write_table_defined": true,
+      "test_defined": true,
+      "formatting_tests_passed": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 38,
+      "failed": 0,
+      "output": "......................................                                   [100%]\n38 passed in 0.09s"
+    }
+  },
+  "f1_click_sidecar": {
+    "conversation_id": "1442e074-057d-4597-93ac-b4e7e2a0a2b5",
+    "input_tokens_uncached": 118381,
+    "cache_read_tokens": 186292,
+    "total_input_tokens": 304673,
+    "output_tokens": 10066,
+    "total_tokens": 314739,
+    "model_turns": 8,
+    "tool_calls": 6,
+    "sidecar_tool_calls": 3,
+    "tool_result_chars": 15687,
+    "wall_seconds": 115.0,
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "write_table_defined": true,
+      "test_defined": true,
+      "formatting_tests_passed": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 38,
+      "failed": 0,
+      "output": "......................................                                   [100%]\n38 passed in 0.09s"
+    }
+  },
+  "f2_requests_baseline": {
+    "conversation_id": "ef7432bf-b63b-4edf-9a67-5432da3c9c37",
+    "input_tokens_uncached": 85025,
+    "cache_read_tokens": 644458,
+    "total_input_tokens": 729483,
+    "output_tokens": 7008,
+    "total_tokens": 736491,
+    "model_turns": 20,
+    "tool_calls": 19,
+    "sidecar_tool_calls": 0,
+    "tool_result_chars": 21736,
+    "wall_seconds": 142.0,
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "redact_url_auth_defined": true,
+      "test_defined": true,
+      "utils_tests_passed": true,
+      "redact_behavior_verified": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 217,
+      "failed": 0,
+      "output": "==========================\ntests/test_utils.py::TestContentEncodingDetection::test_none\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta charset=\"UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\" />]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<?xml version=\"1.0\" encoding=\"UTF-8\"?>]\ntests/test_utils.py::TestContentEncodingDetection::test_precedence\n  /tmp/round3_runs/f2_requests_baseline/src/requests/utils.py:527: DeprecationWarning: In requests 3.0, get_encodings_from_content will be removed. For more information, please see the discussion on issue #2266. (This warning should only appear once.)\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n217 passed, 13 skipped, 6 warnings in 0.34s"
+    }
+  },
+  "f2_requests_sidecar": {
+    "conversation_id": "62de110c-4eb8-4e9c-805c-182a2a8100d6",
+    "input_tokens_uncached": 52993,
+    "cache_read_tokens": 189048,
+    "total_input_tokens": 242041,
+    "output_tokens": 5232,
+    "total_tokens": 247273,
+    "model_turns": 7,
+    "tool_calls": 6,
+    "sidecar_tool_calls": 3,
+    "tool_result_chars": 12570,
+    "wall_seconds": 70.0,
+    "score": 1.0,
+    "checks": {
+      "report_exists": true,
+      "redact_url_auth_defined": true,
+      "test_defined": true,
+      "utils_tests_passed": true,
+      "redact_behavior_verified": true
+    },
+    "test_res": {
+      "returncode": 0,
+      "passed": 217,
+      "failed": 0,
+      "output": "===========================\ntests/test_utils.py::TestContentEncodingDetection::test_none\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta charset=\"UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\">]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<meta http-equiv=\"Content-type\" content=\"text/html;charset=UTF-8\" />]\ntests/test_utils.py::TestContentEncodingDetection::test_pragmas[<?xml version=\"1.0\" encoding=\"UTF-8\"?>]\ntests/test_utils.py::TestContentEncodingDetection::test_precedence\n  /tmp/round3_runs/f2_requests_sidecar/src/requests/utils.py:527: DeprecationWarning: In requests 3.0, get_encodings_from_content will be removed. For more information, please see the discussion on issue #2266. (This warning should only appear once.)\n    warnings.warn(\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n217 passed, 13 skipped, 6 warnings in 0.34s"
+    }
+  }
+}

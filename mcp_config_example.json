@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "arch-sidecar": {
+      "command": "arch-sidecar",
+      "args": ["serve"]
+    }
+  }
+}

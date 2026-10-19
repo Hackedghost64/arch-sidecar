@@ -1,0 +1,298 @@
+import os
+import ast
+import sys
+import difflib
+import subprocess
+import time
+from typing import Dict, List, Optional, Set, Any, Tuple
+
+class NameUsageCollector(ast.NodeVisitor):
+    """Collects all variable and module names referenced in an AST subtree."""
+    def __init__(self):
+        self.used_names: Set[str] = set()
+
+    def visit_Name(self, node: ast.Name):
+        self.used_names.add(node.id)
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node: ast.Attribute):
+        # e.g., subprocess.Popen -> capture 'subprocess'
+        curr = node
+        while isinstance(curr, ast.Attribute):
+            curr = curr.value
+        if isinstance(curr, ast.Name):
+            self.used_names.add(curr.id)
+        self.generic_visit(node)
+
+def get_used_names_in_nodes(nodes: List[ast.AST]) -> Set[str]:
+    collector = NameUsageCollector()
+    for n in nodes:
+        collector.visit(n)
+    return collector.used_names
+
+def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used_names: Set[str]) -> List[str]:
+    """
+    Scans the imports in source_tree and extracts the exact lines of imports
+    that define any of the names in used_names.
+    """
+    extracted_imports = []
+    seen = set()
+
+    for node in source_tree.body:
+        if isinstance(node, ast.Import):
+            # Check if any imported name or alias is used
+            needed = False
+            for alias in node.names:
+                name_in_scope = alias.asname or alias.name.split(".")[0]
+                if name_in_scope in used_names:
+                    needed = True
+                    break
+            if needed:
+                start = node.lineno - 1
+                end = getattr(node, "end_lineno", node.lineno)
+                stmt = "".join(source_lines[start:end]).strip()
+                if stmt not in seen:
+                    extracted_imports.append(stmt)
+                    seen.add(stmt)
+
+        elif isinstance(node, ast.ImportFrom):
+            needed = False
+            for alias in node.names:
+                name_in_scope = alias.asname or alias.name
+                if name_in_scope in used_names:
+                    needed = True
+                    break
+            if needed:
+                start = node.lineno - 1
+                end = getattr(node, "end_lineno", node.lineno)
+                stmt = "".join(source_lines[start:end]).strip()
+                if stmt not in seen:
+                    extracted_imports.append(stmt)
+                    seen.add(stmt)
+
+    return extracted_imports
+
+def prefactor_decouple(
+    symbol: str | List[str],
+    from_file: str,
+    to_file: str,
+    project_root: str = ".",
+    add_backward_compat_alias: bool = True,
+    run_tests: Optional[str] = None,
+    dry_run: bool = False,
+) -> Dict[str, Any]:
+    """
+    Deterministically decouples symbols from `from_file` into `to_file`.
+    Preserves exact formatting and comments using surgical AST slicing.
+    Automatically resolves needed dependencies/imports, inserts clean imports,
+    maintains backwards compatibility aliases, and runs headless test gates.
+    """
+    t_start = time.perf_counter()
+    symbols = [symbol] if isinstance(symbol, str) else list(symbol)
+    root_abs = os.path.abspath(project_root)
+
+    from_path = from_file if os.path.isabs(from_file) else os.path.join(root_abs, from_file)
+    to_path = to_file if os.path.isabs(to_file) else os.path.join(root_abs, to_file)
+
+    if not os.path.exists(from_path):
+        return {
+            "success": False,
+            "error": f"Source file does not exist: {from_path}"
+        }
+
+    with open(from_path, "r", encoding="utf-8") as f:
+        from_lines = f.readlines()
+    from_source = "".join(from_lines)
+
+    try:
+        from_tree = ast.parse(from_source, filename=from_path)
+    except SyntaxError as e:
+        return {
+            "success": False,
+            "error": f"SyntaxError in source file {from_path}: {e}"
+        }
+
+    # Locate the AST nodes for each requested symbol
+    symbols_to_extract = set(symbols)
+    nodes_to_extract: List[Tuple[str, ast.AST, int, int]] = []
+    
+    for node in from_tree.body:
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+            if node.name in symbols_to_extract:
+                start_line = node.lineno - 1
+                end_line = getattr(node, "end_lineno", node.lineno)
+                nodes_to_extract.append((node.name, node, start_line, end_line))
+                symbols_to_extract.remove(node.name)
+
+    if symbols_to_extract:
+        return {
+            "success": False,
+            "error": f"Symbols not found in {from_path}: {list(symbols_to_extract)}"
+        }
+
+    # Collect used names inside the extracted symbols
+    ast_nodes = [item[1] for item in nodes_to_extract]
+    used_names = get_used_names_in_nodes(ast_nodes)
+    
+    # Identify relevant imports from from_file
+    needed_imports = find_relevant_imports(from_tree, from_lines, used_names)
+
+    # Extract exact source lines for each extracted symbol
+    extracted_code_blocks = []
+    line_ranges_to_remove = []
+    
+    for sym_name, node, start_idx, end_idx in nodes_to_extract:
+        # Include any leading comments or decorators immediately preceding the node
+        actual_start = start_idx
+        while actual_start > 0 and from_lines[actual_start - 1].strip().startswith(("#", "@")):
+            actual_start -= 1
+        
+        block = "".join(from_lines[actual_start:end_idx]).rstrip()
+        extracted_code_blocks.append(block)
+        line_ranges_to_remove.append((actual_start, end_idx))
+
+    # Determine module name for import in from_file
+    rel_to_from = os.path.relpath(to_path, os.path.dirname(from_path))
+    to_module_name = os.path.splitext(os.path.basename(to_path))[0]
+    
+    # Check if to_file already exists
+    to_file_existed = os.path.exists(to_path)
+    existing_to_lines = []
+    if to_file_existed:
+        with open(to_path, "r", encoding="utf-8") as f:
+            existing_to_lines = f.readlines()
+            
+    # Build to_file content
+    new_to_content_parts = []
+    if not to_file_existed:
+        new_to_content_parts.append(f'"""\nDecoupled module: {to_module_name}\nExtracted from {os.path.basename(from_path)}\n"""\n')
+        if needed_imports:
+            new_to_content_parts.append("\n".join(needed_imports) + "\n\n")
+        new_to_content_parts.append("\n\n\n".join(extracted_code_blocks) + "\n")
+    else:
+        # Append missing imports and code blocks
+        existing_to_text = "".join(existing_to_lines)
+        missing_imports = [imp for imp in needed_imports if imp not in existing_to_text]
+        if missing_imports:
+            new_to_content_parts.append("\n".join(missing_imports) + "\n\n")
+        new_to_content_parts.append(existing_to_text.rstrip() + "\n\n\n" + "\n\n\n".join(extracted_code_blocks) + "\n")
+
+    new_to_source = "".join(new_to_content_parts)
+
+    # Build updated from_file content
+    # Remove extracted line ranges (sorted in reverse order so indices don't shift)
+    sorted_ranges = sorted(line_ranges_to_remove, key=lambda x: x[0], reverse=True)
+    updated_from_lines = list(from_lines)
+    for start_r, end_r in sorted_ranges:
+        # Replace the removed block with a clean blank line
+        updated_from_lines[start_r:end_r] = ["\n"]
+
+    # Locate where to insert the new import in from_file (after last top-level import)
+    last_import_line = 0
+    for node in from_tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            end = getattr(node, "end_lineno", node.lineno)
+            if end > last_import_line:
+                last_import_line = end
+
+    extracted_symbol_names = [item[0] for item in nodes_to_extract]
+    import_stmt = f"from {to_module_name} import {', '.join(extracted_symbol_names)}\n"
+    
+    # Insert new import statement
+    updated_from_lines.insert(last_import_line, import_stmt)
+
+    # Add backwards-compatible alias if requested (so cli.SleepInhibitor is explicitly preserved)
+    if add_backward_compat_alias:
+        # Note: 'from system import SleepInhibitor' already puts SleepInhibitor in cli module namespace,
+        # but we also add an explicit alias comment / statement for clarity and linter certainty
+        alias_block = [
+            f"# Backward-compatibility aliases (decoupled into {to_module_name}.py)\n"
+        ]
+        for sym_name in extracted_symbol_names:
+            alias_block.append(f"# {sym_name} = {to_module_name}.{sym_name}\n")
+        # Place alias notice right after the import
+        updated_from_lines.insert(last_import_line + 1, "".join(alias_block))
+
+    new_from_source = "".join(updated_from_lines)
+
+    # Verification 1: AST Syntax Check on both files
+    try:
+        ast.parse(new_to_source, filename=to_path)
+    except SyntaxError as e:
+        return {
+            "success": False,
+            "error": f"SyntaxError in generated target file {to_path}: {e}"
+        }
+
+    try:
+        ast.parse(new_from_source, filename=from_path)
+    except SyntaxError as e:
+        return {
+            "success": False,
+            "error": f"SyntaxError in updated source file {from_path}: {e}"
+        }
+
+    # Generate unified diffs
+    diff_from = "".join(difflib.unified_diff(
+        from_lines,
+        updated_from_lines,
+        fromfile=f"a/{os.path.relpath(from_path, root_abs)}",
+        tofile=f"b/{os.path.relpath(from_path, root_abs)}",
+        n=3
+    ))
+
+    diff_to = "".join(difflib.unified_diff(
+        existing_to_lines,
+        new_to_source.splitlines(keepends=True),
+        fromfile=f"a/{os.path.relpath(to_path, root_abs)}" if to_file_existed else "/dev/null",
+        tofile=f"b/{os.path.relpath(to_path, root_abs)}",
+        n=3
+    ))
+
+    combined_diff = f"{diff_to}\n{diff_from}"
+
+    # If not dry_run, write files to disk
+    if not dry_run:
+        os.makedirs(os.path.dirname(to_path), exist_ok=True)
+        with open(to_path, "w", encoding="utf-8") as f:
+            f.write(new_to_source)
+        with open(from_path, "w", encoding="utf-8") as f:
+            f.write(new_from_source)
+
+    # Verification 2: Headless Test Gate (e.g. pytest)
+    test_result = None
+    if run_tests:
+        try:
+            res = subprocess.run(
+                run_tests,
+                cwd=root_abs,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+            test_result = {
+                "command": run_tests,
+                "passed": res.returncode == 0,
+                "returncode": res.returncode,
+                "output": (res.stdout + res.stderr).strip()
+            }
+        except Exception as e:
+            test_result = {
+                "command": run_tests,
+                "passed": False,
+                "error": str(e)
+            }
+
+    duration_ms = (time.perf_counter() - t_start) * 1000
+
+    return {
+        "success": True if (test_result is None or test_result.get("passed", True)) else False,
+        "extracted_symbols": extracted_symbol_names,
+        "from_file": os.path.relpath(from_path, root_abs),
+        "to_file": os.path.relpath(to_path, root_abs),
+        "created_new_module": not to_file_existed,
+        "execution_time_ms": round(duration_ms, 2),
+        "diff": combined_diff,
+        "test_verification": test_result,
+    }

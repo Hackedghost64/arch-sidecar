@@ -1,0 +1,210 @@
+import os
+import ast
+import re
+from typing import Dict, List, Optional, Set, Any, Tuple
+from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, estimate_tokens
+
+class SymbolFinder(ast.NodeVisitor):
+    def __init__(self, filename: str, lines: List[str]):
+        self.filename = filename
+        self.lines = lines
+        self.symbols: Dict[str, Dict[str, Any]] = {}
+        self.imports: List[str] = []
+
+    def visit_Import(self, node: ast.Import):
+        start = node.lineno - 1
+        end = getattr(node, "end_lineno", node.lineno)
+        self.imports.append("".join(self.lines[start:end]))
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node: ast.ImportFrom):
+        start = node.lineno - 1
+        end = getattr(node, "end_lineno", node.lineno)
+        self.imports.append("".join(self.lines[start:end]))
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef):
+        start = node.lineno - 1
+        end = getattr(node, "end_lineno", node.lineno)
+        code = "".join(self.lines[start:end])
+        self.symbols[node.name] = {
+            "type": "class",
+            "name": node.name,
+            "filename": self.filename,
+            "start_line": node.lineno,
+            "end_line": getattr(node, "end_lineno", node.lineno),
+            "code": code,
+            "ast_node": node,
+        }
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef):
+        start = node.lineno - 1
+        end = getattr(node, "end_lineno", node.lineno)
+        code = "".join(self.lines[start:end])
+        self.symbols[node.name] = {
+            "type": "function",
+            "name": node.name,
+            "filename": self.filename,
+            "start_line": node.lineno,
+            "end_line": getattr(node, "end_lineno", node.lineno),
+            "code": code,
+            "ast_node": node,
+        }
+        # Do not recurse into inner functions for top-level map, but generic_visit is fine
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+        start = node.lineno - 1
+        end = getattr(node, "end_lineno", node.lineno)
+        code = "".join(self.lines[start:end])
+        self.symbols[node.name] = {
+            "type": "async_function",
+            "name": node.name,
+            "filename": self.filename,
+            "start_line": node.lineno,
+            "end_line": getattr(node, "end_lineno", node.lineno),
+            "code": code,
+            "ast_node": node,
+        }
+
+def find_references_in_file(filepath: str, symbol_names: Set[str]) -> List[Dict[str, Any]]:
+    """Find lines in a file that reference the given symbol names."""
+    results = []
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            for i, line in enumerate(f, 1):
+                for sym in symbol_names:
+                    # Match symbol boundary
+                    if re.search(rf"\b{re.escape(sym)}\b", line):
+                        results.append({
+                            "line_num": i,
+                            "line": line.strip(),
+                            "symbol": sym,
+                        })
+    except Exception:
+        pass
+    return results
+
+def locate_surgical_context(
+    task: str,
+    root_dir: str = ".",
+    target_symbols: Optional[List[str]] = None,
+    max_tokens: int = 3500,
+) -> Dict[str, Any]:
+    """
+    Given a task description or query, scans the project AST and dependency graph
+    to extract ONLY the exact function/class definitions, their required imports,
+    and references across the repo.
+    """
+    root_abs = os.path.abspath(root_dir)
+    
+    # Extract candidate symbol names from task query if not explicitly passed
+    symbols_to_find = set(target_symbols or [])
+    if not symbols_to_find:
+        # Match PascalCase, snake_case identifiers from task text
+        tokens = re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", task)
+        # Filter common words
+        common_stop = {"the", "and", "from", "for", "with", "into", "class", "def", "file", "code", "module", "target", "extract", "decouple", "right", "now", "here"}
+        symbols_to_find = {t for t in tokens if t.lower() not in common_stop}
+
+    matched_symbols: Dict[str, Dict[str, Any]] = {}
+    file_imports_map: Dict[str, List[str]] = {}
+    all_python_files: List[str] = []
+
+    # 1. First pass: find symbol definitions and imports
+    for root, dirs, files in os.walk(root_abs):
+        dirs[:] = [
+            d for d in dirs 
+            if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
+        ]
+        for f in files:
+            if f.endswith(".py"):
+                full_path = os.path.join(root, f)
+                rel_path = os.path.relpath(full_path, root_abs)
+                if is_ignored_path(rel_path):
+                    continue
+                all_python_files.append((rel_path, full_path))
+
+                try:
+                    with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                        lines = file_obj.readlines()
+                    tree = ast.parse("".join(lines), filename=full_path)
+                    finder = SymbolFinder(rel_path, lines)
+                    finder.visit(tree)
+                    file_imports_map[rel_path] = finder.imports
+
+                    for sym_name, sym_info in finder.symbols.items():
+                        # Check exact match or case-insensitive match
+                        if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                            matched_symbols[sym_name] = sym_info
+                except Exception:
+                    continue
+
+    # 2. Second pass: find references/callers across the codebase (e.g. tests)
+    found_symbol_names = set(matched_symbols.keys())
+    references_by_file: Dict[str, List[Dict[str, Any]]] = {}
+
+    if found_symbol_names:
+        for rel_path, full_path in all_python_files:
+            refs = find_references_in_file(full_path, found_symbol_names)
+            # Filter out the definition itself
+            filtered_refs = []
+            for r in refs:
+                sym_info = matched_symbols.get(r["symbol"])
+                if sym_info and sym_info["filename"] == rel_path and sym_info["start_line"] <= r["line_num"] <= sym_info["end_line"]:
+                    continue
+                filtered_refs.append(r)
+            if filtered_refs:
+                references_by_file[rel_path] = filtered_refs
+
+    # 3. Assemble surgical context report
+    output: List[str] = []
+    output.append(f"# Surgical Context Report for Task: '{task}'")
+    output.append(f"# Matched Symbols: {', '.join(found_symbol_names) if found_symbol_names else 'None'}\n")
+
+    for sym_name, sym_info in matched_symbols.items():
+        rel = sym_info["filename"]
+        start = sym_info["start_line"]
+        end = sym_info["end_line"]
+        output.append(f"## Target Symbol: `{sym_name}` ({sym_info['type']})")
+        output.append(f"Location: `{rel}:{start}-{end}`")
+        
+        # Relevant imports from same file
+        rel_imports = file_imports_map.get(rel, [])
+        if rel_imports:
+            output.append("### Module Imports in Source File:")
+            output.append("```python")
+            output.append("".join(rel_imports[:10]).strip())
+            output.append("```")
+            
+        output.append("### Source Definition:")
+        output.append("```python")
+        output.append(sym_info["code"].strip())
+        output.append("```\n")
+
+    # References
+    if references_by_file:
+        output.append("## External Callers & Test References:")
+        for rel_file, refs in references_by_file.items():
+            output.append(f"- **{rel_file}**:")
+            for r in refs[:5]:
+                output.append(f"  - Line {r['line_num']}: `{r['line']}`")
+
+    context_str = "\n".join(output)
+    token_est = estimate_tokens(context_str)
+
+    return {
+        "task": task,
+        "matched_symbols": list(found_symbol_names),
+        "symbol_details": {
+            k: {
+                "type": v["type"],
+                "file": v["filename"],
+                "start_line": v["start_line"],
+                "end_line": v["end_line"]
+            } for k, v in matched_symbols.items()
+        },
+        "references": {k: len(v) for k, v in references_by_file.items()},
+        "estimated_tokens": token_est,
+        "context": context_str
+    }

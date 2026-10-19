@@ -1,0 +1,158 @@
+{
+  "r1_compact_baseline_1": {
+    "checks": {
+      "endpoint_defined_in_code": true,
+      "endpoint_registered_in_router": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "output": "OK"
+  },
+  "r1_compact_baseline_2": {
+    "checks": {
+      "endpoint_defined_in_code": true,
+      "endpoint_registered_in_router": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "output": "OK"
+  },
+  "r1_compact_sidecar_1": {
+    "checks": {
+      "endpoint_defined_in_code": true,
+      "endpoint_registered_in_router": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "output": "OK"
+  },
+  "r1_compact_sidecar_2": {
+    "checks": {
+      "endpoint_defined_in_code": true,
+      "endpoint_registered_in_router": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "output": "OK"
+  },
+  "r2_click_baseline_1": {
+    "checks": {
+      "moved_HelpFormatter": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 37,
+      "failed": 0,
+      "errors": 0
+    },
+    "compat_err": ""
+  },
+  "r2_click_baseline_2": {
+    "checks": {
+      "moved_HelpFormatter": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 37,
+      "failed": 0,
+      "errors": 0
+    },
+    "compat_err": ""
+  },
+  "r2_click_sidecar_1": {
+    "checks": {
+      "moved_HelpFormatter": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 37,
+      "failed": 0,
+      "errors": 0
+    },
+    "compat_err": ""
+  },
+  "r2_click_sidecar_2": {
+    "checks": {
+      "moved_HelpFormatter": true,
+      "backward_compat_import": true,
+      "tests_all_pass": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 37,
+      "failed": 0,
+      "errors": 0
+    },
+    "compat_err": ""
+  },
+  "r3_hazard_baseline_1": {
+    "checks": {
+      "no_broken_circular_import": true,
+      "tests_still_pass": true,
+      "hazard_reported_or_handled": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0
+    },
+    "circular_import_crash": false
+  },
+  "r3_hazard_baseline_2": {
+    "checks": {
+      "no_broken_circular_import": true,
+      "tests_still_pass": true,
+      "hazard_reported_or_handled": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0
+    },
+    "circular_import_crash": false
+  },
+  "r3_hazard_sidecar_1": {
+    "checks": {
+      "no_broken_circular_import": true,
+      "tests_still_pass": true,
+      "hazard_reported_or_handled": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0
+    },
+    "circular_import_crash": false
+  },
+  "r3_hazard_sidecar_2": {
+    "checks": {
+      "no_broken_circular_import": true,
+      "tests_still_pass": true,
+      "hazard_reported_or_handled": true
+    },
+    "score": 1.0,
+    "report_exists": true,
+    "tests": {
+      "passed": 1,
+      "failed": 0,
+      "errors": 0
+    },
+    "circular_import_crash": false
+  }
+}

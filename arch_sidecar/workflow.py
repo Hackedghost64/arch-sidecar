@@ -78,11 +78,46 @@ def run_workflow(
     is_refactor_task = any(kw in task.lower() for kw in refactor_keywords) or (from_file and to_file and resolved_symbols)
 
     if not is_refactor_task or not (from_file and to_file and resolved_symbols):
-        # Task is inspection, query, or small-file edit only. Stop pipeline cleanly without forced AST transforms.
+        # Task is inspection, query, or read-only audit. Stop pipeline cleanly without forced AST transforms.
         total_time_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
         telemetry["status"] = "COMPLETED_RETRIEVAL"
         telemetry["total_latency_ms"] = total_time_ms
         telemetry["total_tokens"] = plan_tokens
+
+        return {
+            "success": True,
+            "pipeline": "retrieval_only",
+            "task": task,
+            "stages_executed": stages_executed,
+            "strategy": plan_res["strategy"],
+            "strategy_reason": plan_res["strategy_reason"],
+            "context": plan_res["context"],
+            "telemetry": telemetry,
+            "message": "Task evaluated as informational/inspection. Context plan generated without code modification."
+        }
+
+    # Check if task is an explicit refactor request from caller
+    explicit_refactor_request = bool(from_file and to_file and symbols)
+
+    # If refactoring requested but not explicitly configured, check if planner recommended bypass for compact files
+    if not explicit_refactor_request and plan_res.get("recommendation") == "BYPASS_DECOUPLING":
+        total_time_ms = round((time.perf_counter() - start_total_time) * 1000, 2)
+        telemetry["status"] = "BYPASS_RECOMMENDED"
+        telemetry["total_latency_ms"] = total_time_ms
+        telemetry["total_tokens"] = plan_tokens
+
+        return {
+            "success": True,
+            "pipeline": "bypass_recommended",
+            "task": task,
+            "stages_executed": stages_executed,
+            "strategy": plan_res["strategy"],
+            "strategy_reason": plan_res["strategy_reason"],
+            "recommendation": "BYPASS_DECOUPLING",
+            "context": plan_res["context"],
+            "telemetry": telemetry,
+            "message": "Devrith Recommendation: Target file is compact. Direct file modification is more token-efficient than automated AST codemods. Decoupling bypassed."
+        }
 
         return {
             "success": True,

@@ -248,6 +248,7 @@ def plan_adaptive_retrieval(
         for c in scored_candidates:
             if c["file"] == target_file:
                 c["included"] = True
+                selected_symbols.append(c)
                 ranking_decisions.append(c)
             else:
                 c["included"] = False
@@ -260,7 +261,8 @@ def plan_adaptive_retrieval(
 
         output = [
             f"# Adaptive Context Plan (Strategy: `{strategy.value}`)",
-            f"> **Strategy Rationale:** {strategy_reason}\n",
+            f"> **Strategy Rationale:** {strategy_reason}",
+            f"> 💡 **Devrith Recommendation:** Target file is compact ({total_lines} lines). Direct file modification has lower complexity than AST slicing. Do not run automated decoupling.\n",
             f"## Full File Context: `{target_file}` ({total_lines} lines)",
             "```python",
             content.strip(),
@@ -440,6 +442,7 @@ def plan_adaptive_retrieval(
         "task": task,
         "strategy": strategy.value,
         "strategy_reason": strategy_reason,
+        "recommendation": "BYPASS_DECOUPLING" if strategy == RetrievalStrategy.WHOLE_FILE else "PROCEED",
         "selected_symbols": [s["name"] for s in selected_symbols],
         "ranking": ranking_decisions,
         "uncertainty_report": {

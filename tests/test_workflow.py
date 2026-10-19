@@ -155,3 +155,23 @@ def test_strict():
         with open(src_path, "r") as f:
             restored = f.read()
         assert restored == source_code
+
+def test_workflow_bypasses_decoupling_on_compact_file():
+    """When a general refactor task targets a compact file without explicit arguments, planner recommends bypass."""
+    small_code = """
+def quick_math(x: int) -> int:
+    return x + 10
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(os.path.join(tmpdir, "calc.py"), "w") as f:
+            f.write(small_code)
+
+        res = run_workflow(
+            task="Extract quick_math from calc.py into math_ops.py",
+            project_root=tmpdir
+        )
+
+        assert res["success"] is True
+        assert res["pipeline"] == "bypass_recommended"
+        assert res["recommendation"] == "BYPASS_DECOUPLING"
+        assert "compact" in res["message"].lower()

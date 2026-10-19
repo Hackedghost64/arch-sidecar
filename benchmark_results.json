@@ -1,0 +1,97 @@
+[
+  {
+    "name": "psf/requests",
+    "language": "Python",
+    "raw_code_tokens": 122643,
+    "raw_with_junk_tokens": 1912932,
+    "digest_tokens": 5970,
+    "digest_time_ms": 84.15,
+    "token_savings_pct": 95.1,
+    "token_savings_vs_junk_pct": 99.7,
+    "context_time_ms": 123.35,
+    "context_tokens": 5516,
+    "decouple": {
+      "success": true,
+      "time_ms": 16.08,
+      "extracted": [
+        "merge_setting",
+        "merge_hooks",
+        "SessionRedirectMixin",
+        "Session"
+      ],
+      "syntax_verified": true,
+      "llm_tokens_burned": 0,
+      "llm_tokens_saved_vs_rewrite": 17036
+    }
+  },
+  {
+    "name": "pallets/flask",
+    "language": "Python",
+    "raw_code_tokens": 151424,
+    "raw_with_junk_tokens": 657527,
+    "digest_tokens": 5976,
+    "digest_time_ms": 99.3,
+    "token_savings_pct": 96.1,
+    "token_savings_vs_junk_pct": 99.1,
+    "context_time_ms": 204.03,
+    "context_tokens": 7467,
+    "decouple": {
+      "success": true,
+      "time_ms": 3.36,
+      "extracted": [
+        "Blueprint"
+      ],
+      "syntax_verified": true,
+      "llm_tokens_burned": 0,
+      "llm_tokens_saved_vs_rewrite": 2270
+    }
+  },
+  {
+    "name": "anime-cli",
+    "language": "Python + React",
+    "raw_code_tokens": 164378,
+    "raw_with_junk_tokens": 161428815,
+    "digest_tokens": 6006,
+    "digest_time_ms": 133.28,
+    "token_savings_pct": 96.3,
+    "token_savings_vs_junk_pct": 100.0,
+    "context_time_ms": 60.0,
+    "context_tokens": 754,
+    "decouple": {
+      "success": true,
+      "time_ms": 2.91,
+      "extracted": [
+        "SleepInhibitor"
+      ],
+      "syntax_verified": true,
+      "llm_tokens_burned": 0,
+      "llm_tokens_saved_vs_rewrite": 2464
+    }
+  },
+  {
+    "name": "gupta-traders",
+    "language": "TypeScript + React",
+    "raw_code_tokens": 37009,
+    "raw_with_junk_tokens": 50541592,
+    "digest_tokens": 2059,
+    "digest_time_ms": 78.39,
+    "token_savings_pct": 94.4,
+    "token_savings_vs_junk_pct": 100.0,
+    "context_time_ms": null,
+    "context_tokens": null,
+    "decouple": null
+  },
+  {
+    "name": "agent-calling",
+    "language": "Python + MCP",
+    "raw_code_tokens": 27597,
+    "raw_with_junk_tokens": 1691660165,
+    "digest_tokens": 2946,
+    "digest_time_ms": 28.29,
+    "token_savings_pct": 89.3,
+    "token_savings_vs_junk_pct": 100.0,
+    "context_time_ms": null,
+    "context_tokens": null,
+    "decouple": null
+  }
+]

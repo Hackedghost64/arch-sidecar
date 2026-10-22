@@ -6,6 +6,8 @@ import subprocess
 import time
 from typing import Dict, List, Optional, Set, Any, Tuple
 
+from .utils import run_ruff_autofix
+
 class FreeVariableAnalyzer(ast.NodeVisitor):
     """
     Compiler-grade Free Variable Analysis: FV(E) = Loaded(E) \\ Bound(E).
@@ -17,6 +19,12 @@ class FreeVariableAnalyzer(ast.NodeVisitor):
         self.root_nodes = set(root_nodes)
         self.loaded_names: Set[str] = set()
         self.bound_names: Set[str] = set()
+        self.declared_globals: Set[str] = set()
+        for n in root_nodes:
+            for sub in ast.walk(n):
+                if isinstance(sub, (ast.Global, ast.Nonlocal)):
+                    for name in sub.names:
+                        self.declared_globals.add(name)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
         if node not in self.root_nodes:
@@ -46,7 +54,10 @@ class FreeVariableAnalyzer(ast.NodeVisitor):
             self.bound_names.add(args.kwarg.arg)
 
     def visit_Name(self, node: ast.Name):
-        if isinstance(node.ctx, ast.Store):
+        if node.id in self.declared_globals:
+            if isinstance(node.ctx, ast.Load):
+                self.loaded_names.add(node.id)
+        elif isinstance(node.ctx, ast.Store):
             self.bound_names.add(node.id)
         elif isinstance(node.ctx, ast.Load):
             self.loaded_names.add(node.id)
@@ -69,7 +80,10 @@ class FreeVariableAnalyzer(ast.NodeVisitor):
 
     def get_free_variables(self) -> Set[str]:
         # Free variables required from enclosing module scope or external imports
-        return self.loaded_names - self.bound_names
+        return (self.loaded_names - self.bound_names) | self.declared_globals
+
+    def get_declared_globals(self) -> Set[str]:
+        return set(self.declared_globals)
 
 def get_free_variables_in_nodes(nodes: List[ast.AST]) -> Set[str]:
     analyzer = FreeVariableAnalyzer(nodes)
@@ -77,83 +91,201 @@ def get_free_variables_in_nodes(nodes: List[ast.AST]) -> Set[str]:
         analyzer.visit(n)
     return analyzer.get_free_variables()
 
+def get_declared_globals_in_nodes(nodes: List[ast.AST]) -> Set[str]:
+    analyzer = FreeVariableAnalyzer(nodes)
+    for n in nodes:
+        analyzer.visit(n)
+    return analyzer.get_declared_globals()
+
 # Alias for backward compatibility
 get_used_names_in_nodes = get_free_variables_in_nodes
 
-def find_relevant_imports(source_tree: ast.Module, source_lines: List[str], used_names: Set[str]) -> List[str]:
+def find_relevant_imports(
+    source_tree: ast.Module,
+    source_lines: List[str],
+    used_names: Set[str],
+    source_path: Optional[str] = None,
+    project_root: str = ".",
+    excluded_names: Optional[Set[str]] = None,
+) -> List[str]:
     """
     Scans the imports in source_tree and extracts the exact lines of imports
     that define any of the names in used_names (plus `from __future__ import ...`
-    compiler directives, which govern postponed evaluation of type annotations).
+    compiler directives and wildcard `from X import *` imports that provide used names).
+    Splits multi-name imports (`import os, sys, smtplib`) to only the used aliases.
     """
+    import importlib
+
     extracted_imports = []
     seen = set()
+    excluded = excluded_names or set()
+
+    # Identify modules that also have a top-level wildcard `from <mod> import *`
+    wildcard_modules: Set[str] = set()
+    for node in source_tree.body:
+        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+            if any(alias.name == "*" for alias in node.names):
+                wildcard_modules.add(node.module)
+
+    # Track names explicitly provided by non-wildcard imports
+    explicitly_imported: Set[str] = set()
+    for node in source_tree.body:
+        if isinstance(node, ast.Import):
+            for alias in node.names:
+                explicitly_imported.add(alias.asname or alias.name.split(".")[0])
+        elif isinstance(node, ast.ImportFrom):
+            for alias in node.names:
+                if alias.name != "*":
+                    explicitly_imported.add(alias.asname or alias.name)
+
+    non_shadowed_explicit = explicitly_imported - wildcard_modules
 
     for node in source_tree.body:
         if isinstance(node, ast.Import):
-            # Check if any imported name or alias is used
-            needed = False
+            needed_aliases = []
             for alias in node.names:
                 name_in_scope = alias.asname or alias.name.split(".")[0]
                 if name_in_scope in used_names:
-                    needed = True
-                    break
-            if needed:
-                start = node.lineno - 1
-                end = getattr(node, "end_lineno", node.lineno)
-                stmt = "".join(source_lines[start:end]).strip()
-                if stmt not in seen:
-                    extracted_imports.append(stmt)
-                    seen.add(stmt)
+                    # Skip `import datetime` if it's part of a multi-import line and shadowed by `from datetime import *`
+                    if len(node.names) > 1 and name_in_scope in wildcard_modules:
+                        continue
+                    needed_aliases.append(alias)
+            if needed_aliases:
+                if len(node.names) == 1:
+                    start = node.lineno - 1
+                    end = getattr(node, "end_lineno", node.lineno)
+                    stmt = "".join(source_lines[start:end]).strip()
+                    if stmt not in seen:
+                        extracted_imports.append(stmt)
+                        seen.add(stmt)
+                else:
+                    for alias in needed_aliases:
+                        alias_str = f"{alias.name} as {alias.asname}" if alias.asname else alias.name
+                        stmt = f"import {alias_str}"
+                        if stmt not in seen:
+                            extracted_imports.append(stmt)
+                            seen.add(stmt)
 
         elif isinstance(node, ast.ImportFrom):
-            needed = (node.module == "__future__")
-            if not needed:
-                for alias in node.names:
-                    name_in_scope = alias.asname or alias.name
-                    if name_in_scope in used_names:
-                        needed = True
-                        break
-            if needed:
+            if node.module == "__future__":
                 start = node.lineno - 1
                 end = getattr(node, "end_lineno", node.lineno)
                 stmt = "".join(source_lines[start:end]).strip()
                 if stmt not in seen:
                     extracted_imports.append(stmt)
                     seen.add(stmt)
+                continue
+
+            has_wildcard = any(alias.name == "*" for alias in node.names)
+            if has_wildcard:
+                unexplained = used_names - BUILTIN_NAMES - excluded - non_shadowed_explicit
+                needed = False
+                if unexplained:
+                    if node.level == 0 and node.module:
+                        try:
+                            mod_obj = importlib.import_module(node.module)
+                            needed = any(hasattr(mod_obj, u) for u in unexplained)
+                        except Exception:
+                            needed = True
+                    else:
+                        needed = True
+                if needed:
+                    start = node.lineno - 1
+                    end = getattr(node, "end_lineno", node.lineno)
+                    stmt = "".join(source_lines[start:end]).strip()
+                    if stmt not in seen:
+                        extracted_imports.append(stmt)
+                        seen.add(stmt)
+            else:
+                needed_aliases = [
+                    alias for alias in node.names
+                    if (alias.asname or alias.name) in used_names
+                ]
+                if needed_aliases:
+                    if len(needed_aliases) == len(node.names):
+                        start = node.lineno - 1
+                        end = getattr(node, "end_lineno", node.lineno)
+                        stmt = "".join(source_lines[start:end]).strip()
+                    else:
+                        dots = "." * (node.level or 0)
+                        mod_str = node.module or ""
+                        names_str = ", ".join(
+                            f"{a.name} as {a.asname}" if a.asname else a.name
+                            for a in needed_aliases
+                        )
+                        stmt = f"from {dots}{mod_str} import {names_str}"
+                    if stmt not in seen:
+                        extracted_imports.append(stmt)
+                        seen.add(stmt)
 
     return extracted_imports
 
 import builtins
+import re
+from .guard import run_differential_ruff
 BUILTIN_NAMES = set(dir(builtins))
+SECRET_PATTERN = re.compile(r'(_KEY|_SECRET|_TOKEN|_PASS|_PASSWORD)$', re.IGNORECASE)
 
 def detect_coupling_hazards(
     from_tree: ast.Module,
     extracted_symbols: Set[str],
-    used_names: Set[str]
-) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    used_names: Set[str],
+    declared_globals: Optional[Set[str]] = None,
+    extracted_nodes: Optional[List[ast.AST]] = None
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
     """
     Analyzes whether extracted symbols reference remaining local functions/classes
-    (circular import hazard) or module-level constants (unbound global state).
+    (circular import hazard), module-level constants (unbound global state),
+    mutated shared globals (state desynchronization hazard in either direction),
+    framework route decorators, or hardcoded credential/secret constants.
     """
     remaining_local_callables: Dict[str, str] = {}
     remaining_local_constants: Dict[str, str] = {}
+    remaining_body_nodes: List[ast.AST] = []
     
     for node in from_tree.body:
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
             if node.name not in extracted_symbols:
                 kind = "class" if isinstance(node, ast.ClassDef) else "function"
                 remaining_local_callables[node.name] = kind
+                remaining_body_nodes.append(node)
         elif isinstance(node, ast.Assign):
-            for t in node.targets:
-                if isinstance(t, ast.Name) and t.id not in extracted_symbols:
-                    remaining_local_constants[t.id] = "module_constant"
+            is_extracted = any(isinstance(t, ast.Name) and t.id in extracted_symbols for t in node.targets)
+            if not is_extracted:
+                # Check if this assignment is a TypeVar or typing construct
+                is_type_construct = False
+                if isinstance(node.value, ast.Call):
+                    fn = node.value.func
+                    fn_id = getattr(fn, "id", "") or getattr(fn, "attr", "")
+                    if fn_id in ("TypeVar", "ParamSpec", "NewType", "TypeAliasType", "TypeVarTuple"):
+                        is_type_construct = True
+
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        if not is_type_construct:
+                            remaining_local_constants[t.id] = "module_constant"
+                remaining_body_nodes.append(node)
         elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
             if node.target.id not in extracted_symbols:
-                remaining_local_constants[node.target.id] = "module_constant"
+                is_type_construct = False
+                if node.value and isinstance(node.value, ast.Call):
+                    fn = node.value.func
+                    fn_id = getattr(fn, "id", "") or getattr(fn, "attr", "")
+                    if fn_id in ("TypeVar", "ParamSpec", "NewType", "TypeAliasType", "TypeVarTuple"):
+                        is_type_construct = True
+
+                if not is_type_construct:
+                    remaining_local_constants[node.target.id] = "module_constant"
+                remaining_body_nodes.append(node)
+        else:
+            remaining_body_nodes.append(node)
                     
     circular_hazards = []
     global_hazards = []
+    state_desync_hazards = []
+    framework_hazards = []
+    secret_warnings = []
+    seen_desync_symbols: Set[str] = set()
     
     non_builtin_used = used_names - BUILTIN_NAMES
     
@@ -173,7 +305,81 @@ def detect_coupling_hazards(
                 "recommendation": f"Pass '{name}' as a parameter or extract '{name}' to a shared config module."
             })
 
-    return circular_hazards, global_hazards
+    # Direction 1: Extracted function declares `global g_name`, and remaining code accesses `g_name`
+    if declared_globals:
+        for g_name in sorted(declared_globals):
+            is_accessed_in_remaining = False
+            for r_node in remaining_body_nodes:
+                for sub in ast.walk(r_node):
+                    if isinstance(sub, ast.Name) and sub.id == g_name:
+                        is_accessed_in_remaining = True
+                        break
+                if is_accessed_in_remaining:
+                    break
+            if is_accessed_in_remaining and g_name not in seen_desync_symbols:
+                seen_desync_symbols.add(g_name)
+                state_desync_hazards.append({
+                    "symbol": g_name,
+                    "type": "mutable_global_desync",
+                    "hazard": f"Mutable shared module state desync hazard: extracted function declares/mutates module global '{g_name}' via 'global {g_name}', but '{g_name}' is also accessed by remaining code in the source module.",
+                    "recommendation": f"Encapsulate '{g_name}' into a shared state class, singleton, or accessor functions (e.g. get_{g_name}(), set_{g_name}()) in a shared module rather than splitting global state across module namespaces."
+                })
+
+    # Direction 2: Remaining code declares `global g_name`, and extracted code references or extracts `g_name`
+    remaining_declared_globals: Set[str] = set()
+    for r_node in remaining_body_nodes:
+        for sub in ast.walk(r_node):
+            if isinstance(sub, (ast.Global, ast.Nonlocal)):
+                for g_name in sub.names:
+                    remaining_declared_globals.add(g_name)
+
+    for g_name in sorted(remaining_declared_globals):
+        if (g_name in non_builtin_used or g_name in extracted_symbols) and g_name not in seen_desync_symbols:
+            seen_desync_symbols.add(g_name)
+            state_desync_hazards.append({
+                "symbol": g_name,
+                "type": "mutable_global_desync",
+                "hazard": f"Mutable shared module state desync hazard: remaining code mutates module global '{g_name}' via 'global {g_name}', while extracted code reads or moves '{g_name}' into a separate module namespace.",
+                "recommendation": f"Encapsulate '{g_name}' into a shared state class, singleton, or accessor functions (e.g. get_{g_name}(), set_{g_name}()) in a shared module rather than splitting global state across module namespaces."
+            })
+
+    # Detect framework route decorators and application instances
+    if extracted_nodes:
+        for node in extracted_nodes:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                for dec in getattr(node, "decorator_list", []):
+                    if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr == "route":
+                        app_name = dec.func.value.id if isinstance(dec.func.value, ast.Name) else "app"
+                        framework_hazards.append({
+                            "symbol": node.name,
+                            "type": "flask_route_decorator",
+                            "hazard": f"Framework route decorator hazard: extracted route handler '{node.name}' is decorated with '@{app_name}.route'.",
+                            "recommendation": f"Route handlers should be migrated to a Flask Blueprint (e.g. 'bp = Blueprint(...)') or APIRouter rather than extracting the core application instance."
+                        })
+            elif isinstance(node, ast.Assign):
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        if isinstance(node.value, ast.Call):
+                            call_name = getattr(node.value.func, "id", "")
+                            if call_name == "Flask":
+                                framework_hazards.append({
+                                    "symbol": t.id,
+                                    "type": "flask_app_instance",
+                                    "hazard": f"Framework application instance hazard: '{t.id}' is a core Flask application instance.",
+                                    "recommendation": "Do not decouple the central Flask app instance into submodules. Use Flask Blueprints ('Blueprint') to decouple route groups."
+                                })
+
+    # Detect hardcoded secret constants
+    for sym in extracted_symbols:
+        if SECRET_PATTERN.search(sym):
+            secret_warnings.append({
+                "symbol": sym,
+                "type": "hardcoded_secret",
+                "hazard": f"Secret credential hazard: symbol '{sym}' appears to contain a hardcoded credential or secret.",
+                "recommendation": f"Do not decouple static credentials into submodules. Refactor '{sym}' to load securely from environment variables (e.g. os.environ.get('{sym}'))."
+            })
+
+    return circular_hazards, global_hazards, state_desync_hazards, framework_hazards, secret_warnings
 
 
 def compute_minimal_safe_closure(
@@ -320,6 +526,203 @@ def compute_relative_import_path(from_file: str, to_file: str, project_root: str
     return to_mod
 
 
+class _SharedStateTransformer(ast.NodeTransformer):
+    """
+    Rewrites reads and writes of shared host module symbols (`shared_symbols`)
+    inside extracted functions/methods to route through `_arch_get(name)` and
+    `_arch_set(name, value)`, eliminating global state split and circular import locks.
+    """
+    def __init__(self, shared_symbols: Set[str], desync_symbols: Set[str]):
+        self.shared_symbols = set(shared_symbols)
+        self.desync_symbols = set(desync_symbols)
+        self._local_shadow_stack: List[Set[str]] = []
+
+    def _active_shared(self) -> Set[str]:
+        if not self._local_shadow_stack:
+            return self.shared_symbols
+        shadowed = set().union(*self._local_shadow_stack)
+        return self.shared_symbols - shadowed
+
+    def _compute_fn_shadows(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> Set[str]:
+        params: Set[str] = set()
+        for arg in getattr(node.args, "posonlyargs", []) + node.args.args + node.args.kwonlyargs:
+            params.add(arg.arg)
+        if node.args.vararg:
+            params.add(node.args.vararg.arg)
+        if node.args.kwarg:
+            params.add(node.args.kwarg.arg)
+
+        declared_globals: Set[str] = set()
+        assigned_locals: Set[str] = set()
+        for sub in ast.walk(node):
+            if isinstance(sub, (ast.Global, ast.Nonlocal)):
+                for g in sub.names:
+                    declared_globals.add(g)
+            elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+                assigned_locals.add(sub.id)
+            elif isinstance(sub, ast.ExceptHandler) and sub.name:
+                assigned_locals.add(sub.name)
+
+        return params | (assigned_locals - declared_globals - self.desync_symbols)
+
+    def _transform_fn(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.AST:
+        shadows = self._compute_fn_shadows(node)
+        self._local_shadow_stack.append(shadows)
+        try:
+            new_body = []
+            for stmt in node.body:
+                res = self.visit(stmt)
+                if res is None:
+                    continue
+                elif isinstance(res, list):
+                    new_body.extend(res)
+                else:
+                    new_body.append(res)
+            if not new_body:
+                new_body = [ast.Pass()]
+            node.body = new_body
+        finally:
+            self._local_shadow_stack.pop()
+        return node
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
+        return self._transform_fn(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AST:
+        return self._transform_fn(node)
+
+    def visit_Global(self, node: ast.Global) -> Optional[ast.AST]:
+        active = self._active_shared()
+        remaining = [name for name in node.names if name not in active]
+        if not remaining:
+            return None
+        node.names = remaining
+        return node
+
+    def visit_Assign(self, node: ast.Assign) -> ast.AST:
+        node.value = self.visit(node.value)
+        active = self._active_shared()
+        if (
+            len(node.targets) == 1
+            and isinstance(node.targets[0], ast.Name)
+            and node.targets[0].id in active
+        ):
+            sym = node.targets[0].id
+            call_node = ast.Call(
+                func=ast.Name(id="_arch_set", ctx=ast.Load()),
+                args=[ast.Constant(value=sym), node.value],
+                keywords=[],
+            )
+            return ast.copy_location(ast.Expr(value=call_node), node)
+        node.targets = [self.visit(t) for t in node.targets]
+        return node
+
+    def visit_AugAssign(self, node: ast.AugAssign) -> ast.AST:
+        node.value = self.visit(node.value)
+        active = self._active_shared()
+        if isinstance(node.target, ast.Name) and node.target.id in active:
+            sym = node.target.id
+            get_call = ast.Call(
+                func=ast.Name(id="_arch_get", ctx=ast.Load()),
+                args=[ast.Constant(value=sym)],
+                keywords=[],
+            )
+            bin_op = ast.BinOp(left=get_call, op=node.op, right=node.value)
+            set_call = ast.Call(
+                func=ast.Name(id="_arch_set", ctx=ast.Load()),
+                args=[ast.Constant(value=sym), bin_op],
+                keywords=[],
+            )
+            return ast.copy_location(ast.Expr(value=set_call), node)
+        node.target = self.visit(node.target)
+        return node
+
+    def visit_Name(self, node: ast.Name) -> ast.AST:
+        if isinstance(node.ctx, ast.Load) and node.id in self._active_shared():
+            call_node = ast.Call(
+                func=ast.Name(id="_arch_get", ctx=ast.Load()),
+                args=[ast.Constant(value=node.id)],
+                keywords=[],
+            )
+            return ast.copy_location(call_node, node)
+        return node
+
+
+def _build_shared_state_runtime_header(
+    host_import_target: str,
+    host_filename: str,
+    shared_symbols: Set[str],
+) -> str:
+    """
+    Builds a self-contained runtime state-binding header for `to_file` when `share_state=True`.
+    Synchronizes reads and writes of shared globals and host callables directly with the
+    source module without creating top-level circular imports, while preserving `unittest.mock.patch`
+    compatibility on either module.
+    """
+    sorted_syms = ", ".join(repr(s) for s in sorted(shared_symbols))
+    return (
+        "import importlib as _arch_importlib\n"
+        "import sys as _arch_sys\n\n"
+        f"_ARCH_HOST_MODULE = {host_import_target!r}\n"
+        f"_ARCH_HOST_FILENAME = {host_filename!r}\n"
+        f"_ARCH_SHARED_SYMBOLS = frozenset({{{sorted_syms}}})\n"
+        "_ARCH_ORIG_VALS = {}\n\n\n"
+        "def _arch_host():\n"
+        "    _mod = _arch_sys.modules.get(_ARCH_HOST_MODULE)\n"
+        "    if _mod is not None:\n"
+        "        return _mod\n"
+        "    _main = _arch_sys.modules.get('__main__')\n"
+        "    if _main is not None and getattr(_main, '__file__', '').endswith(_ARCH_HOST_FILENAME):\n"
+        "        return _main\n"
+        "    return _arch_importlib.import_module(_ARCH_HOST_MODULE, package=__package__)\n\n\n"
+        "def _arch_get(name: str):\n"
+        "    _host = _arch_host()\n"
+        "    _host_val = getattr(_host, name)\n"
+        "    _orig = _ARCH_ORIG_VALS.setdefault(name, _host_val)\n"
+        "    _self_dict = _arch_sys.modules[__name__].__dict__\n"
+        "    if name in _self_dict and _self_dict[name] is not _orig:\n"
+        "        return _self_dict[name]\n"
+        "    return _host_val\n\n\n"
+        "def _arch_set(name: str, value):\n"
+        "    setattr(_arch_host(), name, value)\n"
+        "    _arch_sys.modules[__name__].__dict__.pop(name, None)\n"
+        "    return value\n\n\n"
+        "def __getattr__(name: str):\n"
+        "    if name in _ARCH_SHARED_SYMBOLS:\n"
+        "        return getattr(_arch_host(), name)\n"
+        "    raise AttributeError(f'module {__name__!r} has no attribute {name!r}')\n"
+    )
+
+
+def _upsert_dunder_all_in_source(source_text: str, new_symbols: List[str]) -> Tuple[str, bool]:
+    """
+    If `source_text` already has a top-level `__all__ = [...]` assignment, merges `new_symbols`
+    into that list (sorted) and returns `(updated_source, True)`. Otherwise returns `(source_text, False)`.
+    """
+    try:
+        tree = ast.parse(source_text)
+    except SyntaxError:
+        return source_text, False
+
+    lines = source_text.splitlines(keepends=True)
+    for node in tree.body:
+        if isinstance(node, ast.Assign):
+            for t in node.targets:
+                if isinstance(t, ast.Name) and t.id == "__all__" and isinstance(node.value, (ast.List, ast.Tuple)):
+                    existing_syms: List[str] = []
+                    for elt in node.value.elts:
+                        if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+                            existing_syms.append(elt.value)
+                    merged = sorted(set(existing_syms) | set(new_symbols))
+                    inner = ", ".join(f'"{s}"' for s in merged)
+                    formatted = f"__all__ = [{inner}]\n"
+                    start_idx = node.lineno - 1
+                    end_idx = getattr(node, "end_lineno", node.lineno)
+                    lines[start_idx:end_idx] = [formatted]
+                    return "".join(lines), True
+    return source_text, False
+
+
 def prefactor_decouple(
     symbol: str | List[str],
     from_file: str,
@@ -330,12 +733,17 @@ def prefactor_decouple(
     dry_run: bool = False,
     allow_circular: bool = False,
     allow_globals: bool = False,
+    allow_desync: bool = False,
+    share_state: bool = False,
+    ruff_cleanup: bool = False,
 ) -> Dict[str, Any]:
     """
     Deterministically decouples symbols from `from_file` into `to_file`.
-    Preserves exact formatting and comments using surgical AST slicing.
+    Preserves exact formatting and comments using surgical AST slicing (or AST state-binding
+    when `share_state=True`).
     Automatically resolves needed dependencies/imports, inserts clean imports,
-    maintains backwards compatibility aliases, and runs headless test gates.
+    maintains backwards compatibility `__all__` re-exports, runs differential ruff checks,
+    and executes headless test gates with transactional rollback.
     """
     t_start = time.perf_counter()
     symbols = [symbol] if isinstance(symbol, str) else list(symbol)
@@ -400,40 +808,94 @@ def prefactor_decouple(
     # Collect used names inside the extracted symbols
     ast_nodes = [item[1] for item in nodes_to_extract]
     used_names = get_used_names_in_nodes(ast_nodes)
+    declared_globals = get_declared_globals_in_nodes(ast_nodes)
     
-    # Pre-flight check: detect circular dependency hazards and unbound global state
+    # Pre-flight check: detect circular dependency hazards, unbound global state, state desync, framework hazards, secrets
     extracted_names_set = {item[0] for item in nodes_to_extract}
-    circular_hazards, global_hazards = detect_coupling_hazards(from_tree, extracted_names_set, used_names)
+    circular_hazards, global_hazards, state_desync_hazards, framework_hazards, secret_warnings = detect_coupling_hazards(
+        from_tree, extracted_names_set, used_names, declared_globals=declared_globals, extracted_nodes=ast_nodes
+    )
     safe_closure = compute_minimal_safe_closure(from_tree, symbols)
-    
-    if circular_hazards and not allow_circular:
+    share_state_hint = "Re-run with --share-state (or share_state=True) to automatically bind shared mutable globals and remaining host symbols across modules."
+
+    if framework_hazards:
+        return {
+            "success": False,
+            "error": "Refactoring blocked: Framework route / application architecture hazard detected.",
+            "framework_hazards": framework_hazards,
+            "state_desync_hazards": state_desync_hazards,
+            "circular_hazards": circular_hazards,
+            "global_state_hazards": global_hazards,
+            "secret_warnings": secret_warnings,
+            "minimal_safe_closure": safe_closure,
+            "remediation": [h["recommendation"] for h in framework_hazards]
+        }
+
+    if state_desync_hazards and not (allow_desync or share_state):
+        return {
+            "success": False,
+            "error": "Refactoring blocked: Mutable shared module state desynchronization hazard detected.",
+            "state_desync_hazards": state_desync_hazards,
+            "circular_hazards": circular_hazards,
+            "global_state_hazards": global_hazards,
+            "framework_hazards": framework_hazards,
+            "secret_warnings": secret_warnings,
+            "minimal_safe_closure": safe_closure,
+            "remediation": [h["recommendation"] for h in state_desync_hazards] + [share_state_hint]
+        }
+
+    if circular_hazards and not (allow_circular or share_state):
         return {
             "success": False,
             "error": "Refactoring blocked: Circular import hazard detected.",
             "circular_hazards": circular_hazards,
             "global_state_hazards": global_hazards,
+            "state_desync_hazards": state_desync_hazards,
+            "framework_hazards": framework_hazards,
+            "secret_warnings": secret_warnings,
             "minimal_safe_closure": safe_closure,
             "remediation": [h["recommendation"] for h in circular_hazards] + [
-                f"Minimal self-contained symbol closure: {','.join(safe_closure)}"
+                f"Minimal self-contained symbol closure: {','.join(safe_closure)}",
+                share_state_hint,
             ]
         }
 
-    if global_hazards and not allow_globals:
+    if global_hazards and not (allow_globals or share_state):
         return {
             "success": False,
             "error": "Refactoring blocked: Unbound module global state / constant detected.",
             "circular_hazards": circular_hazards,
             "global_state_hazards": global_hazards,
+            "state_desync_hazards": state_desync_hazards,
+            "framework_hazards": framework_hazards,
+            "secret_warnings": secret_warnings,
             "minimal_safe_closure": safe_closure,
             "remediation": [h["recommendation"] for h in global_hazards] + [
-                f"Minimal self-contained symbol closure: {','.join(safe_closure)}"
+                f"Minimal self-contained symbol closure: {','.join(safe_closure)}",
+                share_state_hint,
             ]
         }
 
-    # Identify relevant imports from from_file
-    needed_imports = find_relevant_imports(from_tree, from_lines, used_names)
+    desync_syms = {h["symbol"] for h in state_desync_hazards}
+    shared_host_symbols: Set[str] = set()
+    if share_state:
+        shared_host_symbols = (
+            desync_syms
+            | {h["symbol"] for h in circular_hazards}
+            | {h["symbol"] for h in global_hazards}
+        )
 
-    # Extract exact source lines for each extracted symbol
+    # Identify relevant imports from from_file (excluding extracted symbols and shared host symbols)
+    needed_imports = find_relevant_imports(
+        from_tree,
+        from_lines,
+        used_names - shared_host_symbols,
+        source_path=from_path,
+        project_root=root_abs,
+        excluded_names=extracted_names_set | shared_host_symbols,
+    )
+
+    # Extract exact source lines (or AST-transformed blocks when share_state binds host symbols)
     extracted_code_blocks = []
     line_ranges_to_remove = []
     
@@ -443,12 +905,32 @@ def prefactor_decouple(
         while actual_start > 0 and from_lines[actual_start - 1].strip().startswith(("#", "@")):
             actual_start -= 1
         
-        block = "".join(from_lines[actual_start:end_idx]).rstrip()
+        if share_state and shared_host_symbols and isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            import copy
+            node_copy = copy.deepcopy(node)
+            transformer = _SharedStateTransformer(shared_host_symbols, desync_syms)
+            transformed_node = transformer.visit(node_copy)
+            ast.fix_missing_locations(transformed_node)
+            block = ast.unparse(transformed_node).rstrip()
+        else:
+            block = "".join(from_lines[actual_start:end_idx]).rstrip()
         extracted_code_blocks.append(block)
         line_ranges_to_remove.append((actual_start, end_idx))
 
     # Determine module name for import in from_file
     to_module_name = os.path.splitext(os.path.basename(to_path))[0]
+    extracted_symbol_names = list(dict.fromkeys(item[0] for item in nodes_to_extract))
+    all_syms_str = ", ".join(f'"{s}"' for s in sorted(set(extracted_symbol_names)))
+    sorted_dunder_all = f"__all__ = [{all_syms_str}]\n"
+
+    shared_runtime_header = ""
+    if share_state and shared_host_symbols:
+        host_import_target = compute_relative_import_path(to_path, from_path, project_root=root_abs)
+        shared_runtime_header = _build_shared_state_runtime_header(
+            host_import_target=host_import_target,
+            host_filename=os.path.basename(from_path),
+            shared_symbols=shared_host_symbols,
+        ) + "\n\n"
     
     # Check if to_file already exists
     to_file_existed = os.path.exists(to_path)
@@ -463,41 +945,76 @@ def prefactor_decouple(
         new_to_content_parts.append(f'"""\nDecoupled module: {to_module_name}\nExtracted from {os.path.basename(from_path)}\n"""\n')
         if needed_imports:
             new_to_content_parts.append("\n".join(needed_imports) + "\n\n")
-        new_to_content_parts.append("\n\n\n".join(extracted_code_blocks) + "\n")
+        if shared_runtime_header:
+            new_to_content_parts.append(shared_runtime_header)
+        new_to_content_parts.append("\n\n\n".join(extracted_code_blocks) + "\n\n" + sorted_dunder_all)
     else:
-        # Append missing imports and code blocks
+        # Append missing imports after module docstring / __future__ imports, and append code blocks at end
         existing_to_text = "".join(existing_to_lines)
         missing_imports = [imp for imp in needed_imports if imp not in existing_to_text]
         if missing_imports:
-            new_to_content_parts.append("\n".join(missing_imports) + "\n\n")
-        new_to_content_parts.append(existing_to_text.rstrip() + "\n\n\n" + "\n\n\n".join(extracted_code_blocks) + "\n")
+            insert_idx = 0
+            try:
+                existing_to_tree = ast.parse(existing_to_text, filename=to_path)
+                for n in existing_to_tree.body:
+                    if isinstance(n, ast.Expr) and isinstance(getattr(n, "value", None), ast.Constant) and isinstance(n.value.value, str) and insert_idx == 0:
+                        insert_idx = getattr(n, "end_lineno", n.lineno)
+                    elif isinstance(n, ast.ImportFrom) and n.module == "__future__":
+                        insert_idx = getattr(n, "end_lineno", n.lineno)
+                    else:
+                        break
+            except SyntaxError:
+                insert_idx = 0
+            prefix_lines = existing_to_lines[:insert_idx]
+            suffix_lines = existing_to_lines[insert_idx:]
+            rebuilt_existing = (
+                "".join(prefix_lines)
+                + ("\n" if prefix_lines and not prefix_lines[-1].endswith("\n") else "")
+                + "\n".join(missing_imports)
+                + "\n\n"
+                + "".join(suffix_lines)
+            )
+            base_to_text = rebuilt_existing.rstrip()
+        else:
+            base_to_text = existing_to_text.rstrip()
+
+        if shared_runtime_header and "_ARCH_SHARED_SYMBOLS" not in base_to_text:
+            base_to_text = base_to_text + "\n\n\n" + shared_runtime_header.rstrip()
+        combined_to = base_to_text + "\n\n\n" + "\n\n\n".join(extracted_code_blocks) + "\n"
+        combined_to, had_all = _upsert_dunder_all_in_source(combined_to, extracted_symbol_names)
+        if not had_all:
+            combined_to = combined_to.rstrip() + "\n\n" + sorted_dunder_all
+        new_to_content_parts.append(combined_to)
 
     new_to_source = "".join(new_to_content_parts)
+
+    # Locate where to insert the new import in from_file (after last top-level import in original tree)
+    orig_last_import_line = 0
+    for node in from_tree.body:
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            end = getattr(node, "end_lineno", node.lineno)
+            if end > orig_last_import_line:
+                orig_last_import_line = end
 
     # Build updated from_file content
     # Remove extracted line ranges (sorted in reverse order so indices don't shift)
     sorted_ranges = sorted(line_ranges_to_remove, key=lambda x: x[0], reverse=True)
     updated_from_lines = list(from_lines)
+    last_import_line = orig_last_import_line
     for start_r, end_r in sorted_ranges:
-        # Replace the removed block with a clean blank line
+        # Replace the removed block with a clean blank line (1 line replaces (end_r - start_r) lines)
         updated_from_lines[start_r:end_r] = ["\n"]
+        if end_r <= orig_last_import_line:
+            removed_delta = (end_r - start_r) - 1
+            last_import_line = max(0, last_import_line - removed_delta)
 
-    # Locate where to insert the new import in from_file (after last top-level import)
-    last_import_line = 0
-    for node in from_tree.body:
-        if isinstance(node, (ast.Import, ast.ImportFrom)):
-            end = getattr(node, "end_lineno", node.lineno)
-            if end > last_import_line:
-                last_import_line = end
-
-    extracted_symbol_names = list(dict.fromkeys(item[0] for item in nodes_to_extract))
     import_target = compute_relative_import_path(from_path, to_path, project_root=root_abs)
     import_stmt = f"from {import_target} import {', '.join(extracted_symbol_names)}\n"
     
     # Insert new import statement
     updated_from_lines.insert(last_import_line, import_stmt)
 
-    # Add backwards-compatible alias if requested (so cli.SleepInhibitor is explicitly preserved)
+    # Add backwards-compatible alias and __all__ re-export if requested
     if add_backward_compat_alias:
         alias_block = [
             f"# Backward-compatibility aliases (decoupled into {to_module_name}.py)\n"
@@ -508,6 +1025,14 @@ def prefactor_decouple(
         updated_from_lines.insert(last_import_line + 1, "".join(alias_block))
 
     new_from_source = "".join(updated_from_lines)
+    if add_backward_compat_alias:
+        new_from_source, had_from_all = _upsert_dunder_all_in_source(new_from_source, extracted_symbol_names)
+        if not had_from_all:
+            # Insert __all__ right after the alias block
+            updated_from_lines.insert(last_import_line + 2, sorted_dunder_all)
+            new_from_source = "".join(updated_from_lines)
+        else:
+            updated_from_lines = new_from_source.splitlines(keepends=True)
 
     # Verification 1: AST Syntax Check on both files
     try:
@@ -526,20 +1051,29 @@ def prefactor_decouple(
             "error": f"SyntaxError in updated source file {from_path}: {e}"
         }
 
+    # Verification 1b: Differential Ruff Gate (reports only net-new lint errors on touched files)
+    rel_from = os.path.relpath(from_path, root_abs)
+    rel_to = os.path.relpath(to_path, root_abs)
+    pre_sources = {rel_from: from_source}
+    if to_file_existed:
+        pre_sources[rel_to] = "".join(existing_to_lines)
+    post_sources = {rel_from: new_from_source, rel_to: new_to_source}
+    ruff_gate = run_differential_ruff(pre_sources=pre_sources, post_sources=post_sources)
+
     # Generate unified diffs
     diff_from = "".join(difflib.unified_diff(
         from_lines,
         updated_from_lines,
-        fromfile=f"a/{os.path.relpath(from_path, root_abs)}",
-        tofile=f"b/{os.path.relpath(from_path, root_abs)}",
+        fromfile=f"a/{rel_from}",
+        tofile=f"b/{rel_from}",
         n=3
     ))
 
     diff_to = "".join(difflib.unified_diff(
         existing_to_lines,
         new_to_source.splitlines(keepends=True),
-        fromfile=f"a/{os.path.relpath(to_path, root_abs)}" if to_file_existed else "/dev/null",
-        tofile=f"b/{os.path.relpath(to_path, root_abs)}",
+        fromfile=f"a/{rel_to}" if to_file_existed else "/dev/null",
+        tofile=f"b/{rel_to}",
         n=3
     ))
 
@@ -552,6 +1086,10 @@ def prefactor_decouple(
             f.write(new_to_source)
         with open(from_path, "w", encoding="utf-8") as f:
             f.write(new_from_source)
+
+        if ruff_cleanup:
+            # Deterministic cleanup: auto-remove dead imports and format code via Ruff ($0.00 cost)
+            run_ruff_autofix([to_path, from_path], project_root=root_abs)
 
     # Verification 2: Headless Test Gate (e.g. pytest) with Transactional Rollback
     test_result = None
@@ -613,18 +1151,24 @@ def prefactor_decouple(
     result_payload: Dict[str, Any] = {
         "success": is_success,
         "extracted_symbols": extracted_symbol_names,
-        "from_file": os.path.relpath(from_path, root_abs),
-        "to_file": os.path.relpath(to_path, root_abs),
+        "from_file": rel_from,
+        "to_file": rel_to,
         "import_target": import_target,
         "created_new_module": not to_file_existed,
+        "share_state_bound": sorted(shared_host_symbols) if share_state else [],
         "execution_time_ms": round(duration_ms, 2),
         "diff": combined_diff,
+        "ruff_gate": ruff_gate,
         "test_verification": test_result,
         "rolled_back": rolled_back,
         "circular_hazards": circular_hazards,
         "global_state_hazards": global_hazards,
+        "state_desync_hazards": state_desync_hazards,
+        "framework_hazards": framework_hazards,
+        "secret_warnings": secret_warnings,
         "minimal_safe_closure": safe_closure,
     }
     if error_msg:
         result_payload["error"] = error_msg
     return result_payload
+

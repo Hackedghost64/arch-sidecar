@@ -24,6 +24,12 @@ class RetrievalStrategy(str, Enum):
 SMALL_FILE_LINE_THRESHOLD = 120
 SMALL_FILE_TOKEN_THRESHOLD = 350
 
+STOP_KEYWORDS = {
+    "extract", "decouple", "refactor", "module", "class", "function",
+    "into", "from", "move", "split", "separate", "file", "code",
+    "test", "tests", "check", "update", "add", "remove", "with", "for",
+}
+
 def score_symbol_relevance(
     symbol_name: str,
     sym_info: Dict[str, Any],
@@ -38,16 +44,23 @@ def score_symbol_relevance(
     task_lower = task.lower()
     sym_lower = symbol_name.lower()
 
-    # 1. Exact match in task
+    # 1. Exact word-boundary match in task (case-sensitive or case-insensitive)
     if re.search(rf"\b{re.escape(symbol_name)}\b", task):
         score += 60
         reasons.append(f"exact name match '{symbol_name}' in task")
-    elif sym_lower in task_lower:
+    elif re.search(rf"\b{re.escape(sym_lower)}\b", task_lower):
+        score += 45
+        reasons.append(f"case-insensitive word match '{sym_lower}'")
+    elif len(sym_lower) >= 4 and sym_lower in task_lower:
         score += 35
-        reasons.append(f"case-insensitive name match '{sym_lower}'")
+        reasons.append(f"case-insensitive substring match '{sym_lower}'")
 
-    # 2. Substring/token overlap (split by snake_case or CamelCase)
-    sym_parts = [p.lower() for p in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+", symbol_name) if len(p) > 2]
+    # 2. Substring/token overlap (split by snake_case or CamelCase, require len >= 4 and non-stopword)
+    sym_parts = [
+        p.lower()
+        for p in re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\d|\W|$)|\d+", symbol_name)
+        if len(p) >= 4 and p.lower() not in STOP_KEYWORDS
+    ]
     matched_parts = [p for p in sym_parts if p in task_lower]
     if matched_parts and score == 0:
         score += len(matched_parts) * 15
@@ -63,7 +76,7 @@ def score_symbol_relevance(
     # 4. Docstring relevance
     if docstring:
         doc_lower = docstring.lower()
-        task_words = [w.lower() for w in re.findall(r"\b\w{4,}\b", task) if w.lower() not in {"extract", "decouple", "refactor", "module", "class", "function"}]
+        task_words = [w.lower() for w in re.findall(r"\b\w{4,}\b", task) if w.lower() not in STOP_KEYWORDS]
         doc_matches = [w for w in task_words if w in doc_lower]
         if doc_matches:
             score += min(len(doc_matches) * 5, 20)

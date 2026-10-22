@@ -12,6 +12,11 @@ from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
 from .feature_workflow import run_feature_workflow
+from .cluster import (
+    build_repository_dependency_graph,
+    partition_into_subsystems,
+    predict_change_impact,
+)
 from .session_logger import (
     generate_session_summary,
     format_session_report_markdown,
@@ -193,6 +198,11 @@ TOOLS = [
                     "type": "boolean",
                     "description": "If true, simulates the AST split and returns the diff without modifying files",
                     "default": False
+                },
+                "share_state": {
+                    "type": "boolean",
+                    "description": "If true, automatically binds shared mutable globals and host module symbols across modules",
+                    "default": False
                 }
             },
             "required": ["symbol", "from_file", "to_file"]
@@ -233,6 +243,11 @@ TOOLS = [
                 "dry_run": {
                     "type": "boolean",
                     "description": "If true, simulates transformations without modifying disk",
+                    "default": False
+                },
+                "share_state": {
+                    "type": "boolean",
+                    "description": "If true, automatically binds shared mutable globals and host module symbols across modules",
                     "default": False
                 },
                 "token_budget": {
@@ -304,6 +319,39 @@ TOOLS = [
                 }
             },
             "required": ["output_path"]
+        }
+    },
+    {
+        "name": "get_subsystem_clusters",
+        "description": "Architectural Subsystem Cluster Map: Discovers repository subsystem clusters, cohesion, instability, and coupling metrics ($Ca, Ce, I$) across Python and TypeScript/JS.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "root_dir": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                }
+            }
+        }
+    },
+    {
+        "name": "predict_change_impact",
+        "description": "Pre-Change Architectural Impact Predictor: Predicts change blast radius, downstream callers, crossed subsystem boundaries, and test recommendations before modifying code.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target": {
+                    "type": "string",
+                    "description": "Target file or symbol name to analyze (e.g. 'options.py' or 'Model')"
+                },
+                "root_dir": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                }
+            },
+            "required": ["target"]
         }
     }
 ]
@@ -513,6 +561,55 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
                         "text": f"Successfully exported Devrith test report to {output_path} ({summary.get('total_sessions')} sessions recorded)."
                     }
                 ],
+                "isError": False
+            }
+
+        elif name == "get_subsystem_clusters":
+            root_dir = arguments.get("root_dir", ".")
+            graph = build_repository_dependency_graph(root_dir)
+            clusters = partition_into_subsystems(graph, root_dir)
+            payload = {
+                "total_modules": len(graph.modules),
+                "total_dependencies": sum(len(deps) for deps in graph.edges.values()),
+                "total_clusters": len(clusters),
+                "clusters": [
+                    {
+                        "id": c.cluster_id,
+                        "name": c.name,
+                        "modules_count": len(c.modules),
+                        "modules": c.modules[:15],
+                        "cohesion": c.cohesion,
+                        "afferent_coupling": c.afferent_coupling,
+                        "efferent_coupling": c.efferent_coupling,
+                        "instability": c.instability,
+                    }
+                    for c in clusters
+                ]
+            }
+            return {
+                "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
+                "isError": False
+            }
+
+        elif name == "predict_change_impact":
+            target = arguments["target"]
+            root_dir = arguments.get("root_dir", ".")
+            graph = build_repository_dependency_graph(root_dir)
+            clusters = partition_into_subsystems(graph, root_dir)
+            impact = predict_change_impact(target, graph, clusters, root_dir)
+            payload = {
+                "target": target,
+                "target_file": impact.target_file,
+                "direct_callers_count": len(impact.direct_callers),
+                "direct_callers": impact.direct_callers,
+                "transitive_blast_radius_count": len(impact.transitive_blast_radius),
+                "transitive_blast_radius": impact.transitive_blast_radius[:25],
+                "affected_clusters": impact.affected_clusters,
+                "recommended_test_files": impact.recommended_test_files,
+                "risk_level": impact.risk_level
+            }
+            return {
+                "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
                 "isError": False
             }
 

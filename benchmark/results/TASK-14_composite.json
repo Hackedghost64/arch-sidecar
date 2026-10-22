@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-14",
+  "arm": "composite",
+  "repo": "django",
+  "category": "multi_file_refactoring",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 10.0,
+    "min_tool_duration_ms": 10,
+    "max_tool_duration_ms": 10,
+    "mean_tokens": 220.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PREFLIGHT_WARNING"
+  },
+  "runs": [
+    {
+      "status": "PREFLIGHT_WARNING",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 10,
+      "wall_clock_ms": 10,
+      "details": "Composite (Serena LSP navigation + Devrith AST gate): Deterministic AST extraction completed in 10ms; health: None.",
+      "run_index": 1
+    }
+  ]
+}

@@ -4,18 +4,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
-[![Tests Passing](https://img.shields.io/badge/tests-37%20passed-success.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-60%20passed-success.svg)](tests/)
 [![Empirical Case Study](https://img.shields.io/badge/Case%20Study-Documented-orange.svg)](CASE_STUDY.md)
 
-> `arch-sidecar` (Devrith Engine) provides **architecture-aware context retrieval**, **feature implementation planning**, **deterministic AST refactoring**, and **compiler-grade preflight verification** for AI coding agents.
+> `arch-sidecar` (Devrith Engine) provides **architecture-aware context retrieval**, **feature implementation planning**, **deterministic AST refactoring**, and **static scope/import preflight verification** for AI coding agents.
 >
 > ⚡ **Quickstart Guide:** [5-Minute Onboarding & MCP Setup](QUICKSTART.md)  
-> 📖 **Read the empirical benchmark:** [Round 3 Benchmark: Feature Workflow (-69.7% tokens, 2.0x faster)](experiments/round3/ROUND3_REPORT.md)
+> 📖 **Read the empirical benchmarks (wins, losses, & boundaries):** [CASE_STUDY.md](CASE_STUDY.md) · [CASE_STUDY_FLASH.md](CASE_STUDY_FLASH.md) · [BENCHMARK_REPORT](benchmark/FINDINGS.md)
 
 > [!IMPORTANT]
-> **Language Capabilities Scope:**
-> - **Full Capabilities (Tier 1 — Full Support):** Currently **Python (`.py`)** is the primary language with full end-to-end capabilities, including deterministic AST refactoring without LLM tokens, Free Variable Analysis ($FV = \text{Loaded} \setminus \text{Bound}$), circular import hazard blocking, transactional test rollback, feature workflow 1-indexed context, and sub-15ms preflight scope checking.
-> - **Architectural Orientation (Tier 2 — Skeleton & Digest):** **TypeScript, JavaScript, React (`.tsx`, `.jsx`), Kotlin, Java, C, C++, Go, Rust, and Dart** have full Architectural Digest support (<100ms signature skeleton and aggressive pruning of `node_modules/`, `build/`, `CMakeFiles/`, `.gradle/`, and minified files). Deep AST refactoring for these languages is on the active roadmap.
+> **Key Results from the Unbiased 60-Module Ground Truth Benchmark (`Click`, `Requests`, `Django`):**
+> - **100% Hazard Recall (14/14):** Caught every single breaking circular import, unresolvable symbol, and runtime regression before disk writes or test runs (Wilson 95% CI Lower Bound: **78.5%**).
+> - **0 Accepted Regressions:** Zero broken changes escaped to runtime across 60 modules.
+> - **97.2x Faster Than PyTest:** Devrith preflight runs in **26.1ms** vs **2,541ms** for the physical PyTest Oracle, at only **177 tokens / op**.
+> - **Catches Blind Spots in Unit Tests:** Intercepts real runtime `NameError` bugs that pass unit test suites due to environment monkeypatching (e.g. `requests.utils.get_netrc_auth` missing `NETRC_FILES`).
+> - **Where it wins:** Multi-slice mechanical extractions (`decouple` avoids repeated `view_file` re-reads after line shifts: **0 `view_file` calls vs. 13–14** in our `god_app.py` modularization smoke test), complex multi-file `@overload` refactorings (**-26.9% tokens, -22.9% wall time** on `requests`), and catching silent cross-module `global` state desynchronization (`global x` / `global counter`) that passes `ruff`/`pyflakes` and syntax checks.
+> - **Where a bare agent beats it:** When a file fits in a single `view_file` call (<800 lines) and the user forces extraction of a function with entangled mutable module state (`bot_tick` in `god_app.py`), `arch-sidecar decouple` blocks the unsafe move but does not auto-generate a state proxy—resulting in **30 median tool calls (`664k` proxy input tokens) for Devrith vs. 12 median tool calls (`346k` proxy input tokens) for the Bare agent** (`n = 3` runs per arm). See [Section 8 of CASE_STUDY.md](CASE_STUDY.md#8-stress-testing-on-entangled-monoliths-god_apppy-wins-losses-and-known-boundaries) for the full data.
+> - **Known static analysis boundaries:** Static AST analysis cannot resolve runtime reflection (`getattr`, `eval`, `exec`, `globals()`, `importlib`—flagged via `uncertainty`), runtime monkeypatching (`unittest.mock.patch`), or import-time I/O side effects (e.g., module-level `sqlite3.connect()`).
+> - **Language scope:** Full AST codemods (`decouple`, `workflow`) and scope preflight (`check`) are **Python-only**. TypeScript/JS supports AST tokenization, skeleton digests, and circular import cycle detection. Kotlin/Java, C/C++, Go, Rust, and Dart support fast Architectural Digest (`digest`) skeleton generation.
 
 ---
 

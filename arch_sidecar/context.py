@@ -30,46 +30,53 @@ class SymbolFinder(ast.NodeVisitor):
         self.imports.append("".join(self.lines[start:end]))
         self.generic_visit(node)
 
+    def _get_start_line(self, node: ast.AST) -> int:
+        dec_lines = [d.lineno for d in getattr(node, "decorator_list", []) if hasattr(d, "lineno")]
+        return min([node.lineno] + dec_lines) if dec_lines else node.lineno
+
     def visit_ClassDef(self, node: ast.ClassDef):
-        start = node.lineno - 1
+        start_line = self._get_start_line(node)
+        start = start_line - 1
         end = getattr(node, "end_lineno", node.lineno)
         code = "".join(self.lines[start:end])
         self.symbols[node.name] = {
             "type": "class",
             "name": node.name,
             "filename": self.filename,
-            "start_line": node.lineno,
-            "end_line": getattr(node, "end_lineno", node.lineno),
+            "start_line": start_line,
+            "end_line": end,
             "code": code,
             "ast_node": node,
         }
         self.generic_visit(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef):
-        start = node.lineno - 1
+        start_line = self._get_start_line(node)
+        start = start_line - 1
         end = getattr(node, "end_lineno", node.lineno)
         code = "".join(self.lines[start:end])
         self.symbols[node.name] = {
             "type": "function",
             "name": node.name,
             "filename": self.filename,
-            "start_line": node.lineno,
-            "end_line": getattr(node, "end_lineno", node.lineno),
+            "start_line": start_line,
+            "end_line": end,
             "code": code,
             "ast_node": node,
         }
         # Do not recurse into inner functions for top-level map, but generic_visit is fine
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
-        start = node.lineno - 1
+        start_line = self._get_start_line(node)
+        start = start_line - 1
         end = getattr(node, "end_lineno", node.lineno)
         code = "".join(self.lines[start:end])
         self.symbols[node.name] = {
             "type": "async_function",
             "name": node.name,
             "filename": self.filename,
-            "start_line": node.lineno,
-            "end_line": getattr(node, "end_lineno", node.lineno),
+            "start_line": start_line,
+            "end_line": end,
             "code": code,
             "ast_node": node,
         }
@@ -104,6 +111,10 @@ def locate_surgical_context(
     and references across the repo.
     """
     root_abs = os.path.abspath(root_dir)
+    single_file_target: Optional[str] = None
+    if os.path.isfile(root_abs):
+        single_file_target = root_abs
+        root_abs = os.path.dirname(root_abs)
     
     # Extract candidate symbol names from task query if not explicitly passed
     symbols_to_find = set(target_symbols or [])
@@ -116,41 +127,45 @@ def locate_surgical_context(
 
     matched_symbols: Dict[str, Dict[str, Any]] = {}
     file_imports_map: Dict[str, List[str]] = {}
-    all_python_files: List[str] = []
+    all_python_files: List[Tuple[str, str]] = []
 
     file_docstrings_map: Dict[str, Optional[str]] = {}
     file_constants_map: Dict[str, List[str]] = {}
 
+    def _index_py_file(rel_path: str, full_path: str):
+        all_python_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                lines = file_obj.readlines()
+            tree = ast.parse("".join(lines), filename=full_path)
+            finder = SymbolFinder(rel_path, lines)
+            finder.visit(tree)
+            file_imports_map[rel_path] = finder.imports
+            file_docstrings_map[rel_path] = ast.get_docstring(tree)
+            file_constants_map[rel_path] = finder.constants
+
+            for sym_name, sym_info in finder.symbols.items():
+                if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                    matched_symbols[sym_name] = sym_info
+        except Exception:
+            pass
+
     # 1. First pass: find symbol definitions and imports
-    for root, dirs, files in os.walk(root_abs):
-        dirs[:] = [
-            d for d in dirs 
-            if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
-        ]
-        for f in files:
-            if f.endswith(".py"):
-                full_path = os.path.join(root, f)
-                rel_path = os.path.relpath(full_path, root_abs)
-                if is_ignored_path(rel_path):
-                    continue
-                all_python_files.append((rel_path, full_path))
-
-                try:
-                    with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
-                        lines = file_obj.readlines()
-                    tree = ast.parse("".join(lines), filename=full_path)
-                    finder = SymbolFinder(rel_path, lines)
-                    finder.visit(tree)
-                    file_imports_map[rel_path] = finder.imports
-                    file_docstrings_map[rel_path] = ast.get_docstring(tree)
-                    file_constants_map[rel_path] = finder.constants
-
-                    for sym_name, sym_info in finder.symbols.items():
-                        # Check exact match or case-insensitive match
-                        if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
-                            matched_symbols[sym_name] = sym_info
-                except Exception:
-                    continue
+    if single_file_target:
+        _index_py_file(os.path.basename(single_file_target), single_file_target)
+    else:
+        for root, dirs, files in os.walk(root_abs):
+            dirs[:] = [
+                d for d in dirs 
+                if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
+            ]
+            for f in files:
+                if f.endswith(".py"):
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, root_abs)
+                    if is_ignored_path(rel_path):
+                        continue
+                    _index_py_file(rel_path, full_path)
 
     # 2. Second pass: find references/callers across the codebase (e.g. tests)
     found_symbol_names = set(matched_symbols.keys())

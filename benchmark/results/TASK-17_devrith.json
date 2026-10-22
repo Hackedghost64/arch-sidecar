@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-17",
+  "arm": "devrith",
+  "repo": "click",
+  "category": "ambiguous_context_query",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 247.0,
+    "min_tool_duration_ms": 247,
+    "max_tool_duration_ms": 247,
+    "mean_tokens": 1386.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PASSED"
+  },
+  "runs": [
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1386,
+      "tool_duration_ms": 247,
+      "wall_clock_ms": 247,
+      "details": "Devrith extracted surgical context slice in 247ms (1386 tokens).",
+      "run_index": 1
+    }
+  ]
+}

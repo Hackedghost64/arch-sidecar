@@ -11,7 +11,15 @@ from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
 from .guard import check_code_health
+from .utils import run_ruff_autofix
 from .feature_workflow import run_feature_workflow
+from .cluster import (
+    build_repository_dependency_graph,
+    partition_into_subsystems,
+    predict_change_impact,
+    format_cluster_map_terminal,
+    format_change_impact_terminal,
+)
 from .session_logger import (
     generate_session_summary,
     format_session_report_markdown,
@@ -58,6 +66,7 @@ def main():
     wf_parser.add_argument("--symbols", "-s", help="Comma-separated symbol names (optional; deduced from task/plan if omitted)")
     wf_parser.add_argument("--test", help="Test command to run for verification gate (e.g. 'pytest tests/test_system.py')")
     wf_parser.add_argument("--dry-run", action="store_true", help="Simulate transformations without modifying disk")
+    wf_parser.add_argument("--share-state", action="store_true", help="Automatically bind shared mutable globals and host symbols across modules")
     wf_parser.add_argument("--budget", "-b", type=int, default=3000, help="Max token budget for context planning")
     wf_parser.add_argument("--json", action="store_true", help="Output full JSON telemetry payload")
 
@@ -101,6 +110,25 @@ def main():
     decouple_parser.add_argument("--root", default=".", help="Project root directory (default: .)")
     decouple_parser.add_argument("--test", help="Test command to run for headless verification (e.g. 'pytest tests/test_inhibitor_and_server.py')")
     decouple_parser.add_argument("--dry-run", action="store_true", help="Simulate AST split and show diff without modifying files")
+    decouple_parser.add_argument("--share-state", action="store_true", help="Automatically bind shared mutable globals and host symbols across modules")
+    decouple_parser.add_argument("--ruff", action="store_true", help="Auto-clean dead imports and format decoupled modules via Ruff ($0.00 cost)")
+
+    # Command: cluster (Architectural Subsystem Cluster Map)
+    cluster_parser = subparsers.add_parser(
+        "cluster",
+        help="Discover repository subsystem clusters, cohesion, instability, and coupling metrics"
+    )
+    cluster_parser.add_argument("path", nargs="?", default=".", help="Root directory to analyze (default: .)")
+    cluster_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
+
+    # Command: impact (Pre-Change Architectural Impact Predictor)
+    impact_parser = subparsers.add_parser(
+        "impact",
+        help="Predict change blast radius, downstream callers, crossed clusters, and test recommendations before modifying code"
+    )
+    impact_parser.add_argument("target", help="Target file or symbol to analyze")
+    impact_parser.add_argument("path", nargs="?", default=".", help="Root directory of the project (default: .)")
+    impact_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
 
     # Command: check (Compiler-Grade Preflight & Architecture Health Guard)
     check_parser = subparsers.add_parser(
@@ -110,6 +138,8 @@ def main():
     check_parser.add_argument("file", help="Path to Python file to check")
     check_parser.add_argument("--root", default=".", help="Project root directory (default: .)")
     check_parser.add_argument("--json", action="store_true", help="Output JSON result")
+    check_parser.add_argument("--ruff", action="store_true", help="Enable high-speed Ruff lint & unused import diagnostics")
+    check_parser.add_argument("--fix", action="store_true", help="Automatically clean unused imports and format via Ruff ($0.00 cost)")
 
     # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
@@ -189,7 +219,8 @@ def main():
             symbols=syms_list,
             test_command=args.test,
             dry_run=args.dry_run,
-            token_budget=args.budget
+            token_budget=args.budget,
+            share_state=args.share_state,
         )
         if args.json:
             print(json.dumps(res, indent=2))
@@ -211,6 +242,11 @@ def main():
                 if res.get("success"):
                     print(f"✅ Extracted: {', '.join(res.get('extracted_symbols', []))}")
                     print(f"   From: {res.get('from_file')} -> To: {res.get('to_file')}")
+                    if res.get("share_state_bound"):
+                        print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
+                    rg = res.get("ruff_gate")
+                    if rg and rg.get("available"):
+                        print(f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues ({rg.get('suppressed_legacy_count')} pre-existing suppressed)")
                     if res.get("diff"):
                         print("\n--- Diff ---")
                         print(res["diff"])
@@ -220,6 +256,9 @@ def main():
                         print(f"\n🧪 Verification Gate: {gate} ({tv.get('command')}) in {tv.get('duration_ms')}ms")
                 else:
                     print(f"❌ Workflow Blocked/Failed: {res.get('error')}", file=sys.stderr)
+                    for h in res.get("state_desync_hazards", []):
+                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
                     for h in res.get("circular_hazards", []):
                         print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
                         print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
@@ -228,6 +267,8 @@ def main():
                         print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
                     if res.get("minimal_safe_closure"):
                         print(f"   💡 Minimal self-contained symbol closure: --symbols {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
+                    if res.get("state_desync_hazards") or res.get("circular_hazards") or res.get("global_state_hazards"):
+                        print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
                     if res.get("rolled_back"):
                         print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
                     tv = res.get("test_verification")
@@ -301,13 +342,25 @@ def main():
             to_file=args.to_file,
             project_root=args.root,
             run_tests=args.test,
-            dry_run=args.dry_run
+            dry_run=args.dry_run,
+            share_state=args.share_state,
+            ruff_cleanup=getattr(args, "ruff", False),
         )
         if res.get("success"):
             print(f"✅ Decoupled successfully in {res['execution_time_ms']}ms:")
             print(f"   Symbols: {', '.join(res['extracted_symbols'])}")
             print(f"   From: {res['from_file']}")
             print(f"   To:   {res['to_file']} (import target: {res.get('import_target')})")
+            if res.get("share_state_bound"):
+                print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
+            rg = res.get("ruff_gate")
+            if rg and rg.get("available"):
+                print(f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues ({rg.get('suppressed_legacy_count')} pre-existing suppressed)")
+                for ni in rg.get("new_issues", []):
+                    print(f"      ⚠️  [{ni.get('code')}] {ni.get('file')}:{ni.get('line')} - {ni.get('message')}")
+            for w in res.get("secret_warnings", []):
+                print(f"   ⚠️  [SECRET DETECTED] {w.get('hazard')}")
+                print(f"       ↳ {w.get('recommendation')}")
             if res.get("diff"):
                 print("\n--- Diff Generated ---")
                 print(res["diff"])
@@ -319,14 +372,25 @@ def main():
                     print(tv["output"])
         else:
             print(f"❌ Decoupling failed: {res.get('error')}", file=sys.stderr)
+            for h in res.get("state_desync_hazards", []):
+                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+            for h in res.get("framework_hazards", []):
+                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
             for h in res.get("circular_hazards", []):
                 print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
                 print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
             for h in res.get("global_state_hazards", []):
                 print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
                 print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+            for w in res.get("secret_warnings", []):
+                print(f"   ⚠️  {w.get('hazard')}", file=sys.stderr)
+                print(f"       ↳ {w.get('recommendation')}", file=sys.stderr)
             if res.get("minimal_safe_closure"):
                 print(f"   💡 Minimal self-contained symbol closure: {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
+            if res.get("state_desync_hazards") or res.get("circular_hazards") or res.get("global_state_hazards"):
+                print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
             if res.get("rolled_back"):
                 print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
             if res.get("test_verification") and res["test_verification"].get("output"):
@@ -334,13 +398,22 @@ def main():
             sys.exit(1)
 
     elif args.command == "check":
-        res = check_code_health(args.file, project_root=args.root)
+        if getattr(args, "fix", False):
+            run_ruff_autofix([args.file], project_root=args.root)
+
+        enable_ruff = getattr(args, "ruff", False) or getattr(args, "fix", False)
+        res = check_code_health(args.file, project_root=args.root, enable_ruff=enable_ruff)
         if args.json:
             print(json.dumps(res, indent=2))
         else:
             if res.get("success"):
                 print(f"✅ [arch-sidecar check] Clean! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)")
-                print(f"   Target: {res.get('file')} | 0 errors | 0 warnings")
+                print(f"   Target: {res.get('file')} | 0 errors | {res.get('warnings', 0)} warnings")
+                for issue in res.get("issues", []):
+                    if issue.get("severity") == "WARNING":
+                        print(f"   [WARN] Line {issue.get('line')}: {issue.get('message')}")
+                        if issue.get("recommendation"):
+                            print(f"          ↳ Fix: {issue.get('recommendation')}")
             else:
                 print(f"❌ [arch-sidecar check] Preflight Issues Found! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)", file=sys.stderr)
                 print(f"   Target: {res.get('file')} | {res.get('errors')} error(s) | {res.get('warnings')} warning(s)", file=sys.stderr)
@@ -350,6 +423,25 @@ def main():
                     if issue.get("recommendation"):
                         print(f"          ↳ Fix: {issue.get('recommendation')}", file=sys.stderr)
                 sys.exit(1)
+
+    elif args.command == "cluster":
+        graph = build_repository_dependency_graph(args.path)
+        clusters = partition_into_subsystems(graph)
+        if args.json:
+            print(json.dumps(clusters, indent=2))
+        else:
+            repo_name = os.path.basename(os.path.abspath(args.path))
+            print(format_cluster_map_terminal(clusters, repo_name))
+
+    elif args.command == "impact":
+        impact = predict_change_impact(args.target, root_dir=args.path)
+        if args.json:
+            print(json.dumps(impact, indent=2))
+        else:
+            if not impact.get("success"):
+                print(f"❌ Impact analysis failed: {impact.get('error')}", file=sys.stderr)
+                sys.exit(1)
+            print(format_change_impact_terminal(impact))
 
     elif args.command == "serve":
         run_mcp_server()

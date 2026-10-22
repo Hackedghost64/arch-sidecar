@@ -182,3 +182,29 @@ class SafeWorker:
         assert "Uncertainty" in res["context"]
         assert "getattr" in res["context"]
         assert res["uncertainty_report"]["findings_count"] > 0
+
+
+def test_short_symbol_names_do_not_match_substrings_and_single_file_uncertainty():
+    """1-2 char function names like `c` or `p` must not match inside words like `decouple` or `app.py`."""
+    from arch_sidecar.planner import score_symbol_relevance
+
+    score_c, _ = score_symbol_relevance("c", {"filename": "other.py"}, "Decouple rsi from god_app.py", set())
+    score_p, _ = score_symbol_relevance("p", {"filename": "other.py"}, "Decouple rsi from god_app.py", set())
+    score_rsi, _ = score_symbol_relevance("rsi", {"filename": "god_app.py"}, "Decouple rsi from god_app.py", {"god_app.py"})
+
+    assert score_c == 0
+    assert score_p == 0
+    assert score_rsi >= 80
+
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+        f.write("def dyn(x):\n    return eval(x)\n")
+        f.flush()
+        tpath = f.name
+
+    try:
+        u_res = scan_codebase_uncertainty(tpath)
+        assert u_res["total_uncertainties"] == 1
+        assert u_res["unknown_count"] == 1
+    finally:
+        os.remove(tpath)
+

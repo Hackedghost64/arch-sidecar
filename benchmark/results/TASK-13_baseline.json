@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-13",
+  "arm": "baseline",
+  "repo": "click",
+  "category": "multi_file_refactoring",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 1.0,
+    "min_tool_duration_ms": 1,
+    "max_tool_duration_ms": 1,
+    "mean_tokens": 11833.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PASSED"
+  },
+  "runs": [
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 11833,
+      "tool_duration_ms": 1,
+      "wall_clock_ms": 1,
+      "details": "Baseline required full-file rewrite.",
+      "run_index": 1
+    }
+  ]
+}

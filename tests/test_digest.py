@@ -123,3 +123,27 @@ void process_frame(const uint8_t* buffer, size_t len);
         os.remove(kt_path)
         os.remove(c_path)
 
+
+def test_parse_python_call_decorators_and_posonlyargs_and_single_file_digest():
+    code = """
+@app.route("/login", methods=["POST"])
+def login(user: str, /, role: str = "admin") -> str:
+    return user
+"""
+    with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False) as f:
+        f.write(code)
+        f.flush()
+        temp_path = f.name
+
+    try:
+        summary = parse_python_file(temp_path)
+        assert "@app.route('/login', methods=['POST'])" in summary
+        assert "def login(user: str, /, role: str = 'admin') -> str" in summary
+
+        digest_res = generate_digest(temp_path)
+        assert digest_res["files_indexed"] == 1
+        assert "def login" in digest_res["digest"]
+    finally:
+        os.remove(temp_path)
+
+

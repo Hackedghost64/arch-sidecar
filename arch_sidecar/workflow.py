@@ -24,7 +24,8 @@ def run_workflow(
     symbols: Optional[List[str]] = None,
     test_command: Optional[str] = None,
     dry_run: bool = False,
-    token_budget: int = 3000
+    token_budget: int = 3000,
+    share_state: bool = False,
 ) -> Dict[str, Any]:
     """
     End-to-End Orchestrated Workflow:
@@ -61,12 +62,23 @@ def run_workflow(
     telemetry["latency_ms_by_stage"][WorkflowStage.RETRIEVAL_PLAN] = planning_time_ms
 
     # Infer symbols, from_file, to_file if not explicitly passed
-    resolved_symbols = symbols or plan_res.get("selected_symbols", [])
-    if not from_file and plan_res.get("ranking"):
-        # Select file from top candidate
-        top_candidates = [c for c in plan_res["ranking"] if c.get("included")]
-        if top_candidates:
-            from_file = top_candidates[0]["file"]
+    top_candidates = [c for c in plan_res.get("ranking", []) if c.get("included")]
+    if not from_file and top_candidates:
+        from_file = top_candidates[0]["file"]
+
+    if symbols:
+        resolved_symbols = list(symbols)
+    elif from_file and top_candidates:
+        from_rel_norm = os.path.normpath(from_file)
+        file_candidates = [
+            c for c in top_candidates
+            if os.path.normpath(c["file"]) == from_rel_norm or os.path.basename(c["file"]) == os.path.basename(from_rel_norm)
+        ]
+        exact_matches = [c for c in file_candidates if "exact name match" in c.get("reason", "") or "case-insensitive word match" in c.get("reason", "")]
+        chosen = exact_matches if exact_matches else file_candidates
+        resolved_symbols = list(dict.fromkeys(c["name"] for c in chosen))
+    else:
+        resolved_symbols = plan_res.get("selected_symbols", [])
 
     if not to_file:
         # Check task for pattern like 'into <file>.py' or 'to <file>.py'
@@ -170,7 +182,8 @@ def run_workflow(
         to_file=to_file,
         project_root=root_abs,
         run_tests=test_command,
-        dry_run=dry_run
+        dry_run=dry_run,
+        share_state=share_state,
     )
     stages_executed.append(WorkflowStage.DEPENDENCY_PREFLIGHT)
     if not dry_run:
@@ -216,7 +229,10 @@ def run_workflow(
             "from_file": from_file,
             "to_file": to_file,
             "import_target": decouple_res.get("import_target"),
+            "share_state_bound": decouple_res.get("share_state_bound", []),
+            "ruff_gate": decouple_res.get("ruff_gate"),
             "diff": diff_str,
+            "secret_warnings": decouple_res.get("secret_warnings", []),
             "uncertainty_findings": [f.to_dict() for f in findings],
             "critical_uncertainties": [f.to_dict() for f in critical_uncertainties],
             "test_verification": test_verification,
@@ -247,6 +263,9 @@ def run_workflow(
             "rolled_back": decouple_res.get("rolled_back", False),
             "circular_hazards": decouple_res.get("circular_hazards", []),
             "global_state_hazards": decouple_res.get("global_state_hazards", []),
+            "state_desync_hazards": decouple_res.get("state_desync_hazards", []),
+            "framework_hazards": decouple_res.get("framework_hazards", []),
+            "secret_warnings": decouple_res.get("secret_warnings", []),
             "minimal_safe_closure": decouple_res.get("minimal_safe_closure", []),
             "remediation": decouple_res.get("remediation", []),
             "test_verification": test_verification,

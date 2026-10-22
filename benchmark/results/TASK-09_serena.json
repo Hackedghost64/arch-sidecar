@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-09",
+  "arm": "serena",
+  "repo": "django",
+  "category": "unsafe_extraction",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 1355.0,
+    "min_tool_duration_ms": 1355,
+    "max_tool_duration_ms": 1355,
+    "mean_tokens": 850.0,
+    "total_preflight_catches": 0,
+    "primary_status": "UNCAUGHT_HAZARD"
+  },
+  "runs": [
+    {
+      "status": "UNCAUGHT_HAZARD",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 850,
+      "tool_duration_ms": 1355,
+      "wall_clock_ms": 1355,
+      "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
+      "run_index": 1
+    }
+  ]
+}

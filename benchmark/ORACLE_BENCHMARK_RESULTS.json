@@ -1,0 +1,1277 @@
+{
+  "metrics": {
+    "total_trials": 60,
+    "ground_truth_unsafe": 14,
+    "ground_truth_safe": 46,
+    "true_positives": 14,
+    "false_negatives": 0,
+    "true_negatives": 36,
+    "false_positives": 10,
+    "hazard_recall": 1.0,
+    "wilson_95_ci": [
+      0.7847,
+      1.0
+    ],
+    "false_rejection_rate": 0.2174,
+    "accepted_regressions": 0,
+    "devrith_total_ms": 1568.77,
+    "oracle_total_ms": 152473.90000000002,
+    "speedup_factor": 97.19
+  },
+  "trials": [
+    {
+      "repo": "click",
+      "file": "src/click/formatting.py",
+      "symbol": "measure_table",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 30.36,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1176.08,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/formatting.py",
+      "symbol": "iter_rows",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 25.14,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1154.68,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/formatting.py",
+      "symbol": "wrap_text",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 27.07,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1149.98,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/formatting.py",
+      "symbol": "HelpFormatter",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 12.37,
+        "tokens": 326,
+        "hazards": [
+          {
+            "symbol": "iter_rows",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'iter_rows'",
+            "recommendation": "Also extract 'iter_rows' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "measure_table",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'measure_table'",
+            "recommendation": "Also extract 'measure_table' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "wrap_text",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'wrap_text'",
+            "recommendation": "Also extract 'wrap_text' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 1621.34,
+        "failure_reason": "TEST_REGRESSION: FFFFFF...F.........F..F..F.............................................. [ 66%]\n......FFFFFFFFFF.F.FFFFF.............                                    [100%]\n=================================== FAIL"
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/formatting.py",
+      "symbol": "join_options",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 26.16,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1153.85,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_unpack_args",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 32.53,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1139.77,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_split_opt",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 30.08,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1149.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_normalize_opt",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 7.4,
+        "tokens": 197,
+        "hazards": [
+          {
+            "symbol": "_split_opt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_split_opt'",
+            "recommendation": "Also extract '_split_opt' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1177.12,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_Option",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 8.34,
+        "tokens": 262,
+        "hazards": [
+          {
+            "symbol": "_ParsingState",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_ParsingState'",
+            "recommendation": "Also extract '_ParsingState' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_split_opt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_split_opt'",
+            "recommendation": "Also extract '_split_opt' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 2987.06,
+        "failure_reason": "TEST_REGRESSION: FFFFFFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFF.FFFFFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFF [ 66%]\nFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                    [100%]\n=================================== FAIL"
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_Argument",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 6.52,
+        "tokens": 198,
+        "hazards": [
+          {
+            "symbol": "_ParsingState",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_ParsingState'",
+            "recommendation": "Also extract '_ParsingState' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1158.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_ParsingState",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 31.64,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1217.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/parser.py",
+      "symbol": "_OptionParser",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 26.92,
+        "tokens": 454,
+        "hazards": [
+          {
+            "symbol": "_Option",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_Option'",
+            "recommendation": "Also extract '_Option' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_ParsingState",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_ParsingState'",
+            "recommendation": "Also extract '_ParsingState' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_Argument",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_Argument'",
+            "recommendation": "Also extract '_Argument' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_normalize_opt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_normalize_opt'",
+            "recommendation": "Also extract '_normalize_opt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_unpack_args",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_unpack_args'",
+            "recommendation": "Also extract '_unpack_args' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 2833.23,
+        "failure_reason": "TEST_REGRESSION: FFFFFFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFF.FFFFFF.FFFFFFFFFFFFFFFFFFFFFFFFFFFF [ 66%]\nFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF                                    [100%]\n=================================== FAIL"
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "_mask_hidden_input",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 6.56,
+        "tokens": 207,
+        "hazards": [
+          {
+            "symbol": "_HIDDEN_INPUT_MASK",
+            "type": "constant",
+            "hazard": "Unbound module global: extracted code references local module constant '_HIDDEN_INPUT_MASK'",
+            "recommendation": "Pass '_HIDDEN_INPUT_MASK' as a parameter or extract '_HIDDEN_INPUT_MASK' to a shared config module."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1097.66,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "hidden_prompt_func",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 34.48,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1087.62,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "_readline_prompt",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 34.1,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1084.38,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "_build_prompt",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 8.35,
+        "tokens": 201,
+        "hazards": [
+          {
+            "symbol": "_format_default",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_format_default'",
+            "recommendation": "Also extract '_format_default' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1083.85,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "_format_default",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 32.96,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1076.04,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "prompt",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 12.27,
+        "tokens": 408,
+        "hazards": [
+          {
+            "symbol": "_readline_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_readline_prompt'",
+            "recommendation": "Also extract '_readline_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_build_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_build_prompt'",
+            "recommendation": "Also extract '_build_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_mask_hidden_input",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_mask_hidden_input'",
+            "recommendation": "Also extract '_mask_hidden_input' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "hidden_prompt_func",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'hidden_prompt_func'",
+            "recommendation": "Also extract 'hidden_prompt_func' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1085.76,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "prompt",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 10.13,
+        "tokens": 408,
+        "hazards": [
+          {
+            "symbol": "_readline_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_readline_prompt'",
+            "recommendation": "Also extract '_readline_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_build_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_build_prompt'",
+            "recommendation": "Also extract '_build_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_mask_hidden_input",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_mask_hidden_input'",
+            "recommendation": "Also extract '_mask_hidden_input' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "hidden_prompt_func",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'hidden_prompt_func'",
+            "recommendation": "Also extract 'hidden_prompt_func' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1083.28,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "click",
+      "file": "src/click/termui.py",
+      "symbol": "prompt",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 10.0,
+        "tokens": 408,
+        "hazards": [
+          {
+            "symbol": "_readline_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_readline_prompt'",
+            "recommendation": "Also extract '_readline_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_build_prompt",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_build_prompt'",
+            "recommendation": "Also extract '_build_prompt' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "_mask_hidden_input",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_mask_hidden_input'",
+            "recommendation": "Also extract '_mask_hidden_input' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "hidden_prompt_func",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'hidden_prompt_func'",
+            "recommendation": "Also extract 'hidden_prompt_func' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1088.02,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "dict_to_sequence",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 44.5,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1314.11,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "super_len",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 51.31,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1286.37,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "get_netrc_auth",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 11.3,
+        "tokens": 200,
+        "hazards": [
+          {
+            "symbol": "NETRC_FILES",
+            "type": "constant",
+            "hazard": "Unbound module global: extracted code references local module constant 'NETRC_FILES'",
+            "recommendation": "Pass 'NETRC_FILES' as a parameter or extract 'NETRC_FILES' to a shared config module."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1302.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "guess_filename",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 44.4,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1282.14,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "extract_zipped_paths",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 49.19,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1288.24,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "atomic_open",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 49.2,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1285.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "from_key_val_list",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 45.21,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1284.4,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "to_key_val_list",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 52.53,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1287.7,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "to_key_val_list",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 49.23,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1292.97,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "to_key_val_list",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 44.92,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1328.9,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "parse_list_header",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 10.83,
+        "tokens": 204,
+        "hazards": [
+          {
+            "symbol": "unquote_header_value",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'unquote_header_value'",
+            "recommendation": "Also extract 'unquote_header_value' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1288.45,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "parse_dict_header",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 11.39,
+        "tokens": 204,
+        "hazards": [
+          {
+            "symbol": "unquote_header_value",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'unquote_header_value'",
+            "recommendation": "Also extract 'unquote_header_value' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 1341.85,
+        "failure_reason": "TEST_REGRESSION: ..s..................................................................... [ 31%]\n............................................................F........... [ 62%]\n........................................"
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "unquote_header_value",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 46.92,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1303.81,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "dict_from_cookiejar",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 45.64,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1293.51,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "add_dict_to_cookiejar",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 45.93,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1299.18,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "get_encodings_from_content",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 52.11,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1294.84,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "_parse_content_type_header",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 44.6,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1303.36,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "get_encoding_from_headers",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 11.23,
+        "tokens": 209,
+        "hazards": [
+          {
+            "symbol": "_parse_content_type_header",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_parse_content_type_header'",
+            "recommendation": "Also extract '_parse_content_type_header' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 1385.48,
+        "failure_reason": "TEST_REGRESSION: ..s..................................................................... [ 31%]\n........................................................................ [ 62%]\nFFF....................................."
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "stream_decode_response_unicode",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 50.67,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1298.34,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "requests",
+      "file": "src/requests/utils.py",
+      "symbol": "iter_slices",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 49.6,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 1305.28,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "capfirst",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 29.93,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5316.35,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "wrap",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.5,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5197.61,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "add_truncation_text",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.69,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5239.06,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "calculate_truncate_chars_length",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 5.35,
+        "tokens": 204,
+        "hazards": [
+          {
+            "symbol": "add_truncation_text",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'add_truncation_text'",
+            "recommendation": "Also extract 'add_truncation_text' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5225.12,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "TruncateHTMLParser",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 6.44,
+        "tokens": 204,
+        "hazards": [
+          {
+            "symbol": "add_truncation_text",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'add_truncation_text'",
+            "recommendation": "Also extract 'add_truncation_text' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5293.31,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "TruncateCharsHTMLParser",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 6.8,
+        "tokens": 282,
+        "hazards": [
+          {
+            "symbol": "calculate_truncate_chars_length",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'calculate_truncate_chars_length'",
+            "recommendation": "Also extract 'calculate_truncate_chars_length' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "TruncateHTMLParser",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TruncateHTMLParser'",
+            "recommendation": "Also extract 'TruncateHTMLParser' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 3316.85,
+        "failure_reason": "IMPORT_ERROR: Building django @ file:///tmp/bench_oracle_worktrees/trial_django_TruncateCharsHTMLParser_46\n      Built django @ file:///tmp/bench_oracle_worktrees/trial_django_TruncateCharsHTMLParser_46\nUninstalled"
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "TruncateWordsHTMLParser",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 5.48,
+        "tokens": 202,
+        "hazards": [
+          {
+            "symbol": "TruncateHTMLParser",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TruncateHTMLParser'",
+            "recommendation": "Also extract 'TruncateHTMLParser' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 3306.72,
+        "failure_reason": "IMPORT_ERROR: Building django @ file:///tmp/bench_oracle_worktrees/trial_django_TruncateWordsHTMLParser_47\n      Built django @ file:///tmp/bench_oracle_worktrees/trial_django_TruncateWordsHTMLParser_47\nUninstalled"
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "Truncator",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 8.03,
+        "tokens": 429,
+        "hazards": [
+          {
+            "symbol": "TruncateCharsHTMLParser",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TruncateCharsHTMLParser'",
+            "recommendation": "Also extract 'TruncateCharsHTMLParser' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "add_truncation_text",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'add_truncation_text'",
+            "recommendation": "Also extract 'add_truncation_text' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "calculate_truncate_chars_length",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'calculate_truncate_chars_length'",
+            "recommendation": "Also extract 'calculate_truncate_chars_length' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "TruncateWordsHTMLParser",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TruncateWordsHTMLParser'",
+            "recommendation": "Also extract 'TruncateWordsHTMLParser' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5239.19,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "get_valid_filename",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 29.88,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5195.11,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "get_text_list",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 29.53,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5213.12,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "normalize_newlines",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 4.52,
+        "tokens": 200,
+        "hazards": [
+          {
+            "symbol": "re_newlines",
+            "type": "constant",
+            "hazard": "Unbound module global: extracted code references local module constant 're_newlines'",
+            "recommendation": "Pass 're_newlines' as a parameter or extract 're_newlines' to a shared config module."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5216.48,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "phone2numeric",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.28,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5191.63,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "_get_random_filename",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.26,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5221.39,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "compress_string",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 4.88,
+        "tokens": 204,
+        "hazards": [
+          {
+            "symbol": "_get_random_filename",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_get_random_filename'",
+            "recommendation": "Also extract '_get_random_filename' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5256.58,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "StreamingBuffer",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.67,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5175.47,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "compress_sequence",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 4.98,
+        "tokens": 271,
+        "hazards": [
+          {
+            "symbol": "_get_random_filename",
+            "type": "function",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol '_get_random_filename'",
+            "recommendation": "Also extract '_get_random_filename' into the target module, or move it to a shared intermediate utility."
+          },
+          {
+            "symbol": "StreamingBuffer",
+            "type": "class",
+            "hazard": "Circular import hazard: extracted code calls remaining local symbol 'StreamingBuffer'",
+            "recommendation": "Also extract 'StreamingBuffer' into the target module, or move it to a shared intermediate utility."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5252.25,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "smart_split",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 4.55,
+        "tokens": 203,
+        "hazards": [
+          {
+            "symbol": "smart_split_re",
+            "type": "constant",
+            "hazard": "Unbound module global: extracted code references local module constant 'smart_split_re'",
+            "recommendation": "Pass 'smart_split_re' as a parameter or extract 'smart_split_re' to a shared config module."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 5285.5,
+        "failure_reason": "TEST_REGRESSION: System check identified no issues (0 silenced)."
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "unescape_string_literal",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.8,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5279.35,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "slugify",
+      "devrith": {
+        "prediction": "SAFE",
+        "duration_ms": 28.44,
+        "tokens": 121,
+        "hazards": []
+      },
+      "oracle": {
+        "ground_truth": "SAFE",
+        "duration_ms": 5240.6,
+        "failure_reason": null
+      }
+    },
+    {
+      "repo": "django",
+      "file": "django/utils/text.py",
+      "symbol": "camel_case_to_spaces",
+      "devrith": {
+        "prediction": "UNSAFE",
+        "duration_ms": 4.67,
+        "tokens": 202,
+        "hazards": [
+          {
+            "symbol": "re_camel_case",
+            "type": "constant",
+            "hazard": "Unbound module global: extracted code references local module constant 're_camel_case'",
+            "recommendation": "Pass 're_camel_case' as a parameter or extract 're_camel_case' to a shared config module."
+          }
+        ]
+      },
+      "oracle": {
+        "ground_truth": "UNSAFE",
+        "duration_ms": 4140.76,
+        "failure_reason": "TEST_REGRESSION: "
+      }
+    }
+  ]
+}

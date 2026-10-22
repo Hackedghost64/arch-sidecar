@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-17",
+  "arm": "serena",
+  "repo": "click",
+  "category": "ambiguous_context_query",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 1363.0,
+    "min_tool_duration_ms": 1363,
+    "max_tool_duration_ms": 1363,
+    "mean_tokens": 450.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PASSED"
+  },
+  "runs": [
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 450,
+      "tool_duration_ms": 1363,
+      "wall_clock_ms": 1363,
+      "details": "Serena retrieved precise symbol definition via LSP (~450 tokens).",
+      "run_index": 1
+    }
+  ]
+}

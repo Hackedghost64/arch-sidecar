@@ -4,6 +4,7 @@ import re
 import sys
 from typing import Dict, List, Optional, Set, Any
 from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary, estimate_tokens
+from .ts_ast import format_ts_digest_skeleton
 
 def _format_arg(arg: ast.arg, default: Optional[ast.AST] = None) -> str:
     """Format an ast.arg with optional type annotation and default value."""
@@ -16,17 +17,21 @@ def _format_function_signature(node: ast.FunctionDef | ast.AsyncFunctionDef) -> 
     """Extract a clean, readable function signature with args and return annotation."""
     args_parts = []
     
-    # Positional args and defaults
-    pos_args = node.args.args
-    defaults = node.args.defaults
-    num_no_defaults = len(pos_args) - len(defaults)
+    # Positional-only and standard positional args share node.args.defaults
+    posonly_args = list(getattr(node.args, "posonlyargs", []))
+    pos_args = list(node.args.args)
+    all_pos = posonly_args + pos_args
+    defaults = list(node.args.defaults)
+    num_no_defaults = len(all_pos) - len(defaults)
     
-    for i, arg in enumerate(pos_args):
+    for i, arg in enumerate(all_pos):
         if i >= num_no_defaults:
             default = defaults[i - num_no_defaults]
         else:
             default = None
         args_parts.append(_format_arg(arg, default))
+        if posonly_args and i == len(posonly_args) - 1:
+            args_parts.append("/")
         
     # *args (vararg)
     if node.args.vararg:
@@ -110,9 +115,11 @@ def parse_python_file(filepath: str, include_docstrings: bool = True) -> str:
     # Classes and Functions
     for node in tree.body:
         if isinstance(node, ast.ClassDef):
+            cls_decorators = [f"@{ast.unparse(d)}" for d in node.decorator_list]
+            cls_dec_prefix = f"[{', '.join(cls_decorators)}] " if cls_decorators else ""
             bases = [ast.unparse(b) for b in node.bases]
             base_str = f"({', '.join(bases)})" if bases else ""
-            summary.append(f"  class {node.name}{base_str}:")
+            summary.append(f"  {cls_dec_prefix}class {node.name}{base_str}:")
             
             # Class docstring
             cls_doc = ast.get_docstring(node)
@@ -122,13 +129,13 @@ def parse_python_file(filepath: str, include_docstrings: bool = True) -> str:
                 
             for item in node.body:
                 if isinstance(item, (ast.FunctionDef, ast.AsyncFunctionDef)):
-                    decorators = [f"@{ast.unparse(d)}" for d in item.decorator_list if hasattr(d, "id") or hasattr(d, "attr")]
+                    decorators = [f"@{ast.unparse(d)}" for d in item.decorator_list]
                     dec_prefix = f"[{', '.join(decorators)}] " if decorators else ""
                     sig = _format_function_signature(item)
                     summary.append(f"    {dec_prefix}{sig}")
                     
         elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            decorators = [f"@{ast.unparse(d)}" for d in node.decorator_list if hasattr(d, "id") or hasattr(d, "attr")]
+            decorators = [f"@{ast.unparse(d)}" for d in node.decorator_list]
             dec_prefix = f"[{', '.join(decorators)}] " if decorators else ""
             sig = _format_function_signature(node)
             summary.append(f"  {dec_prefix}{sig}")
@@ -136,24 +143,8 @@ def parse_python_file(filepath: str, include_docstrings: bool = True) -> str:
     return "\n".join(summary) + "\n"
 
 def parse_ts_js_file(filepath: str) -> str:
-    """Extracts declarations and imports from TypeScript/JavaScript files."""
-    summary: List[str] = []
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                stripped = line.strip()
-                if not stripped or stripped.startswith(("//", "/*", "*")):
-                    continue
-                if re.match(r"^(export\s+)?(class|interface|type|enum|const|function|async\s+function)\s+", stripped):
-                    # Clean up function body opening
-                    clean = stripped.split("{")[0].strip()
-                    summary.append(f"  {clean}")
-                elif stripped.startswith("import ") and "from" in stripped:
-                    summary.append(f"  {stripped.rstrip(';')}")
-    except Exception as e:
-        return f"  [Error reading JS/TS: {e}]\n"
-        
-    return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
+    """Extracts declarations, interfaces, types, and imports from TypeScript/JavaScript files."""
+    return format_ts_digest_skeleton(filepath)
 
 def parse_jvm_file(filepath: str) -> str:
     """Extract declarations and signatures from Kotlin (.kt) or Java (.java) files."""
@@ -246,42 +237,59 @@ def generate_digest(
         ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"
     }
 
-    for root, dirs, files in os.walk(root_abs):
-        # Filter directories in-place
-        dirs[:] = [
-            d for d in dirs 
-            if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs), ignored_dirs)
-        ]
-        
-        # Sort files for deterministic output
-        files.sort()
-        for file in files:
-            rel_path = os.path.relpath(os.path.join(root, file), root_abs)
-            
-            if is_ignored_path(rel_path, ignored_dirs):
-                continue
-                
-            _, ext = os.path.splitext(file)
-            if ext.lower() not in scanned_extensions:
-                continue
-
-            full_path = os.path.join(root, file)
-            if is_minified_or_binary(full_path):
-                continue
-
-            output.append(f"--- File: {rel_path} ---")
+    if os.path.isfile(root_abs):
+        file = os.path.basename(root_abs)
+        _, ext = os.path.splitext(file)
+        if ext.lower() in scanned_extensions and not is_minified_or_binary(root_abs):
+            output.append(f"--- File: {file} ---")
             files_indexed += 1
-            
             if ext.lower() == ".py":
-                output.append(parse_python_file(full_path))
+                output.append(parse_python_file(root_abs))
             elif ext.lower() in {".ts", ".js", ".tsx", ".jsx"}:
-                output.append(parse_ts_js_file(full_path))
+                output.append(parse_ts_js_file(root_abs))
             elif ext.lower() in {".java", ".kt"}:
-                output.append(parse_jvm_file(full_path))
+                output.append(parse_jvm_file(root_abs))
             elif ext.lower() in {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"}:
-                output.append(parse_c_cpp_file(full_path))
+                output.append(parse_c_cpp_file(root_abs))
             else:
-                output.append(parse_generic_file(full_path))
+                output.append(parse_generic_file(root_abs))
+    else:
+        for root, dirs, files in os.walk(root_abs):
+            # Filter directories in-place
+            dirs[:] = [
+                d for d in dirs 
+                if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs), ignored_dirs)
+            ]
+            
+            # Sort files for deterministic output
+            files.sort()
+            for file in files:
+                rel_path = os.path.relpath(os.path.join(root, file), root_abs)
+                
+                if is_ignored_path(rel_path, ignored_dirs):
+                    continue
+                    
+                _, ext = os.path.splitext(file)
+                if ext.lower() not in scanned_extensions:
+                    continue
+
+                full_path = os.path.join(root, file)
+                if is_minified_or_binary(full_path):
+                    continue
+
+                output.append(f"--- File: {rel_path} ---")
+                files_indexed += 1
+                
+                if ext.lower() == ".py":
+                    output.append(parse_python_file(full_path))
+                elif ext.lower() in {".ts", ".js", ".tsx", ".jsx"}:
+                    output.append(parse_ts_js_file(full_path))
+                elif ext.lower() in {".java", ".kt"}:
+                    output.append(parse_jvm_file(full_path))
+                elif ext.lower() in {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"}:
+                    output.append(parse_c_cpp_file(full_path))
+                else:
+                    output.append(parse_generic_file(full_path))
 
     digest_text = "\n".join(output)
     token_est = estimate_tokens(digest_text)

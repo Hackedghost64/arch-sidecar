@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-11",
+  "arm": "serena",
+  "repo": "requests",
+  "category": "multi_file_refactoring",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 1396.0,
+    "min_tool_duration_ms": 1396,
+    "max_tool_duration_ms": 1396,
+    "mean_tokens": 600.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PARTIAL_SUPPORT"
+  },
+  "runs": [
+    {
+      "status": "PARTIAL_SUPPORT",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 600,
+      "tool_duration_ms": 1396,
+      "wall_clock_ms": 1396,
+      "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
+      "run_index": 1
+    }
+  ]
+}

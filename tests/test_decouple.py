@@ -352,3 +352,208 @@ def other():
         assert "def to_kv" not in from_code
         assert "from _kv import to_kv\n" in from_code
 
+
+def test_mutable_shared_global_state_desync_hazard_blocked():
+    """Ensures extracting a function with 'global x' when x is also used in remaining module is blocked."""
+    source = """
+x = 0
+
+def mutator():
+    global x
+    x += 1
+
+def reader():
+    return x
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "app.py")
+        to_file = os.path.join(tmpdir, "mutator.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="mutator",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is False
+        assert "Mutable shared module state desynchronization hazard" in res["error"]
+        assert any(h["symbol"] == "x" for h in res["state_desync_hazards"])
+
+
+def test_flask_route_decorator_hazard_blocked():
+    """Ensures extracting a function decorated with @app.route is blocked with Blueprint advice."""
+    source = """
+from flask import Flask
+app = Flask(__name__)
+
+@app.route('/test')
+def test_route():
+    return "ok"
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "server.py")
+        to_file = os.path.join(tmpdir, "routes.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="test_route",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is False
+        assert "Framework route" in res["error"]
+        assert any("Blueprint" in h["recommendation"] for h in res["framework_hazards"])
+
+
+def test_hardcoded_secret_credential_warning():
+    """Ensures extracting a variable matching secret patterns emits a warning."""
+    source = """
+API_KEY = "sk-12345"
+def helper():
+    return API_KEY
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "config.py")
+        to_file = os.path.join(tmpdir, "keys.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="API_KEY",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is True
+        assert any("Secret credential hazard" in w["hazard"] for w in res["secret_warnings"])
+
+
+def test_reverse_direction_global_desync_hazard_blocked():
+    """Ensures extracting a reader function when remaining code mutates a shared global via `global counter` is blocked."""
+    source = """
+counter = 0
+
+def increment():
+    global counter
+    counter += 1
+
+def get_status():
+    return {"count": counter}
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "app.py")
+        to_file = os.path.join(tmpdir, "status.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="get_status",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is False
+        assert "Mutable shared module state desynchronization hazard" in res["error"]
+        assert any(h["symbol"] == "counter" for h in res["state_desync_hazards"])
+
+
+def test_wildcard_import_preserved_and_late_import_line_shift():
+    """
+    Ensures wildcard imports (`from datetime import *`) are preserved when extracted code uses
+    symbols from them, and late imports after extracted functions do not corrupt insertion offsets.
+    """
+    source = """from datetime import *
+
+def stamp():
+    return datetime.now().isoformat()
+
+import os
+
+def other():
+    return os.getcwd() + stamp()
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "main_mod.py")
+        to_file = os.path.join(tmpdir, "time_utils.py")
+        with open(from_file, "w") as f:
+            f.write(source)
+
+        res = prefactor_decouple(
+            symbol="stamp",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir,
+            run_tests='python3 -c "import main_mod; assert len(main_mod.other()) > 5"'
+        )
+        assert res["success"] is True
+        with open(to_file) as f:
+            to_content = f.read()
+        assert "from datetime import *" in to_content
+
+
+def test_append_to_existing_file_preserves_future_annotations_at_top():
+    """Appending new symbols + missing imports to an existing file with `from __future__ import annotations` keeps `__future__` at top."""
+    existing_target = '''"""Target module docstring."""
+from __future__ import annotations
+
+def existing_fn(x: int) -> int:
+    return x + 1
+'''
+    source_code = """import math
+
+def extra_fn(y: float) -> float:
+    return math.sqrt(y)
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "src_mod.py")
+        to_file = os.path.join(tmpdir, "target_mod.py")
+        with open(from_file, "w") as f:
+            f.write(source_code)
+        with open(to_file, "w") as f:
+            f.write(existing_target)
+
+        res = prefactor_decouple(
+            symbol="extra_fn",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir,
+            run_tests='python3 -c "import target_mod; assert target_mod.extra_fn(9.0) == 3.0"'
+        )
+        assert res["success"] is True
+        with open(to_file) as f:
+            to_text = f.read()
+        assert to_text.index("from __future__ import annotations") < to_text.index("import math")
+
+
+def test_typevar_annotations_do_not_trigger_global_hazard():
+    """TypeVar definitions at module level are static typing constructs and should not block extraction."""
+    source_code = """from typing import TypeVar, Iterable
+
+_KT = TypeVar("_KT")
+_VT = TypeVar("_VT")
+
+def to_key_val_list(value: Iterable[tuple[_KT, _VT]]) -> list[tuple[_KT, _VT]]:
+    return list(value)
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "utils.py")
+        to_file = os.path.join(tmpdir, "extracted_util.py")
+        with open(from_file, "w") as f:
+            f.write(source_code)
+
+        res = prefactor_decouple(
+            symbol="to_key_val_list",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is True
+        assert res.get("global_state_hazards") is None or len(res.get("global_state_hazards", [])) == 0
+
+
+
+

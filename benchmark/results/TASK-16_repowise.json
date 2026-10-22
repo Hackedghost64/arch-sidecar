@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-16",
+  "arm": "repowise",
+  "repo": "requests",
+  "category": "ambiguous_context_query",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 163.0,
+    "min_tool_duration_ms": 163,
+    "max_tool_duration_ms": 163,
+    "mean_tokens": 650.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PASSED"
+  },
+  "runs": [
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 650,
+      "tool_duration_ms": 163,
+      "wall_clock_ms": 163,
+      "details": "Repowise returned symbol card and caller references.",
+      "run_index": 1
+    }
+  ]
+}

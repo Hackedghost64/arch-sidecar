@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-09",
+  "arm": "devrith",
+  "repo": "django",
+  "category": "unsafe_extraction",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 20.0,
+    "min_tool_duration_ms": 20,
+    "max_tool_duration_ms": 20,
+    "mean_tokens": 180.0,
+    "total_preflight_catches": 0,
+    "primary_status": "BLOCKED_AS_EXPECTED"
+  },
+  "runs": [
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 180,
+      "tool_duration_ms": 20,
+      "wall_clock_ms": 20,
+      "details": "Devrith detected hazards: []",
+      "run_index": 1
+    }
+  ]
+}

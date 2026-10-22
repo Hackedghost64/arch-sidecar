@@ -1,0 +1,266 @@
+{
+  "version": "1.0.0",
+  "created_at": "2026-10-22T18:41:00Z",
+  "repositories": {
+    "requests": {
+      "name": "psf/requests",
+      "path": "/tmp/bench_repos/requests",
+      "revision": "611c6162cbc4ac2020a2f91c7cfa4f3abf9bbb60",
+      "test_command": "PYTHONPATH=src pytest tests/test_utils.py"
+    },
+    "click": {
+      "name": "pallets/click",
+      "path": "/tmp/bench_repos/click",
+      "revision": "2247b35ea1c47c727d7a06e51fa280e12a863ff6",
+      "test_command": "PYTHONPATH=src pytest tests/test_basic.py"
+    },
+    "django": {
+      "name": "django/django",
+      "path": "/home/divyam/Downloads/projects/django",
+      "revision": "79502d08405dbf24efa39e8731320f31035b9e9c",
+      "test_command": "./tests/runtests.py utils_tests"
+    }
+  },
+  "tasks": [
+    {
+      "id": "TASK-01",
+      "category": "safe_extraction",
+      "repo": "requests",
+      "file_path": "src/requests/utils.py",
+      "symbol": "super_len",
+      "target_file": "src/requests/compat_len.py",
+      "description": "Extract super_len utility into a dedicated compat_len module",
+      "expected_behavior": "PERMIT_EXTRACTION",
+      "expected_hazards": [],
+      "verification_criteria": "Module compiles cleanly, backward-compat alias added to utils.py, PYTHONPATH=src pytest tests/test_utils.py passes."
+    },
+    {
+      "id": "TASK-02",
+      "category": "safe_extraction",
+      "repo": "requests",
+      "file_path": "src/requests/utils.py",
+      "symbol": "to_key_val_list",
+      "target_file": "src/requests/structures_util.py",
+      "description": "Extract to_key_val_list into structures_util",
+      "expected_behavior": "PERMIT_EXTRACTION",
+      "expected_hazards": [],
+      "verification_criteria": "Deterministic AST extraction without breaking callers, pytest tests/test_utils.py passes."
+    },
+    {
+      "id": "TASK-03",
+      "category": "safe_extraction",
+      "repo": "click",
+      "file_path": "src/click/formatting.py",
+      "symbol": "wrap_text",
+      "target_file": "src/click/text_wrap.py",
+      "description": "Extract wrap_text function from formatting.py into text_wrap.py",
+      "expected_behavior": "PERMIT_EXTRACTION",
+      "expected_hazards": [],
+      "verification_criteria": "wrap_text moved with internal textwrap dependencies, callers in formatting.py retain backward-compatible import, click tests pass."
+    },
+    {
+      "id": "TASK-04",
+      "category": "safe_extraction",
+      "repo": "django",
+      "file_path": "django/utils/text.py",
+      "symbol": "slugify",
+      "target_file": "django/utils/slug_util.py",
+      "description": "Extract slugify string utility from django/utils/text.py to django/utils/slug_util.py",
+      "expected_behavior": "PERMIT_EXTRACTION",
+      "expected_hazards": [],
+      "verification_criteria": "AST extraction preserves unicodedata/re dependencies, text.py re-exports slugify, ./tests/runtests.py utils_tests passes."
+    },
+    {
+      "id": "TASK-05",
+      "category": "safe_extraction",
+      "repo": "django",
+      "file_path": "django/utils/text.py",
+      "symbol": "capfirst",
+      "target_file": "django/utils/string_helpers.py",
+      "description": "Extract capfirst helper from django/utils/text.py to string_helpers.py",
+      "expected_behavior": "PERMIT_EXTRACTION",
+      "expected_hazards": [],
+      "verification_criteria": "Clean extraction, re-export alias in text.py, passes ./tests/runtests.py utils_tests."
+    },
+    {
+      "id": "TASK-06",
+      "category": "unsafe_extraction",
+      "repo": "requests",
+      "file_path": "src/requests/sessions.py",
+      "symbol": "Session",
+      "target_file": "src/requests/base_session.py",
+      "description": "Extract Session class out of sessions.py without resolving SessionRedirectMixin or default adapter hooks",
+      "expected_behavior": "BLOCK_OR_WARN_HAZARD",
+      "expected_hazards": ["circular_dependency_hazard", "tight_coupling"],
+      "verification_criteria": "Engine must identify circular import hazard with remaining symbols in sessions.py and block unsafe naive split."
+    },
+    {
+      "id": "TASK-07",
+      "category": "unsafe_extraction",
+      "repo": "click",
+      "file_path": "src/click/utils.py",
+      "symbol": "echo",
+      "target_file": "src/click/terminal_out.py",
+      "description": "Extract echo function which depends on module-level mutable stdout state and _default_text_stdout",
+      "expected_behavior": "BLOCK_OR_WARN_HAZARD",
+      "expected_hazards": ["shared_module_state_desync", "global_stream_entanglement"],
+      "verification_criteria": "Tool flags shared mutable global stream reference; prevents un-synchronized multi-module stream mutation."
+    },
+    {
+      "id": "TASK-08",
+      "category": "unsafe_extraction",
+      "repo": "django",
+      "file_path": "django/db/models/query.py",
+      "symbol": "QuerySet",
+      "target_file": "django/db/models/queryset_base.py",
+      "description": "Extract QuerySet to standalone module without handling deferred Manager import in QuerySet.as_manager()",
+      "expected_behavior": "BLOCK_OR_WARN_HAZARD",
+      "expected_hazards": ["circular_dependency_cycle", "deferred_import_hazard"],
+      "verification_criteria": "Tool identifies dynamic cycle between QuerySet and Manager; prevents breaking runtime model loading."
+    },
+    {
+      "id": "TASK-09",
+      "category": "unsafe_extraction",
+      "repo": "django",
+      "file_path": "django/contrib/admin/sites.py",
+      "symbol": "AdminSite",
+      "target_file": "django/contrib/admin/base_site.py",
+      "description": "Extract AdminSite while naively hoisting deferred in-method model imports to module level",
+      "expected_behavior": "BLOCK_OR_WARN_HAZARD",
+      "expected_hazards": ["app_registry_not_ready", "circular_admin_cycle"],
+      "verification_criteria": "Preflight must detect circular import hazard when admin models are evaluated prior to AppRegistry initialization."
+    },
+    {
+      "id": "TASK-10",
+      "category": "unsafe_extraction",
+      "repo": "click",
+      "file_path": "src/click/globals.py",
+      "symbol": "get_current_context",
+      "target_file": "src/click/context_lookup.py",
+      "description": "Extract get_current_context without binding thread-local stack _local.__storage__",
+      "expected_behavior": "BLOCK_OR_WARN_HAZARD",
+      "expected_hazards": ["thread_local_state_desync"],
+      "verification_criteria": "Tool blocks extraction or warns of unbound module-scoped thread-local state object."
+    },
+    {
+      "id": "TASK-11",
+      "category": "multi_file_refactoring",
+      "repo": "requests",
+      "file_path": "src/requests/sessions.py",
+      "symbol": "SessionRedirectMixin",
+      "target_file": "src/requests/redirects.py",
+      "description": "Move SessionRedirectMixin to redirects.py, update inheritance in Session, and adjust external test references",
+      "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
+      "expected_hazards": [],
+      "verification_criteria": "SessionRedirectMixin moved, sessions.py imports it cleanly, tests/test_utils.py and sessions tests pass."
+    },
+    {
+      "id": "TASK-12",
+      "category": "multi_file_refactoring",
+      "repo": "requests",
+      "file_path": "src/requests/sessions.py",
+      "symbol": "merge_setting",
+      "target_file": "src/requests/settings_util.py",
+      "description": "Move merge_setting and merge_hooks helper functions into settings_util.py and rewire sessions.py callers",
+      "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
+      "expected_hazards": [],
+      "verification_criteria": "Both functions decoupled together, callers updated, no circular import, test suite passes."
+    },
+    {
+      "id": "TASK-13",
+      "category": "multi_file_refactoring",
+      "repo": "click",
+      "file_path": "src/click/types.py",
+      "symbol": "Choice",
+      "target_file": "src/click/choice_type.py",
+      "description": "Move Choice parameter class to choice_type.py, preserving ParamType base class dependency and core.py usage",
+      "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
+      "expected_hazards": [],
+      "verification_criteria": "Choice decoupled with proper relative import to ParamType, click basic tests pass."
+    },
+    {
+      "id": "TASK-14",
+      "category": "multi_file_refactoring",
+      "repo": "django",
+      "file_path": "django/core/validators.py",
+      "symbol": "URLValidator",
+      "target_file": "django/core/url_validator.py",
+      "description": "Move URLValidator to url_validator.py, maintaining RegexValidator base class link and re-exports",
+      "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
+      "expected_hazards": [],
+      "verification_criteria": "Inheritance unbroken, validators.py maintains re-export, validator tests pass."
+    },
+    {
+      "id": "TASK-15",
+      "category": "multi_file_refactoring",
+      "repo": "django",
+      "file_path": "django/core/validators.py",
+      "symbol": "RegexValidator",
+      "target_file": "django/core/regex_validator.py",
+      "description": "Move base RegexValidator class to regex_validator.py and update downstream subclasses in validators.py",
+      "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
+      "expected_hazards": [],
+      "verification_criteria": "8+ dependent validator classes in validators.py successfully resolve base class, preflight confirms DAG integrity."
+    },
+    {
+      "id": "TASK-16",
+      "category": "ambiguous_context_query",
+      "repo": "requests",
+      "file_path": "src/requests/auth.py",
+      "symbol": "_basic_auth_str",
+      "target_file": null,
+      "description": "Find where HTTP basic authentication credentials string formatting is defined",
+      "expected_behavior": "MINIMAL_CONTEXT_RETRIEVAL",
+      "expected_hazards": [],
+      "verification_criteria": "Returns exact function body (<250 tokens) without ingesting sessions.py, models.py, or adapters.py."
+    },
+    {
+      "id": "TASK-17",
+      "category": "ambiguous_context_query",
+      "repo": "click",
+      "file_path": "src/click/shell_completion.py",
+      "symbol": "ShellComplete",
+      "target_file": null,
+      "description": "Locate how Click formats shell autocomplete scripts and handles Bash/Zsh/Fish completion",
+      "expected_behavior": "MINIMAL_CONTEXT_RETRIEVAL",
+      "expected_hazards": [],
+      "verification_criteria": "Locates ShellComplete class and completion generator without reading whole formatting.py or parser.py."
+    },
+    {
+      "id": "TASK-18",
+      "category": "ambiguous_context_query",
+      "repo": "django",
+      "file_path": "django/db/models/fields/related_descriptors.py",
+      "symbol": "ReverseManyToOneDescriptor",
+      "target_file": null,
+      "description": "Find how Django models generate reverse foreign key relation managers",
+      "expected_behavior": "MINIMAL_CONTEXT_RETRIEVAL",
+      "expected_hazards": [],
+      "verification_criteria": "Identifies ReverseManyToOneDescriptor without reading all 966 Django source files."
+    },
+    {
+      "id": "TASK-19",
+      "category": "ambiguous_context_query",
+      "repo": "requests",
+      "file_path": "src/requests/certs.py",
+      "symbol": "where",
+      "target_file": null,
+      "description": "Locate where Requests handles SSL default CA certificate bundle discovery",
+      "expected_behavior": "MINIMAL_CONTEXT_RETRIEVAL",
+      "expected_hazards": [],
+      "verification_criteria": "Returns where() function and certifi fallback in <100 tokens."
+    },
+    {
+      "id": "TASK-20",
+      "category": "ambiguous_context_query",
+      "repo": "click",
+      "file_path": "src/click/_termui_impl.py",
+      "symbol": "isatty",
+      "target_file": null,
+      "description": "Find how Click detects whether terminal output is a tty or piped stream",
+      "expected_behavior": "MINIMAL_CONTEXT_RETRIEVAL",
+      "expected_hazards": [],
+      "verification_criteria": "Returns exact isatty implementation without ingesting termui.py."
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-15",
+  "arm": "devrith",
+  "repo": "django",
+  "category": "multi_file_refactoring",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 36.0,
+    "min_tool_duration_ms": 36,
+    "max_tool_duration_ms": 36,
+    "mean_tokens": 220.0,
+    "total_preflight_catches": 0,
+    "primary_status": "PREFLIGHT_WARNING"
+  },
+  "runs": [
+    {
+      "status": "PREFLIGHT_WARNING",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 36,
+      "wall_clock_ms": 36,
+      "details": "Deterministic AST extraction completed in 36ms; health: None.",
+      "run_index": 1
+    }
+  ]
+}

@@ -107,3 +107,91 @@ def b_func():
         cycles = [i for i in res["issues"] if i["type"] == "CIRCULAR_IMPORT"]
         assert len(cycles) == 1
         assert "mod_a.py -> mod_b.py -> mod_a.py" in cycles[0]["cycle"]
+
+
+def test_guard_wildcard_import_does_not_blind_undefined_symbols():
+    """Ensures `from math import *` resolves math symbols while still catching hallucinated names."""
+    code = """from math import *
+
+def calc(x: float) -> float:
+    valid = sqrt(x) + cos(x)
+    return valid + totally_hallucinated_func(x)
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpath = os.path.join(tmpdir, "wild.py")
+        with open(fpath, "w") as f:
+            f.write(code)
+
+        res = check_code_health(fpath, project_root=tmpdir)
+        assert res["success"] is False
+        undef = [i["symbol"] for i in res["issues"] if i["type"] == "UNDEFINED_SYMBOL"]
+        assert "totally_hallucinated_func" in undef
+        assert "sqrt" not in undef
+        assert "cos" not in undef
+
+
+def test_guard_detects_unbound_global_and_invalid_nonlocal():
+    """Ensures `global x` reading an undefined module variable or `nonlocal z` without enclosing binding is caught."""
+    code = """
+def bad_global():
+    global missing_global_counter
+    missing_global_counter = missing_global_counter + 1
+    return missing_global_counter
+
+def bad_nonlocal():
+    nonlocal no_enclosing_var
+    no_enclosing_var = 1
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpath = os.path.join(tmpdir, "scope_bugs.py")
+        with open(fpath, "w") as f:
+            f.write(code)
+
+        res = check_code_health(fpath, project_root=tmpdir)
+        assert res["success"] is False
+        undef = [i["symbol"] for i in res["issues"] if i["type"] == "UNDEFINED_SYMBOL"]
+        assert "missing_global_counter" in undef
+        assert "no_enclosing_var" in undef
+
+
+def test_guard_class_body_scope_does_not_leak_into_methods():
+    """In Python, class attributes and methods are NOT in lexical scope inside methods without `self.` or `ClassName.`."""
+    code = """
+class Engine:
+    DEFAULT_SPEED = 100
+
+    def helper(self) -> int:
+        return 1
+
+    def run(self) -> int:
+        # Missing self. on both DEFAULT_SPEED and helper!
+        return DEFAULT_SPEED + helper()
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        fpath = os.path.join(tmpdir, "engine.py")
+        with open(fpath, "w") as f:
+            f.write(code)
+
+        res = check_code_health(fpath, project_root=tmpdir)
+        assert res["success"] is False
+        undef = [i["symbol"] for i in res["issues"] if i["type"] == "UNDEFINED_SYMBOL"]
+        assert "DEFAULT_SPEED" in undef
+        assert "helper" in undef
+
+
+def test_guard_detects_multi_hop_circular_import_cycle():
+    """Detects 3-hop circular import cycles: mod_a -> mod_b -> mod_c -> mod_a."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(os.path.join(tmpdir, "mod_a.py"), "w") as f:
+            f.write("import mod_b\ndef a(): return 1\n")
+        with open(os.path.join(tmpdir, "mod_b.py"), "w") as f:
+            f.write("import mod_c\ndef b(): return 2\n")
+        with open(os.path.join(tmpdir, "mod_c.py"), "w") as f:
+            f.write("import mod_a\ndef c(): return 3\n")
+
+        res = check_code_health(os.path.join(tmpdir, "mod_a.py"), project_root=tmpdir)
+        assert res["success"] is False
+        cycles = [i for i in res["issues"] if i["type"] == "CIRCULAR_IMPORT"]
+        assert len(cycles) == 1
+        assert "mod_a.py -> mod_b.py -> mod_c.py -> mod_a.py" in cycles[0]["cycle"]
+

@@ -1,6 +1,10 @@
 import os
 import re
-from typing import Set
+import json
+import shutil
+import subprocess
+from typing import Set, Optional, List, Dict, Any
+
 
 # Default directories that contain generated assets, caches, dependencies, or dist bundles
 DEFAULT_IGNORED_DIRS: Set[str] = {
@@ -104,3 +108,143 @@ def is_minified_or_binary(filepath: str, max_check_lines: int = 15) -> bool:
 def estimate_tokens(text: str) -> int:
     """Quick and reliable heuristic for token count (~4 characters per token)."""
     return max(1, len(text) // 4)
+
+
+def find_ruff_binary() -> Optional[str]:
+    """Locates the ruff binary on PATH or in ~/.local/bin/ruff."""
+    found = shutil.which("ruff")
+    if found:
+        return found
+    fallback = os.path.expanduser("~/.local/bin/ruff")
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return fallback
+    return None
+
+
+def find_oxlint_binary() -> Optional[str]:
+    """Locates the oxlint (Rust TS/JS linter) binary on PATH."""
+    found = shutil.which("oxlint")
+    if found:
+        return found
+    fallback = os.path.expanduser("~/.nvm/versions/node/v22.22.2/bin/oxlint")
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return fallback
+    return None
+
+
+def find_biome_binary() -> Optional[str]:
+    """Locates the biome (Rust TS/JS toolchain) binary on PATH."""
+    found = shutil.which("biome")
+    if found:
+        return found
+    fallback = os.path.expanduser("~/.nvm/versions/node/v22.22.2/bin/biome")
+    if os.path.isfile(fallback) and os.access(fallback, os.X_OK):
+        return fallback
+    return None
+
+
+def run_oxlint_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
+    """
+    Executes oxlint on a TypeScript/JavaScript file and parses JSON diagnostics.
+    """
+    oxlint_bin = find_oxlint_binary()
+    if not oxlint_bin or not os.path.isfile(file_path):
+        return []
+
+    try:
+        res = subprocess.run(
+            [oxlint_bin, "--format", "json", file_path],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if not res.stdout.strip():
+            return []
+        data = json.loads(res.stdout)
+        diagnostics = data.get("diagnostics", []) if isinstance(data, dict) else []
+        
+        parsed: List[Dict[str, Any]] = []
+        for diag in diagnostics:
+            labels = diag.get("labels", [])
+            span = labels[0].get("span", {}) if labels else {}
+            parsed.append({
+                "code": diag.get("code") or "oxlint",
+                "message": diag.get("message") or "",
+                "severity": (diag.get("severity") or "warning").upper(),
+                "line": span.get("line", 1),
+                "column": span.get("column", 1),
+                "help": diag.get("help", ""),
+            })
+        return parsed
+    except Exception:
+        return []
+
+
+def run_biome_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
+    """
+    Executes biome lint on a TypeScript/JavaScript file and parses JSON diagnostics.
+    """
+    biome_bin = find_biome_binary()
+    if not biome_bin or not os.path.isfile(file_path):
+        return []
+
+    try:
+        res = subprocess.run(
+            [biome_bin, "lint", "--reporter", "json", file_path],
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if not res.stdout.strip():
+            return []
+        data = json.loads(res.stdout)
+        diagnostics = data.get("diagnostics", []) if isinstance(data, dict) else []
+        
+        parsed: List[Dict[str, Any]] = []
+        for diag in diagnostics:
+            location = diag.get("location", {})
+            position = location.get("path", {}).get("line", 1) if isinstance(location.get("path"), dict) else 1
+            parsed.append({
+                "code": diag.get("category") or "biome",
+                "message": diag.get("description") or "",
+                "severity": (diag.get("severity") or "warning").upper(),
+                "line": position,
+                "column": 1,
+            })
+        return parsed
+    except Exception:
+        return []
+
+
+def run_ruff_autofix(file_paths: List[str], project_root: str = ".") -> bool:
+    """
+    Executes ruff import cleanup and formatting deterministically ($0.00 LLM cost):
+    1. `ruff check --fix --select I,F401`: cleans dead imports and organizes isort imports.
+    2. `ruff format`: standardizes code layout.
+    """
+    ruff_bin = find_ruff_binary()
+    if not ruff_bin:
+        return False
+
+    success = True
+    for p in file_paths:
+        if os.path.isfile(p):
+            try:
+                subprocess.run(
+                    [ruff_bin, "check", "--fix", "--select=I,F401", p],
+                    cwd=project_root,
+                    capture_output=True,
+                    timeout=5,
+                )
+                subprocess.run(
+                    [ruff_bin, "format", p],
+                    cwd=project_root,
+                    capture_output=True,
+                    timeout=5,
+                )
+            except Exception:
+                success = False
+    return success
+

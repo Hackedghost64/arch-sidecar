@@ -1,0 +1,28 @@
+{
+  "task_id": "TASK-11",
+  "arm": "repowise",
+  "repo": "requests",
+  "category": "multi_file_refactoring",
+  "repetitions": 1,
+  "aggregate": {
+    "mean_tool_duration_ms": 141.0,
+    "min_tool_duration_ms": 141,
+    "max_tool_duration_ms": 141,
+    "mean_tokens": 1200.0,
+    "total_preflight_catches": 0,
+    "primary_status": "UNSUPPORTED_OPERATION"
+  },
+  "runs": [
+    {
+      "status": "UNSUPPORTED_OPERATION",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1200,
+      "tool_duration_ms": 141,
+      "wall_clock_ms": 141,
+      "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
+      "run_index": 1
+    }
+  ]
+}

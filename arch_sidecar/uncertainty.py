@@ -202,23 +202,27 @@ def scan_file_uncertainty(filepath: str, rel_path: Optional[str] = None) -> List
         return []
 
 def scan_codebase_uncertainty(root_dir: str = ".") -> Dict[str, Any]:
-    """Scans all Python files in root_dir for dynamic uncertainty patterns."""
+    """Scans all Python files in root_dir (or a single Python file) for dynamic uncertainty patterns."""
     root_abs = os.path.abspath(root_dir)
     all_findings: List[UncertaintyFinding] = []
 
-    for root, dirs, files in os.walk(root_abs):
-        dirs[:] = [
-            d for d in dirs 
-            if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
-        ]
-        for f in files:
-            if f.endswith(".py"):
-                full_path = os.path.join(root, f)
-                rel_path = os.path.relpath(full_path, root_abs)
-                if is_ignored_path(rel_path):
-                    continue
-                findings = scan_file_uncertainty(full_path, rel_path)
-                all_findings.extend(findings)
+    if os.path.isfile(root_abs):
+        if root_abs.endswith(".py"):
+            all_findings.extend(scan_file_uncertainty(root_abs, os.path.basename(root_abs)))
+    else:
+        for root, dirs, files in os.walk(root_abs):
+            dirs[:] = [
+                d for d in dirs 
+                if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
+            ]
+            for f in files:
+                if f.endswith(".py"):
+                    full_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(full_path, root_abs)
+                    if is_ignored_path(rel_path):
+                        continue
+                    findings = scan_file_uncertainty(full_path, rel_path)
+                    all_findings.extend(findings)
 
     resolved_count = 0  # Static AST references
     potential_count = sum(1 for f in all_findings if f.confidence == ConfidenceLevel.POTENTIAL)

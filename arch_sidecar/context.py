@@ -83,19 +83,22 @@ class SymbolFinder(ast.NodeVisitor):
 
 def find_references_in_file(filepath: str, symbol_names: Set[str]) -> List[Dict[str, Any]]:
     """Find lines in a file that reference the given symbol names."""
+    if not symbol_names or not os.path.isfile(filepath):
+        return []
+
+    pattern = re.compile(rf"\b({'|'.join(re.escape(s) for s in symbol_names)})\b")
     results = []
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
             for i, line in enumerate(f, 1):
-                for sym in symbol_names:
-                    # Match symbol boundary
-                    if re.search(rf"\b{re.escape(sym)}\b", line):
-                        results.append({
-                            "line_num": i,
-                            "line": line.strip(),
-                            "symbol": sym,
-                        })
-    except Exception:
+                match = pattern.search(line)
+                if match:
+                    results.append({
+                        "line_num": i,
+                        "line": line.strip(),
+                        "symbol": match.group(1),
+                    })
+    except (OSError, UnicodeDecodeError):
         pass
     return results
 
@@ -147,7 +150,7 @@ def locate_surgical_context(
             for sym_name, sym_info in finder.symbols.items():
                 if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
                     matched_symbols[sym_name] = sym_info
-        except Exception:
+        except (SyntaxError, OSError, UnicodeDecodeError):
             pass
 
     # 1. First pass: find symbol definitions and imports

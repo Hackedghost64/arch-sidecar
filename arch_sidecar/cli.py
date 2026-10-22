@@ -4,6 +4,7 @@ import sys
 import os
 
 from .digest import generate_digest
+from .quality import audit_file, audit_repository, QualityReport
 from .context import locate_surgical_context
 from .decouple import prefactor_decouple
 from .mcp_server import run_mcp_server
@@ -140,6 +141,15 @@ def main():
     check_parser.add_argument("--json", action="store_true", help="Output JSON result")
     check_parser.add_argument("--ruff", action="store_true", help="Enable high-speed Ruff lint & unused import diagnostics")
     check_parser.add_argument("--fix", action="store_true", help="Automatically clean unused imports and format via Ruff ($0.00 cost)")
+
+    # Command: audit (Code Quality, OOP & Contract Guard)
+    audit_parser = subparsers.add_parser(
+        "audit",
+        help="Audit code quality, OOP cohesion, nesting complexity, anti-patterns, and contract consistency"
+    )
+    audit_parser.add_argument("path", nargs="?", default=".", help="Target file or repository directory (default: .)")
+    audit_parser.add_argument("--strict", "-s", action="store_true", help="Fail if any warnings are detected (zero-tolerance mode)")
+    audit_parser.add_argument("--json", action="store_true", help="Output raw structured JSON")
 
     # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
@@ -442,6 +452,54 @@ def main():
                 print(f"❌ Impact analysis failed: {impact.get('error')}", file=sys.stderr)
                 sys.exit(1)
             print(format_change_impact_terminal(impact))
+
+    elif args.command == "audit":
+        target = os.path.abspath(args.path)
+        if os.path.isfile(target):
+            issues = audit_file(target)
+            report = QualityReport(
+                total_files=1,
+                total_issues=len(issues),
+                error_count=sum(1 for i in issues if i.severity == "error"),
+                warning_count=sum(1 for i in issues if i.severity == "warning"),
+                clean=(len(issues) == 0 if args.strict else not any(i.severity == "error" for i in issues)),
+                score=max(0.0, 100.0 - sum(10 if i.severity == "error" else 2 for i in issues)),
+                issues=issues,
+                metrics={
+                    "categories": {
+                        "complexity": sum(1 for i in issues if i.category == "complexity"),
+                        "anti_pattern": sum(1 for i in issues if i.category == "anti_pattern"),
+                        "oop_cohesion": sum(1 for i in issues if i.category == "oop_cohesion"),
+                        "contract": sum(1 for i in issues if i.category == "contract"),
+                    }
+                }
+            )
+        else:
+            report = audit_repository(target, strict=args.strict)
+
+        if args.json:
+            print(json.dumps(report.to_dict(), indent=2))
+        else:
+            status_icon = "✅" if report.clean else "⚠️"
+            print(f"\n{status_icon} [Devrith Code Craft Audit] Score: {report.score}/100 | Files: {report.total_files} | Issues: {report.total_issues} (Errors: {report.error_count}, Warnings: {report.warning_count})")
+            if report.metrics and "categories" in report.metrics:
+                cats = report.metrics["categories"]
+                print(f"   Complexity: {cats.get('complexity', 0)} | Anti-Patterns: {cats.get('anti_pattern', 0)} | OOP/Cohesion: {cats.get('oop_cohesion', 0)} | Contracts: {cats.get('contract', 0)}")
+
+            if report.issues:
+                print("\n📋 Detected Issues & Recommendations:")
+                for issue in report.issues[:30]:  # Cap output display
+                    icon = "❌" if issue.severity == "error" else "⚠️"
+                    rel_f = os.path.relpath(issue.file_path, os.getcwd()) if os.path.isabs(issue.file_path) else issue.file_path
+                    print(f"  {icon} [{issue.category.upper()}] {rel_f}:{issue.line} ({issue.symbol})")
+                    print(f"     Problem: {issue.message}")
+                    print(f"     Action:  {issue.suggestion}")
+
+                if len(report.issues) > 30:
+                    print(f"\n  ... and {len(report.issues) - 30} more issues (use --json for complete list)")
+
+            if not report.clean and args.strict:
+                sys.exit(1)
 
     elif args.command == "serve":
         run_mcp_server()

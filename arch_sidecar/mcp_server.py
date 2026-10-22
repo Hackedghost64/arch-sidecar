@@ -17,6 +17,7 @@ from .cluster import (
     partition_into_subsystems,
     predict_change_impact,
 )
+from .quality import audit_file, audit_repository, QualityReport
 from .session_logger import (
     generate_session_summary,
     format_session_report_markdown,
@@ -353,6 +354,25 @@ TOOLS = [
             },
             "required": ["target"]
         }
+    },
+    {
+        "name": "audit_code_quality",
+        "description": "Code Craft & OOP Sentry: Audits code quality, OOP cohesion, nesting depth, anti-patterns (silent swallows, mutable defaults, parameter mutations), and contract return consistency.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "target_path": {
+                    "type": "string",
+                    "description": "Path to Python file or repository directory to audit (default: '.')",
+                    "default": "."
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "If true, flags any warnings as failures (zero-tolerance mode)",
+                    "default": False
+                }
+            }
+        }
     }
 ]
 
@@ -610,6 +630,37 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             }
             return {
                 "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
+                "isError": False
+            }
+
+        elif name == "audit_code_quality":
+            target_path = arguments.get("target_path", ".")
+            strict = arguments.get("strict", False)
+            abs_target = os.path.abspath(target_path)
+            if os.path.isfile(abs_target):
+                issues = audit_file(abs_target)
+                report = QualityReport(
+                    total_files=1,
+                    total_issues=len(issues),
+                    error_count=sum(1 for i in issues if i.severity == "error"),
+                    warning_count=sum(1 for i in issues if i.severity == "warning"),
+                    clean=(len(issues) == 0 if strict else not any(i.severity == "error" for i in issues)),
+                    score=max(0.0, 100.0 - sum(10 if i.severity == "error" else 2 for i in issues)),
+                    issues=issues,
+                    metrics={
+                        "categories": {
+                            "complexity": sum(1 for i in issues if i.category == "complexity"),
+                            "anti_pattern": sum(1 for i in issues if i.category == "anti_pattern"),
+                            "oop_cohesion": sum(1 for i in issues if i.category == "oop_cohesion"),
+                            "contract": sum(1 for i in issues if i.category == "contract"),
+                        }
+                    }
+                )
+            else:
+                report = audit_repository(abs_target, strict=strict)
+
+            return {
+                "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
                 "isError": False
             }
 

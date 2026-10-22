@@ -102,7 +102,7 @@ def is_minified_or_binary(filepath: str, max_check_lines: int = 15) -> bool:
                 if len(line) > 800:
                     return True
         return False
-    except Exception:
+    except (OSError, UnicodeDecodeError):
         return True
 
 def estimate_tokens(text: str) -> int:
@@ -177,7 +177,7 @@ def run_oxlint_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
                 "help": diag.get("help", ""),
             })
         return parsed
-    except Exception:
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         return []
 
 
@@ -214,7 +214,7 @@ def run_biome_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
                 "column": 1,
             })
         return parsed
-    except Exception:
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
         return []
 
 
@@ -244,7 +244,7 @@ def run_ruff_autofix(file_paths: List[str], project_root: str = ".") -> bool:
                     capture_output=True,
                     timeout=5,
                 )
-            except Exception:
+            except (OSError, subprocess.SubprocessError):
                 success = False
     return success
 

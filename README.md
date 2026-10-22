@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
-[![Tests Passing](https://img.shields.io/badge/tests-60%20passed-success.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-68%20passed-success.svg)](tests/)
 [![Empirical Case Study](https://img.shields.io/badge/Case%20Study-Documented-orange.svg)](CASE_STUDY.md)
 
 > `arch-sidecar` (Devrith Engine) provides **architecture-aware context retrieval**, **feature implementation planning**, **deterministic AST refactoring**, and **static scope/import preflight verification** for AI coding agents.
@@ -52,7 +52,17 @@ Delivers 1-indexed target function bodies, cross-file caller dependencies, and c
 ### 2. Deterministic Refactoring (`arch-sidecar workflow`)
 End-to-end refactoring pipeline: plans context, audits dynamic reflection sites, checks circular import hazards, extracts AST symbols, verifies pytest suite, and executes atomic transactional rollback if tests fail.
 
-### 3. Automated Real-World Test & Telemetry Reporting (`arch-sidecar report`)
+### 3. Code Craft, OOP & Anti-Pattern Audit (`arch-sidecar audit`)
+Compiler-grade AST audit that prevents LLMs from introducing procedural spaghetti, deep nesting, silent exception swallows, parameter mutations, and broken return contracts:
+```bash
+# Audit a single file or repository
+arch-sidecar audit src/
+
+# Strict zero-tolerance mode for CI/CD
+arch-sidecar audit src/ --strict
+```
+
+### 4. Automated Real-World Test & Telemetry Reporting (`arch-sidecar report`)
 Automatically logs every execution session locally to `~/.devrith/sessions.jsonl` (zero network traffic). View anytime via terminal or prompt your agent:
 ```bash
 # Terminal ASCII dashboard
@@ -105,6 +115,9 @@ Add to your Model Context Protocol (MCP) configuration (`claude_desktop_config.j
 
 Once connected, your agent gains access to:
 - `feature_workflow`
+- `audit_code_quality`
+- `get_subsystem_clusters`
+- `predict_change_impact`
 - `plan_adaptive_retrieval`
 - `execute_refactor_workflow`
 - `check_code_health`

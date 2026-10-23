@@ -522,14 +522,14 @@ def main():
                 if len(report.issues) > 30:
                     print(f"\n  ... and {len(report.issues) - 30} more issues (use --json for complete list)")
 
-            if not report.clean and args.strict:
+            if not report.clean:
                 sys.exit(1)
 
     elif args.command == "git":
         repo_dir = os.path.abspath(args.path)
         if args.action == "hook":
             if args.subaction == "install":
-                ok, msg = install_git_hook(repo_dir)
+                ok, msg = install_git_hook(repo_dir, strict=getattr(args, "strict", False))
                 icon = "✅" if ok else "❌"
                 print(f"{icon} {msg}")
                 if not ok:

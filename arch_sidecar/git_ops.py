@@ -279,15 +279,17 @@ def analyze_git_change_impact(
     }
 
 
-HOOK_SCRIPT = """#!/usr/bin/env bash
+def generate_hook_script(strict: bool = False) -> str:
+    flag = " --strict" if strict else ""
+    return f"""#!/usr/bin/env bash
 # [Devrith Pre-Commit Guard]
 # Intercepts circular imports, scope binding errors, silent exception swallows,
-# and parameter mutations before git commit completes.
+# and code quality defects before git commit completes.
 
 echo "🛡️  Running Devrith pre-commit architectural guard..."
 
 # Run audit on staged files
-python3 -m arch_sidecar.cli audit --staged
+python3 -m arch_sidecar.cli audit --staged{flag}
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -ne 0 ]; then
@@ -301,7 +303,7 @@ exit 0
 """
 
 
-def install_git_hook(repo_path: str = ".") -> Tuple[bool, str]:
+def install_git_hook(repo_path: str = ".", strict: bool = False) -> Tuple[bool, str]:
     """Installs a Devrith pre-commit hook in .git/hooks/pre-commit."""
     root = get_git_root(repo_path)
     if not root:
@@ -326,10 +328,11 @@ def install_git_hook(repo_path: str = ".") -> Tuple[bool, str]:
 
     try:
         with open(hook_path, "w", encoding="utf-8") as f:
-            f.write(HOOK_SCRIPT)
+            f.write(generate_hook_script(strict=strict))
         # Make executable
         os.chmod(hook_path, 0o755)
-        return True, f"Devrith pre-commit hook successfully installed at: {hook_path}"
+        mode_str = " (strict mode)" if strict else ""
+        return True, f"Devrith pre-commit hook successfully installed at: {hook_path}{mode_str}"
     except Exception as e:
         return False, f"Failed to write hook file: {e}"
 

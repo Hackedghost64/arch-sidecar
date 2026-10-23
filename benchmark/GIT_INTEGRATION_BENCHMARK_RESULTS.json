@@ -1,0 +1,142 @@
+{
+  "timestamp": "2026-10-23T15:53:42+0530",
+  "total_duration_sec": 5.28,
+  "experiment_1_latency_and_speedup": {
+    "requests": {
+      "total_files": 37,
+      "whole_repo_ms": 440.98,
+      "staged_audit_ms": 5.44,
+      "speedup_factor": 81.1
+    },
+    "click": {
+      "total_files": 91,
+      "whole_repo_ms": 1049.19,
+      "staged_audit_ms": 5.87,
+      "speedup_factor": 178.8
+    },
+    "flask": {
+      "total_files": 83,
+      "whole_repo_ms": 560.65,
+      "staged_audit_ms": 5.28,
+      "speedup_factor": 106.2
+    },
+    "rich": {
+      "total_files": 213,
+      "whole_repo_ms": 1605.84,
+      "staged_audit_ms": 5.46,
+      "speedup_factor": 294.0
+    }
+  },
+  "experiment_2_pre_commit_guard_defense": {
+    "total_commits_tested": 10,
+    "total_hazards_tested": 5,
+    "hazards_blocked": 5,
+    "hazard_recall_pct": 100.0,
+    "total_clean_tested": 5,
+    "false_rejections": 0,
+    "false_rejection_rate_pct": 0.0,
+    "avg_guard_overhead_ms": 87.38,
+    "trials": [
+      {
+        "id": "CLEAN-01",
+        "description": "Add typed discount helper with early returns",
+        "is_hazardous": false,
+        "commit_succeeded": true,
+        "guard_latency_ms": 95.81,
+        "status": "\u2705 COMMITTED (Clean Code Accepted)"
+      },
+      {
+        "id": "CLEAN-02",
+        "description": "Add clean domain dataclass",
+        "is_hazardous": false,
+        "commit_succeeded": true,
+        "guard_latency_ms": 89.13,
+        "status": "\u2705 COMMITTED (Clean Code Accepted)"
+      },
+      {
+        "id": "CLEAN-03",
+        "description": "Safe string normalization utility",
+        "is_hazardous": false,
+        "commit_succeeded": true,
+        "guard_latency_ms": 85.09,
+        "status": "\u2705 COMMITTED (Clean Code Accepted)"
+      },
+      {
+        "id": "CLEAN-04",
+        "description": "Error logger with domain exception re-raise",
+        "is_hazardous": false,
+        "commit_succeeded": true,
+        "guard_latency_ms": 88.88,
+        "status": "\u2705 COMMITTED (Clean Code Accepted)"
+      },
+      {
+        "id": "CLEAN-05",
+        "description": "Clean math operation with guard clause",
+        "is_hazardous": false,
+        "commit_succeeded": true,
+        "guard_latency_ms": 85.72,
+        "status": "\u2705 COMMITTED (Clean Code Accepted)"
+      },
+      {
+        "id": "HAZARD-01",
+        "description": "Silent exception swallowing with bare pass",
+        "is_hazardous": true,
+        "commit_succeeded": false,
+        "guard_latency_ms": 82.07,
+        "status": "\u2705 BLOCKED (Correctly Intercepted)"
+      },
+      {
+        "id": "HAZARD-02",
+        "description": "Dangerous mutable default argument",
+        "is_hazardous": true,
+        "commit_succeeded": false,
+        "guard_latency_ms": 88.56,
+        "status": "\u2705 BLOCKED (Correctly Intercepted)"
+      },
+      {
+        "id": "HAZARD-03",
+        "description": "Corrupted Python AST with syntax error",
+        "is_hazardous": true,
+        "commit_succeeded": false,
+        "guard_latency_ms": 82.8,
+        "status": "\u2705 BLOCKED (Correctly Intercepted)"
+      },
+      {
+        "id": "HAZARD-04",
+        "description": "Sprawling function nested 6 levels deep",
+        "is_hazardous": true,
+        "commit_succeeded": false,
+        "guard_latency_ms": 83.27,
+        "status": "\u2705 BLOCKED (Correctly Intercepted)"
+      },
+      {
+        "id": "HAZARD-05",
+        "description": "Extreme cyclomatic complexity (>20 branches)",
+        "is_hazardous": true,
+        "commit_succeeded": false,
+        "guard_latency_ms": 92.43,
+        "status": "\u2705 BLOCKED (Correctly Intercepted)"
+      }
+    ]
+  },
+  "experiment_3_git_impact_prediction": {
+    "requests": {
+      "target": "src/requests/utils.py",
+      "impact_analysis_ms": 148.2,
+      "risk_level": "LOW",
+      "direct_callers_count": 5,
+      "blast_radius_count": 20,
+      "affected_clusters": [],
+      "recommended_tests": []
+    },
+    "click": {
+      "target": "src/click/formatting.py",
+      "impact_analysis_ms": 378.27,
+      "risk_level": "LOW",
+      "direct_callers_count": 2,
+      "blast_radius_count": 25,
+      "affected_clusters": [],
+      "recommended_tests": []
+    }
+  }
+}

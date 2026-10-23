@@ -657,6 +657,73 @@ def check_code_health(
             "duration_ms": 0.0
         }
 
+    # TypeScript / JavaScript preflight routing
+    if target_abs.endswith((".ts", ".tsx", ".js", ".jsx")):
+        from .ts_ast import (
+            parse_ts_js_ast,
+            detect_ts_circular_imports,
+            resolve_ts_import_path,
+            find_tsconfig,
+        )
+        parsed = parse_ts_js_ast(source, filename=target_abs)
+        ts_issues: List[Dict[str, Any]] = []
+        tsconfig = find_tsconfig(root_abs)
+
+        # 1. Broken local import resolution
+        path_alias_prefixes = []
+        if tsconfig:
+            paths = tsconfig.get("config", {}).get("compilerOptions", {}).get("paths", {})
+            for p in paths.keys():
+                path_alias_prefixes.append(p.rstrip("*"))
+
+        for imp in parsed.get("imports", []):
+            mod_spec = imp.get("module", "")
+            is_local = mod_spec.startswith(".") or any(mod_spec.startswith(pfx) for pfx in path_alias_prefixes if pfx)
+            if is_local:
+                resolved = resolve_ts_import_path(mod_spec, target_abs, root_abs, tsconfig)
+                if not resolved or not os.path.isfile(resolved):
+                    ts_issues.append({
+                        "severity": "ERROR",
+                        "type": "BROKEN_LOCAL_IMPORT",
+                        "line": imp.get("line", 1),
+                        "module": mod_spec,
+                        "message": f"Cannot resolve local TypeScript module '{mod_spec}' from '{rel_path}'.",
+                        "recommendation": "Verify file path and extension (.ts, .tsx, .d.ts, .js) or path aliases in tsconfig.json."
+                    })
+
+        # 2. Circular import analysis
+        cycles = detect_ts_circular_imports(target_abs, root_abs)
+        for c in cycles:
+            ts_issues.append({
+                "severity": c.get("severity", "ERROR"),
+                "type": "CIRCULAR_IMPORT" if c.get("type") == "RUNTIME_CYCLE" else "TYPE_ONLY_CYCLE",
+                "line": 1,
+                "cycle": " -> ".join(c.get("path", [])),
+                "message": c.get("message", "Circular import cycle detected."),
+                "recommendation": (
+                    "Extract shared types or runtime symbols into a leaf module to maintain a DAG."
+                    if c.get("type") == "RUNTIME_CYCLE"
+                    else "Type-only cycles are erased at compile time, but can be untangled by moving shared interfaces to a types.ts barrel."
+                )
+            })
+
+        errors = sum(1 for i in ts_issues if i["severity"] == "ERROR")
+        warnings = sum(1 for i in ts_issues if i["severity"] == "WARNING")
+        health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        return {
+            "success": errors == 0,
+            "file": rel_path,
+            "language": "typescript" if target_abs.endswith((".ts", ".tsx")) else "javascript",
+            "health_score": health_score,
+            "total_issues": len(ts_issues),
+            "errors": errors,
+            "warnings": warnings,
+            "issues": ts_issues,
+            "duration_ms": duration_ms
+        }
+
     # 1. AST Syntax Check
     try:
         tree = ast.parse(source, filename=target_abs)

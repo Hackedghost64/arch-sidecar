@@ -195,3 +195,137 @@ def test_guard_detects_multi_hop_circular_import_cycle():
         assert len(cycles) == 1
         assert "mod_a.py -> mod_b.py -> mod_c.py -> mod_a.py" in cycles[0]["cycle"]
 
+
+def test_ts_guard_detects_runtime_circular_import_tdz_hazard():
+    """Detects TypeScript runtime circular imports where runtime values cause TDZ / undefined crashes."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_a = os.path.join(tmpdir, "service_a.ts")
+        file_b = os.path.join(tmpdir, "service_b.ts")
+
+        with open(file_a, "w") as f:
+            f.write("import { computeB } from './service_b';\nexport function computeA() { return computeB() + 1; }\n")
+        with open(file_b, "w") as f:
+            f.write("import { computeA } from './service_a';\nexport function computeB() { return computeA() + 2; }\n")
+
+        res = check_code_health(file_a, project_root=tmpdir)
+        assert res["success"] is False
+        assert res["errors"] >= 1
+        assert res["language"] == "typescript"
+        cycles = [i for i in res["issues"] if i["type"] == "CIRCULAR_IMPORT"]
+        assert len(cycles) == 1
+        assert cycles[0]["severity"] == "ERROR"
+        assert "service_a.ts -> service_b.ts -> service_a.ts" in cycles[0]["cycle"]
+        assert "Temporal Dead Zone" in cycles[0]["message"]
+
+
+def test_ts_guard_permits_type_only_cycle_with_warning():
+    """Verifies that type-only cycles are recognized as compile-time erased (warning, not error)."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_a = os.path.join(tmpdir, "model_a.ts")
+        file_b = os.path.join(tmpdir, "model_b.ts")
+
+        with open(file_a, "w") as f:
+            f.write("import type { ModelB } from './model_b';\nexport interface ModelA { b: ModelB; }\n")
+        with open(file_b, "w") as f:
+            f.write("import type { ModelA } from './model_a';\nexport interface ModelB { a: ModelA; }\n")
+
+        res = check_code_health(file_a, project_root=tmpdir)
+        assert res["success"] is True  # Type-only cycle does not fail preflight
+        assert res["errors"] == 0
+        assert res["warnings"] >= 1
+        type_cycles = [i for i in res["issues"] if i["type"] == "TYPE_ONLY_CYCLE"]
+        assert len(type_cycles) == 1
+        assert type_cycles[0]["severity"] == "WARNING"
+        assert "Erased at compile time" in type_cycles[0]["message"]
+
+
+def test_ts_guard_mixed_cycle_type_erased_at_runtime():
+    """When a cycle contains at least one `import type`, runtime cycle is broken by TS compiler erasure."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_a = os.path.join(tmpdir, "action.ts")
+        file_b = os.path.join(tmpdir, "state.ts")
+
+        # action imports runtime helper from state
+        with open(file_a, "w") as f:
+            f.write("import { defaultState } from './state';\nexport const doAction = () => defaultState;\n")
+        # state only needs the type Action from action
+        with open(file_b, "w") as f:
+            f.write("import type { doAction } from './action';\nexport const defaultState = { ready: true };\n")
+
+        res = check_code_health(file_a, project_root=tmpdir)
+        assert res["success"] is True  # Safe at runtime!
+        assert res["errors"] == 0
+        assert res["warnings"] >= 1
+        type_cycles = [i for i in res["issues"] if i["type"] == "TYPE_ONLY_CYCLE"]
+        assert len(type_cycles) == 1
+        assert type_cycles[0]["severity"] == "WARNING"
+
+
+def test_ts_guard_detects_broken_local_import():
+    """Detects missing local TypeScript imports and flags them as ERROR."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_main = os.path.join(tmpdir, "main.ts")
+        with open(file_main, "w") as f:
+            f.write("import { nonExistent } from './ghost_module';\n")
+
+        res = check_code_health(file_main, project_root=tmpdir)
+        assert res["success"] is False
+        assert res["errors"] == 1
+        broken = [i for i in res["issues"] if i["type"] == "BROKEN_LOCAL_IMPORT"]
+        assert len(broken) == 1
+        assert broken[0]["severity"] == "ERROR"
+        assert broken[0]["module"] == "./ghost_module"
+
+
+def test_ts_guard_resolves_nodenext_esm_js_import():
+    """In NodeNext ESM TypeScript, imports end in .js while on-disk files are .ts. Must resolve cleanly."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        file_util = os.path.join(tmpdir, "util.ts")
+        file_app = os.path.join(tmpdir, "app.ts")
+
+        with open(file_util, "w") as f:
+            f.write("export const add = (x: number, y: number): number => x + y;\n")
+        with open(file_app, "w") as f:
+            f.write("import { add } from './util.js';\nexport const result = add(1, 2);\n")
+
+        res = check_code_health(file_app, project_root=tmpdir)
+        assert res["success"] is True
+        assert res["errors"] == 0
+        assert res["warnings"] == 0
+        assert res["health_score"] == 100.0
+
+
+def test_ts_guard_resolves_tsconfig_path_alias():
+    """Resolves path aliases defined in tsconfig.json (e.g. @/ -> src/)."""
+    import json
+    with tempfile.TemporaryDirectory() as tmpdir:
+        src_dir = os.path.join(tmpdir, "src")
+        utils_dir = os.path.join(src_dir, "utils")
+        os.makedirs(utils_dir, exist_ok=True)
+
+        tsconfig_path = os.path.join(tmpdir, "tsconfig.json")
+        with open(tsconfig_path, "w") as f:
+            json.dump({
+                "compilerOptions": {
+                    "baseUrl": ".",
+                    "paths": {
+                        "@/*": ["src/*"]
+                    }
+                }
+            }, f)
+
+        math_ts = os.path.join(utils_dir, "math.ts")
+        with open(math_ts, "w") as f:
+            f.write("export const multiply = (a: number, b: number) => a * b;\n")
+
+        index_ts = os.path.join(src_dir, "index.ts")
+        with open(index_ts, "w") as f:
+            f.write("import { multiply } from '@/utils/math';\nexport const res = multiply(2, 3);\n")
+
+        res = check_code_health(index_ts, project_root=tmpdir)
+        assert res["success"] is True
+        assert res["errors"] == 0
+        assert res["warnings"] == 0
+        assert res["health_score"] == 100.0
+
+

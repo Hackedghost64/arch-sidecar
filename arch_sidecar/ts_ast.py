@@ -135,9 +135,11 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
         is_namespace = False
 
         clause_clean = clause.strip()
-        if "type " in clause_clean:
-            # Inline type import like `import { type A }`
-            pass
+        if not is_type and "{" in clause_clean:
+            brace_content = clause_clean[clause_clean.find("{") + 1 : clause_clean.rfind("}")]
+            items = [item.strip() for item in brace_content.split(",") if item.strip()]
+            if items and all(item.startswith("type ") for item in items):
+                is_type = True
 
         if "* as " in clause_clean:
             is_namespace = True
@@ -273,6 +275,7 @@ def resolve_ts_import_path(
     Resolves a TypeScript/JavaScript module specifier to an absolute file path.
     Supports:
     - Relative imports: `./foo`, `../bar`, `./components`
+    - NodeNext/ESM imports: `./foo.js` -> `./foo.ts` / `./foo.tsx`
     - Path aliases: `@/components/*` via tsconfig.json
     - Extension resolutions: `.ts`, `.tsx`, `.d.ts`, `.js`, `.jsx`, `/index.ts`, etc.
     Returns None for external npm packages (e.g. 'react', 'lodash').
@@ -285,8 +288,21 @@ def resolve_ts_import_path(
         "/index.ts", "/index.tsx", "/index.d.ts", "/index.js", "/index.jsx"
     ]
 
+    def _try_resolve(base_path: str) -> Optional[str]:
+        bases = [base_path]
+        if base_path.endswith((".js", ".jsx", ".mjs", ".cjs")):
+            stripped = re.sub(r"\.(?:js|jsx|mjs|cjs)$", "", base_path)
+            if stripped not in bases:
+                bases.append(stripped)
+
+        for b in bases:
+            for ext in candidate_extensions:
+                full_p = b + ext
+                if os.path.isfile(full_p):
+                    return os.path.normpath(full_p)
+        return None
+
     # 1. Handle Path Aliases from tsconfig.json
-    resolved_base: Optional[str] = None
     if tsconfig and not module_specifier.startswith("."):
         compiler_opts = tsconfig.get("config", {}).get("compilerOptions", {})
         base_url = compiler_opts.get("baseUrl", ".")
@@ -301,27 +317,24 @@ def resolve_ts_import_path(
                 for target_tpl in targets:
                     target_prefix = target_tpl.rstrip("*")
                     candidate_base = os.path.normpath(os.path.join(base_dir, target_prefix + sub_path))
-                    for ext in candidate_extensions:
-                        full_p = candidate_base + ext
-                        if os.path.isfile(full_p):
-                            return os.path.normpath(full_p)
+                    resolved = _try_resolve(candidate_base)
+                    if resolved:
+                        return resolved
 
         # Direct baseUrl resolution
-        if base_url:
+        if base_url and base_url != ".":
             candidate_base = os.path.normpath(os.path.join(base_dir, module_specifier))
-            for ext in candidate_extensions:
-                full_p = candidate_base + ext
-                if os.path.isfile(full_p):
-                    return os.path.normpath(full_p)
+            resolved = _try_resolve(candidate_base)
+            if resolved:
+                return resolved
 
     # 2. Handle Relative Imports
     if module_specifier.startswith("."):
         source_dir = os.path.dirname(os.path.abspath(source_file))
         base_path = os.path.normpath(os.path.join(source_dir, module_specifier))
-        for ext in candidate_extensions:
-            full_p = base_path + ext
-            if os.path.isfile(full_p):
-                return os.path.normpath(full_p)
+        resolved = _try_resolve(base_path)
+        if resolved:
+            return resolved
 
     return None
 
@@ -332,16 +345,17 @@ def detect_ts_circular_imports(
     max_depth: int = 15,
 ) -> List[Dict[str, Any]]:
     """
-    Traces the import graph starting from `target_file` and identifies all circular cycles.
+    Traces the import graph starting from `target_file` and identifies circular cycles.
     Distinguishes between:
-    - RUNTIME_CYCLE: cycle contains at least one runtime value import (HIGH HAZARD: TDZ / undefined crashes).
-    - TYPE_ONLY_CYCLE: cycle consists strictly of `import type` (LOW HAZARD: erased at compile time).
+    - RUNTIME_CYCLE: cycle contains only runtime value imports (HIGH HAZARD: TDZ / undefined crashes).
+    - TYPE_ONLY_CYCLE: cycle contains at least one `import type` (LOW HAZARD: erased at compile time).
     """
     target_abs = os.path.abspath(target_file)
     project_abs = os.path.abspath(project_root)
     tsconfig = find_tsconfig(project_abs)
 
     cycles: List[Dict[str, Any]] = []
+    seen_cycle_keys: Set[str] = set()
     file_ast_cache: Dict[str, Dict[str, Any]] = {}
 
     def get_parsed_file(fpath: str) -> Optional[Dict[str, Any]]:
@@ -356,41 +370,20 @@ def detect_ts_circular_imports(
                 return None
         return file_ast_cache[fpath]
 
-    # DFS Cycle Detection
-    visited: Set[str] = set()
-    current_stack: List[str] = []
+    # 3-color DFS Cycle Detection
+    gray_stack: List[str] = []
+    black_set: Set[str] = set()
     edge_types: List[bool] = []  # True if edge is type_only
 
     def dfs(curr_file: str, depth: int) -> None:
         if depth > max_depth:
             return
 
-        if curr_file in current_stack:
-            cycle_start = current_stack.index(curr_file)
-            cycle_path = current_stack[cycle_start:] + [curr_file]
-            cycle_edges = edge_types[cycle_start:]
-            is_type_only = all(cycle_edges) if cycle_edges else False
-
-            # Format relative paths
-            rel_cycle = [os.path.relpath(p, project_abs) for p in cycle_path]
-            cycles.append({
-                "type": "TYPE_ONLY_CYCLE" if is_type_only else "RUNTIME_CYCLE",
-                "severity": "WARNING" if is_type_only else "ERROR",
-                "path": rel_cycle,
-                "length": len(rel_cycle) - 1,
-                "message": (
-                    f"Circular import cycle ({' -> '.join(rel_cycle)}): "
-                    + ("(Type-only imports: erased at compile time)" if is_type_only 
-                       else "(Runtime values: Temporal Dead Zone / undefined hazard at runtime)")
-                )
-            })
-            return
-
         parsed = get_parsed_file(curr_file)
         if not parsed:
             return
 
-        current_stack.append(curr_file)
+        gray_stack.append(curr_file)
 
         # Traverse imports and re-exports
         all_edges = []
@@ -401,12 +394,49 @@ def detect_ts_circular_imports(
 
         for mod_spec, is_type, line_num in all_edges:
             resolved = resolve_ts_import_path(mod_spec, curr_file, project_abs, tsconfig)
-            if resolved and resolved.startswith(project_abs):
-                edge_types.append(is_type)
-                dfs(resolved, depth + 1)
-                edge_types.pop()
+            if not resolved or not resolved.startswith(project_abs):
+                continue
+            # Skip node_modules directories
+            path_parts = resolved.replace("\\", "/").split("/")
+            if "node_modules" in path_parts:
+                continue
 
-        current_stack.pop()
+            edge_types.append(is_type)
+
+            if resolved in gray_stack:
+                cycle_start = gray_stack.index(resolved)
+                cycle_path = gray_stack[cycle_start:] + [resolved]
+                cycle_edges = edge_types[cycle_start:]
+
+                # A cycle is broken at runtime if ANY edge is type-only!
+                # It is a RUNTIME_CYCLE (TDZ hazard) if and only if EVERY edge is a runtime value import.
+                is_runtime_cycle = not any(cycle_edges)
+                is_type_only = not is_runtime_cycle
+
+                rel_cycle = [os.path.relpath(p, project_abs) for p in cycle_path]
+                cycle_str = " -> ".join(rel_cycle)
+
+                if cycle_str not in seen_cycle_keys:
+                    seen_cycle_keys.add(cycle_str)
+                    cycles.append({
+                        "type": "TYPE_ONLY_CYCLE" if is_type_only else "RUNTIME_CYCLE",
+                        "severity": "WARNING" if is_type_only else "ERROR",
+                        "path": rel_cycle,
+                        "length": len(rel_cycle) - 1,
+                        "message": (
+                            f"Circular import cycle ({cycle_str}): "
+                            + ("Erased at compile time via type-only import (safe at runtime)."
+                               if is_type_only 
+                               else "Runtime values imported in cycle: Temporal Dead Zone / undefined hazard at runtime.")
+                        )
+                    })
+            elif resolved not in black_set:
+                dfs(resolved, depth + 1)
+
+            edge_types.pop()
+
+        gray_stack.pop()
+        black_set.add(curr_file)
 
     dfs(target_abs, 0)
     return cycles
@@ -445,7 +475,7 @@ def format_ts_digest_skeleton(filepath: str) -> str:
 
     # Declarations
     for decl in parsed["declarations"][:25]:
-        export_prefix = "export " if decl["is_exported"] else ""
+        export_prefix = "export " if (decl["is_exported"] and not decl["signature"].startswith("export")) else ""
         summary.append(f"  {export_prefix}{decl['signature']}")
 
     if len(parsed["declarations"]) > 25:

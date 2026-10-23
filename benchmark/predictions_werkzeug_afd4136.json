@@ -1,0 +1,1331 @@
+{
+  "metadata": {
+    "freeze_commit": "afd4136",
+    "repo": "pallets/werkzeug",
+    "timestamp": "2026-10-23T13:53:07.198119+00:00",
+    "pre_registered_thresholds": {
+      "recall_lower_bound_target": 0.7,
+      "false_rejection_target": 0.1,
+      "max_accepted_regressions": 0,
+      "minimum_hazard_gate": 10
+    }
+  },
+  "predictions": [
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_environ_property.py",
+      "symbol": "environ_property",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 306.1
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_make_set_header_set.py",
+      "symbol": "make_set_header_set",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "make_set_header_set",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/_header_property.py -> src/werkzeug/_extracted_make_set_header_set.py -> src/werkzeug/sansio/response.py -> src/werkzeug/_header_property.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/_header_property.py' imports 'src/werkzeug/_extracted_make_set_header_set.py', but 'src/werkzeug/_extracted_make_set_header_set.py' transitively reaches 'src/werkzeug/_header_property.py' via src/werkzeug/_extracted_make_set_header_set.py -> src/werkzeug/sansio/response.py -> src/werkzeug/_header_property.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/_header_property.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 253.29
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 275.05
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_internal.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 268.51
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_reloader.py",
+      "to_file": "src/werkzeug/_extracted_reloaderloop.py",
+      "symbol": "ReloaderLoop",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 283.25
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/_reloader.py",
+      "to_file": "src/werkzeug/_extracted_ensure_echo_on.py",
+      "symbol": "ensure_echo_on",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 280.13
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/accept.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_accept.py",
+      "symbol": "Accept",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "Accept",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/accept.py -> src/werkzeug/datastructures/_extracted_accept.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/datastructures/accept.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/accept.py' imports 'src/werkzeug/datastructures/_extracted_accept.py', but 'src/werkzeug/datastructures/_extracted_accept.py' transitively reaches 'src/werkzeug/datastructures/accept.py' via src/werkzeug/datastructures/_extracted_accept.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/datastructures/accept.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/accept.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        },
+        {
+          "symbol": "_q_value_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_q_value_re'",
+          "recommendation": "Pass '_q_value_re' as a parameter or extract '_q_value_re' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 260.95
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/auth.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_authorization.py",
+      "symbol": "Authorization",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Authorization",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/auth.py -> src/werkzeug/datastructures/_extracted_authorization.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/auth.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/auth.py' imports 'src/werkzeug/datastructures/_extracted_authorization.py', but 'src/werkzeug/datastructures/_extracted_authorization.py' transitively reaches 'src/werkzeug/datastructures/auth.py' via src/werkzeug/datastructures/_extracted_authorization.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/auth.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/auth.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 277.82
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/cache_control.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_requestcachecontrol.py",
+      "symbol": "RequestCacheControl",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_CacheControl",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_CacheControl'",
+          "recommendation": "Also extract '_CacheControl' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_cache_control_property",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_cache_control_property'",
+          "recommendation": "Also extract '_cache_control_property' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 256.62
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/csp.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_contentsecuritypolicy.py",
+      "symbol": "ContentSecurityPolicy",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_csp_property",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_csp_property'",
+          "recommendation": "Also extract '_csp_property' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 259.87
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/etag.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_etag.py",
+      "symbol": "ETag",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 278.06
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/file_storage.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_filestorage.py",
+      "symbol": "FileStorage",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_guess_filename",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_guess_filename'",
+          "recommendation": "Also extract '_guess_filename' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "FileStorage",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/file_storage.py -> src/werkzeug/datastructures/_extracted_filestorage.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/file_storage.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/file_storage.py' imports 'src/werkzeug/datastructures/_extracted_filestorage.py', but 'src/werkzeug/datastructures/_extracted_filestorage.py' transitively reaches 'src/werkzeug/datastructures/file_storage.py' via src/werkzeug/datastructures/_extracted_filestorage.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/file_storage.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/file_storage.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 254.66
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/headers.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_headers.py",
+      "symbol": "Headers",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_options_header_vkw",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_options_header_vkw'",
+          "recommendation": "Also extract '_options_header_vkw' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_str_header_value",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_str_header_value'",
+          "recommendation": "Also extract '_str_header_value' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 272.72
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/headers.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 285.0
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/mixins.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_immutablemultidictmixin.py",
+      "symbol": "ImmutableMultiDictMixin",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_immutable_error",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_immutable_error'",
+          "recommendation": "Also extract '_immutable_error' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_ImmutableDictMixin",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_ImmutableDictMixin'",
+          "recommendation": "Also extract '_ImmutableDictMixin' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 258.62
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/mixins.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_k.py",
+      "symbol": "K",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 281.29
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/range.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_ifrange.py",
+      "symbol": "IfRange",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "IfRange",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/range.py -> src/werkzeug/datastructures/_extracted_ifrange.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/datastructures/range.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/range.py' imports 'src/werkzeug/datastructures/_extracted_ifrange.py', but 'src/werkzeug/datastructures/_extracted_ifrange.py' transitively reaches 'src/werkzeug/datastructures/range.py' via src/werkzeug/datastructures/_extracted_ifrange.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/datastructures/range.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/range.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 260.41
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/range.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 271.31
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/set.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_headerset.py",
+      "symbol": "HeaderSet",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "HeaderSet",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/set.py -> src/werkzeug/datastructures/_extracted_headerset.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/serving.py -> src/werkzeug/datastructures/set.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/set.py' imports 'src/werkzeug/datastructures/_extracted_headerset.py', but 'src/werkzeug/datastructures/_extracted_headerset.py' transitively reaches 'src/werkzeug/datastructures/set.py' via src/werkzeug/datastructures/_extracted_headerset.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/serving.py -> src/werkzeug/datastructures/set.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/set.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 256.83
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_multidict.py",
+      "symbol": "MultiDict",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "iter_multi_items",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'iter_multi_items'",
+          "recommendation": "Also extract 'iter_multi_items' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "MultiDict",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/datastructures/structures.py -> src/werkzeug/datastructures/_extracted_multidict.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/structures.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/datastructures/structures.py' imports 'src/werkzeug/datastructures/_extracted_multidict.py', but 'src/werkzeug/datastructures/_extracted_multidict.py' transitively reaches 'src/werkzeug/datastructures/structures.py' via src/werkzeug/datastructures/_extracted_multidict.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/datastructures/structures.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/datastructures/structures.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 276.57
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_iter_multi_items.py",
+      "symbol": "iter_multi_items",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "MultiDict",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'MultiDict'",
+          "recommendation": "Also extract 'MultiDict' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 305.93
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_k.py",
+      "symbol": "K",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 300.93
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_debuggedapplication.py",
+      "symbol": "DebuggedApplication",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 4,
+      "hazards": [
+        {
+          "symbol": "_ConsoleFrame",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_ConsoleFrame'",
+          "recommendation": "Also extract '_ConsoleFrame' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "hash_pin",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'hash_pin'",
+          "recommendation": "Also extract 'hash_pin' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_pin_and_cookie_name",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_pin_and_cookie_name'",
+          "recommendation": "Also extract 'get_pin_and_cookie_name' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "PIN_TIME",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'PIN_TIME'",
+          "recommendation": "Pass 'PIN_TIME' as a parameter or extract 'PIN_TIME' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 277.97
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_hash_pin.py",
+      "symbol": "hash_pin",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 280.01
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_pin_time.py",
+      "symbol": "PIN_TIME",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 287.37
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/console.py",
+      "to_file": "src/werkzeug/debug/_extracted_htmlstringo.py",
+      "symbol": "HTMLStringO",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 270.88
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_debugreprgenerator.py",
+      "symbol": "DebugReprGenerator",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 5,
+      "hazards": [
+        {
+          "symbol": "_sequence_repr_maker",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_sequence_repr_maker'",
+          "recommendation": "Also extract '_sequence_repr_maker' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_add_subclass_info",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_add_subclass_info'",
+          "recommendation": "Also extract '_add_subclass_info' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "RegexType",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'RegexType'",
+          "recommendation": "Pass 'RegexType' as a parameter or extract 'RegexType' to a shared config module."
+        },
+        {
+          "symbol": "helper",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'helper'",
+          "recommendation": "Pass 'helper' as a parameter or extract 'helper' to a shared config module."
+        },
+        {
+          "symbol": "OBJECT_DUMP_HTML",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'OBJECT_DUMP_HTML'",
+          "recommendation": "Pass 'OBJECT_DUMP_HTML' as a parameter or extract 'OBJECT_DUMP_HTML' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 260.24
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_debug_repr.py",
+      "symbol": "debug_repr",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "DebugReprGenerator",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'DebugReprGenerator'",
+          "recommendation": "Also extract 'DebugReprGenerator' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 258.77
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_help_html.py",
+      "symbol": "HELP_HTML",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 274.24
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_debugtraceback.py",
+      "symbol": "DebugTraceback",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 4,
+      "hazards": [
+        {
+          "symbol": "DebugFrameSummary",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'DebugFrameSummary'",
+          "recommendation": "Also extract 'DebugFrameSummary' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_process_traceback",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_process_traceback'",
+          "recommendation": "Also extract '_process_traceback' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "PAGE_HTML",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'PAGE_HTML'",
+          "recommendation": "Pass 'PAGE_HTML' as a parameter or extract 'PAGE_HTML' to a shared config module."
+        },
+        {
+          "symbol": "SUMMARY_HTML",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'SUMMARY_HTML'",
+          "recommendation": "Pass 'SUMMARY_HTML' as a parameter or extract 'SUMMARY_HTML' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 267.82
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_render_console_html.py",
+      "symbol": "render_console_html",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "CONSOLE_HTML",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'CONSOLE_HTML'",
+          "recommendation": "Pass 'CONSOLE_HTML' as a parameter or extract 'CONSOLE_HTML' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 256.91
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_header.py",
+      "symbol": "HEADER",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 276.91
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/exceptions.py",
+      "to_file": "src/werkzeug/_extracted_httpexception.py",
+      "symbol": "HTTPException",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "HTTPException",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/exceptions.py -> src/werkzeug/_extracted_httpexception.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/datastructures/headers.py -> src/werkzeug/exceptions.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/exceptions.py' imports 'src/werkzeug/_extracted_httpexception.py', but 'src/werkzeug/_extracted_httpexception.py' transitively reaches 'src/werkzeug/exceptions.py' via src/werkzeug/_extracted_httpexception.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/datastructures/headers.py -> src/werkzeug/exceptions.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/exceptions.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 256.75
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/exceptions.py",
+      "to_file": "src/werkzeug/_extracted_abort.py",
+      "symbol": "abort",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "abort",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/exceptions.py -> src/werkzeug/_extracted_abort.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/datastructures/headers.py -> src/werkzeug/exceptions.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/exceptions.py' imports 'src/werkzeug/_extracted_abort.py', but 'src/werkzeug/_extracted_abort.py' transitively reaches 'src/werkzeug/exceptions.py' via src/werkzeug/_extracted_abort.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/datastructures/headers.py -> src/werkzeug/exceptions.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/exceptions.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        },
+        {
+          "symbol": "_aborter",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_aborter'",
+          "recommendation": "Pass '_aborter' as a parameter or extract '_aborter' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 257.11
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/formparser.py",
+      "to_file": "src/werkzeug/_extracted_tstreamfactory.py",
+      "symbol": "TStreamFactory",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 271.91
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/formparser.py",
+      "to_file": "src/werkzeug/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 276.11
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/http.py",
+      "to_file": "src/werkzeug/_extracted_coep.py",
+      "symbol": "COEP",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 319.54
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/http.py",
+      "to_file": "src/werkzeug/_extracted_quote_header_value.py",
+      "symbol": "quote_header_value",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_token_chars",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_token_chars'",
+          "recommendation": "Pass '_token_chars' as a parameter or extract '_token_chars' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 265.97
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_local.py",
+      "symbol": "Local",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "LocalProxy",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'LocalProxy'",
+          "recommendation": "Also extract 'LocalProxy' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 283.57
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_release_local.py",
+      "symbol": "release_local",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "LocalStack",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'LocalStack'",
+          "recommendation": "Also extract 'LocalStack' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Local",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Local'",
+          "recommendation": "Also extract 'Local' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 263.17
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 275.39
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/dispatcher.py",
+      "to_file": "src/werkzeug/middleware/_extracted_dispatchermiddleware.py",
+      "symbol": "DispatcherMiddleware",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 266.12
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/http_proxy.py",
+      "to_file": "src/werkzeug/middleware/_extracted_proxymiddleware.py",
+      "symbol": "ProxyMiddleware",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 273.54
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/lint.py",
+      "to_file": "src/werkzeug/middleware/_extracted_wsgiwarning.py",
+      "symbol": "WSGIWarning",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 277.84
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/lint.py",
+      "to_file": "src/werkzeug/middleware/_extracted_check_type.py",
+      "symbol": "check_type",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "WSGIWarning",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'WSGIWarning'",
+          "recommendation": "Also extract 'WSGIWarning' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 258.97
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/profiler.py",
+      "to_file": "src/werkzeug/middleware/_extracted_profilermiddleware.py",
+      "symbol": "ProfilerMiddleware",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 272.75
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/proxy_fix.py",
+      "to_file": "src/werkzeug/middleware/_extracted_proxyfix.py",
+      "symbol": "ProxyFix",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 269.51
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/middleware/shared_data.py",
+      "to_file": "src/werkzeug/middleware/_extracted_shareddatamiddleware.py",
+      "symbol": "SharedDataMiddleware",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_TLoader",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_TLoader'",
+          "recommendation": "Pass '_TLoader' as a parameter or extract '_TLoader' to a shared config module."
+        },
+        {
+          "symbol": "_TOpener",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_TOpener'",
+          "recommendation": "Pass '_TOpener' as a parameter or extract '_TOpener' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 260.11
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/converters.py",
+      "to_file": "src/werkzeug/routing/_extracted_validationerror.py",
+      "symbol": "ValidationError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 269.91
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/exceptions.py",
+      "to_file": "src/werkzeug/routing/_extracted_duplicateruleerror.py",
+      "symbol": "DuplicateRuleError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 274.09
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/map.py",
+      "to_file": "src/werkzeug/routing/_extracted_map.py",
+      "symbol": "Map",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "MapAdapter",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'MapAdapter'",
+          "recommendation": "Also extract 'MapAdapter' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 273.35
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/matcher.py",
+      "to_file": "src/werkzeug/routing/_extracted_slashrequired.py",
+      "symbol": "SlashRequired",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 276.41
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/rules.py",
+      "to_file": "src/werkzeug/routing/_extracted_weighting.py",
+      "symbol": "Weighting",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 291.66
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/routing/rules.py",
+      "to_file": "src/werkzeug/routing/_extracted_parse_converter_args.py",
+      "symbol": "parse_converter_args",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_pythonize",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_pythonize'",
+          "recommendation": "Also extract '_pythonize' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_converter_args_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_converter_args_re'",
+          "recommendation": "Pass '_converter_args_re' as a parameter or extract '_converter_args_re' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 267.29
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/http.py",
+      "to_file": "src/werkzeug/sansio/_extracted_parse_cookie.py",
+      "symbol": "parse_cookie",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 4,
+      "hazards": [
+        {
+          "symbol": "_cookie_unslash_replace",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_cookie_unslash_replace'",
+          "recommendation": "Also extract '_cookie_unslash_replace' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "parse_cookie",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/sansio/http.py -> src/werkzeug/sansio/_extracted_parse_cookie.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/sansio/http.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/sansio/http.py' imports 'src/werkzeug/sansio/_extracted_parse_cookie.py', but 'src/werkzeug/sansio/_extracted_parse_cookie.py' transitively reaches 'src/werkzeug/sansio/http.py' via src/werkzeug/sansio/_extracted_parse_cookie.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py -> src/werkzeug/sansio/http.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/sansio/http.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        },
+        {
+          "symbol": "_cookie_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_cookie_re'",
+          "recommendation": "Pass '_cookie_re' as a parameter or extract '_cookie_re' to a shared config module."
+        },
+        {
+          "symbol": "_cookie_unslash_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_cookie_unslash_re'",
+          "recommendation": "Pass '_cookie_unslash_re' as a parameter or extract '_cookie_unslash_re' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 252.05
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/multipart.py",
+      "to_file": "src/werkzeug/sansio/_extracted_event.py",
+      "symbol": "Event",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 274.73
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/multipart.py",
+      "to_file": "src/werkzeug/sansio/_extracted_need_data.py",
+      "symbol": "NEED_DATA",
+      "symbol_type": "Constant",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "NeedData",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NeedData'",
+          "recommendation": "Also extract 'NeedData' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 252.41
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/request.py",
+      "to_file": "src/werkzeug/sansio/_extracted_request.py",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Request",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/sansio/request.py -> src/werkzeug/sansio/_extracted_request.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/sansio/request.py' imports 'src/werkzeug/sansio/_extracted_request.py', but 'src/werkzeug/sansio/_extracted_request.py' transitively reaches 'src/werkzeug/sansio/request.py' via src/werkzeug/sansio/_extracted_request.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py -> src/werkzeug/sansio/request.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/sansio/request.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 259.16
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/response.py",
+      "to_file": "src/werkzeug/sansio/_extracted_response.py",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Response",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/sansio/response.py -> src/werkzeug/sansio/_extracted_response.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/sansio/response.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/sansio/response.py' imports 'src/werkzeug/sansio/_extracted_response.py', but 'src/werkzeug/sansio/_extracted_response.py' transitively reaches 'src/werkzeug/sansio/response.py' via src/werkzeug/sansio/_extracted_response.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/response.py -> src/werkzeug/sansio/response.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/sansio/response.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 267.33
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/sansio/utils.py",
+      "to_file": "src/werkzeug/sansio/_extracted_host_is_trusted.py",
+      "symbol": "host_is_trusted",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_host_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_host_re'",
+          "recommendation": "Pass '_host_re' as a parameter or extract '_host_re' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 253.65
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/security.py",
+      "to_file": "src/werkzeug/_extracted_generate_password_hash.py",
+      "symbol": "generate_password_hash",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_hash_internal",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_hash_internal'",
+          "recommendation": "Also extract '_hash_internal' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 266.58
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/security.py",
+      "to_file": "src/werkzeug/_extracted_default_pbkdf2_iterations.py",
+      "symbol": "DEFAULT_PBKDF2_ITERATIONS",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 319.3
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_dechunkedinput.py",
+      "symbol": "DechunkedInput",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 328.61
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_generate_adhoc_ssl_pair.py",
+      "symbol": "generate_adhoc_ssl_pair",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 290.51
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_listen_queue.py",
+      "symbol": "LISTEN_QUEUE",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 305.12
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/urls.py",
+      "to_file": "src/werkzeug/_extracted_uri_to_iri.py",
+      "symbol": "uri_to_iri",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 5,
+      "hazards": [
+        {
+          "symbol": "_decode_idna",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_decode_idna'",
+          "recommendation": "Also extract '_decode_idna' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_unquote_query",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_unquote_query'",
+          "recommendation": "Pass '_unquote_query' as a parameter or extract '_unquote_query' to a shared config module."
+        },
+        {
+          "symbol": "_unquote_fragment",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_unquote_fragment'",
+          "recommendation": "Pass '_unquote_fragment' as a parameter or extract '_unquote_fragment' to a shared config module."
+        },
+        {
+          "symbol": "_unquote_user",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_unquote_user'",
+          "recommendation": "Pass '_unquote_user' as a parameter or extract '_unquote_user' to a shared config module."
+        },
+        {
+          "symbol": "_unquote_path",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_unquote_path'",
+          "recommendation": "Pass '_unquote_path' as a parameter or extract '_unquote_path' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 254.01
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_cached_property.py",
+      "symbol": "cached_property",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 294.83
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_secure_filename.py",
+      "symbol": "secure_filename",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_filename_ascii_strip_re",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_filename_ascii_strip_re'",
+          "recommendation": "Pass '_filename_ascii_strip_re' as a parameter or extract '_filename_ascii_strip_re' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 256.56
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 278.62
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/wrappers/request.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_request.py",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Request",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/wrappers/request.py -> src/werkzeug/wrappers/_extracted_request.py -> src/werkzeug/datastructures/file_storage.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/wrappers/request.py' imports 'src/werkzeug/wrappers/_extracted_request.py', but 'src/werkzeug/wrappers/_extracted_request.py' transitively reaches 'src/werkzeug/wrappers/request.py' via src/werkzeug/wrappers/_extracted_request.py -> src/werkzeug/datastructures/file_storage.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/request.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/wrappers/request.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 267.28
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/wrappers/request.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 276.96
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/wrappers/response.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_response.py",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "ResponseStream",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ResponseStream'",
+          "recommendation": "Also extract 'ResponseStream' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_iter_encoded",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_iter_encoded'",
+          "recommendation": "Also extract '_iter_encoded' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Response",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/werkzeug/wrappers/response.py -> src/werkzeug/wrappers/_extracted_response.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/response.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/werkzeug/wrappers/response.py' imports 'src/werkzeug/wrappers/_extracted_response.py', but 'src/werkzeug/wrappers/_extracted_response.py' transitively reaches 'src/werkzeug/wrappers/response.py' via src/werkzeug/wrappers/_extracted_response.py -> src/werkzeug/http.py -> src/werkzeug/__init__.py -> src/werkzeug/test.py -> src/werkzeug/wrappers/response.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/werkzeug/wrappers/response.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 275.69
+    },
+    {
+      "repo": "werkzeug",
+      "from_file": "src/werkzeug/wsgi.py",
+      "to_file": "src/werkzeug/_extracted_closingiterator.py",
+      "symbol": "ClosingIterator",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 282.86
+    }
+  ]
+}

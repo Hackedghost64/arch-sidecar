@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 from .digest import generate_digest
 from .context import locate_surgical_context
 from .decouple import prefactor_decouple
+from .polyglot_decouple import decouple_polyglot_symbol
 from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
 from .workflow import run_workflow
@@ -536,14 +537,26 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
             run_tests = arguments.get("run_tests")
             dry_run = arguments.get("dry_run", False)
 
-            res = prefactor_decouple(
-                symbol=symbol,
-                from_file=from_file,
-                to_file=to_file,
-                project_root=project_root,
-                run_tests=run_tests,
-                dry_run=dry_run
-            )
+            ext = os.path.splitext(from_file)[1].lower()
+            if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs"):
+                sym_name = symbol if isinstance(symbol, str) else symbol[0]
+                res = decouple_polyglot_symbol(
+                    symbol=sym_name,
+                    from_file=from_file,
+                    to_file=to_file,
+                    project_root=project_root,
+                    test_cmd=run_tests,
+                    dry_run=dry_run
+                )
+            else:
+                res = prefactor_decouple(
+                    symbol=symbol,
+                    from_file=from_file,
+                    to_file=to_file,
+                    project_root=project_root,
+                    run_tests=run_tests,
+                    dry_run=dry_run
+                )
             return {
                 "content": [
                     {

@@ -728,6 +728,18 @@ def check_code_health(
                 )
             })
 
+        # 3. In-process lexical scope check
+        from .polyglot_resolver import check_ts_lexical_scope
+        scope_warnings = check_ts_lexical_scope(source, filename=rel_path)
+        for w in scope_warnings:
+            ts_issues.append({
+                "severity": "WARNING",
+                "type": "UNDEFINED_SYMBOL",
+                "line": 1,
+                "message": w,
+                "recommendation": "Declare or import the identifier before using it."
+            })
+
         errors = sum(1 for i in ts_issues if i["severity"] == "ERROR")
         warnings = sum(1 for i in ts_issues if i["severity"] == "WARNING")
         health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
@@ -748,6 +760,7 @@ def check_code_health(
     # Go preflight routing
     if target_abs.endswith(".go"):
         from .go_ast import parse_go_ast
+        from .polyglot_resolver import check_go_lexical_scope, detect_go_circular_imports
         parsed = parse_go_ast(source, filename=target_abs)
         go_issues: List[Dict[str, Any]] = []
 
@@ -758,6 +771,28 @@ def check_code_health(
                 "line": 1,
                 "message": f"Go source file '{rel_path}' is missing a 'package <name>' declaration.",
                 "recommendation": "Add a valid package declaration at the top of the file."
+            })
+
+        # In-process lexical scope & undeclared identifier check
+        scope_issues = check_go_lexical_scope(source, filename=rel_path)
+        for si in scope_issues:
+            go_issues.append({
+                "severity": "ERROR",
+                "type": "UNDECLARED_SYMBOL_OR_UNIMPORTED_PACKAGE",
+                "line": 1,
+                "message": si,
+                "recommendation": "Import the package or declare the identifier."
+            })
+
+        # Go package circular import cycle check
+        cycles = detect_go_circular_imports(root_abs)
+        for c in cycles:
+            go_issues.append({
+                "severity": "ERROR",
+                "type": "CIRCULAR_IMPORT",
+                "line": 1,
+                "message": c["hazard"],
+                "recommendation": "Break the package circular dependency."
             })
 
         errors = sum(1 for i in go_issues if i["severity"] == "ERROR")
@@ -780,6 +815,7 @@ def check_code_health(
     # Rust preflight routing
     if target_abs.endswith(".rs"):
         from .rust_ast import parse_rust_ast
+        from .polyglot_resolver import check_rust_lexical_scope, detect_rust_circular_imports
         parsed = parse_rust_ast(source, filename=target_abs)
         rs_issues: List[Dict[str, Any]] = []
 
@@ -791,6 +827,28 @@ def check_code_health(
                 "line": len(source.splitlines()),
                 "message": f"Rust source file '{rel_path}' has unbalanced braces (delta: {brace_balance}).",
                 "recommendation": "Check for unclosed struct, enum, or function blocks."
+            })
+
+        # In-process lexical scope check
+        scope_issues = check_rust_lexical_scope(source, filename=rel_path)
+        for si in scope_issues:
+            rs_issues.append({
+                "severity": "ERROR",
+                "type": "UNDECLARED_SYMBOL_OR_UNRESOLVED_CRATE",
+                "line": 1,
+                "message": si,
+                "recommendation": "Use 'use' statement or declare the item."
+            })
+
+        # Rust module circular import cycle check
+        cycles = detect_rust_circular_imports(root_abs)
+        for c in cycles:
+            rs_issues.append({
+                "severity": "ERROR",
+                "type": "CIRCULAR_IMPORT",
+                "line": 1,
+                "message": c["hazard"],
+                "recommendation": "Break the module circular dependency."
             })
 
         errors = sum(1 for i in rs_issues if i["severity"] == "ERROR")

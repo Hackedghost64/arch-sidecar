@@ -14,6 +14,7 @@ from .git_ops import (
 )
 from .context import locate_surgical_context
 from .decouple import prefactor_decouple
+from .polyglot_decouple import decouple_polyglot_symbol
 from .mcp_server import run_mcp_server
 from .planner import plan_adaptive_retrieval
 from .uncertainty import scan_codebase_uncertainty
@@ -367,16 +368,27 @@ def main():
 
     elif args.command == "decouple":
         sym_list = [s.strip() for s in args.symbols.split(",")]
-        res = prefactor_decouple(
-            symbol=sym_list,
-            from_file=args.from_file,
-            to_file=args.to_file,
-            project_root=args.root,
-            run_tests=args.test,
-            dry_run=args.dry_run,
-            share_state=args.share_state,
-            ruff_cleanup=getattr(args, "ruff", False),
-        )
+        ext = os.path.splitext(args.from_file)[1].lower()
+        if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs"):
+            res = decouple_polyglot_symbol(
+                symbol=sym_list[0],
+                from_file=args.from_file,
+                to_file=args.to_file,
+                project_root=args.root,
+                test_cmd=args.test,
+                dry_run=args.dry_run,
+            )
+        else:
+            res = prefactor_decouple(
+                symbol=sym_list,
+                from_file=args.from_file,
+                to_file=args.to_file,
+                project_root=args.root,
+                run_tests=args.test,
+                dry_run=args.dry_run,
+                share_state=args.share_state,
+                ruff_cleanup=getattr(args, "ruff", False),
+            )
         if res.get("success"):
             print(f"✅ Decoupled successfully in {res['execution_time_ms']}ms:")
             print(f"   Symbols: {', '.join(res['extracted_symbols'])}")

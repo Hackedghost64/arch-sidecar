@@ -19,6 +19,9 @@ from collections import defaultdict, deque
 from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary
 from .guard import resolve_local_module_path
 from .ts_ast import parse_ts_js_ast, resolve_ts_import_path, find_tsconfig
+from .go_ast import parse_go_ast
+from .rust_ast import parse_rust_ast
+from .polyglot_resolver import resolve_go_import_path, resolve_rust_import_path
 
 
 class DependencyGraph:
@@ -88,6 +91,22 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                     with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
                         lines = fh.readlines()
                     graph.add_module(rel, len(lines), "typescript")
+                    file_map[full_p] = rel
+                except Exception:
+                    pass
+            elif ext_lower == ".go":
+                try:
+                    with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                        lines = fh.readlines()
+                    graph.add_module(rel, len(lines), "go")
+                    file_map[full_p] = rel
+                except Exception:
+                    pass
+            elif ext_lower == ".rs":
+                try:
+                    with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                        lines = fh.readlines()
+                    graph.add_module(rel, len(lines), "rust")
                     file_map[full_p] = rel
                 except Exception:
                     pass
@@ -181,6 +200,30 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                     resolved = resolve_ts_import_path(mod_spec, full_p, root_abs, tsconfig)
                     if resolved and resolved in file_map:
                         graph.add_dependency(rel_src, file_map[resolved], syms)
+            except Exception:
+                pass
+
+        elif lang == "go":
+            try:
+                with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                    content = fh.read()
+                parsed = parse_go_ast(content, filename=full_p)
+                for imp in parsed.get("imports", []):
+                    resolved = resolve_go_import_path(imp["module"], full_p, root_abs)
+                    if resolved and resolved in file_map:
+                        graph.add_dependency(rel_src, file_map[resolved], [imp["module"]])
+            except Exception:
+                pass
+
+        elif lang == "rust":
+            try:
+                with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                    content = fh.read()
+                parsed = parse_rust_ast(content, filename=full_p)
+                for imp in parsed.get("imports", []):
+                    resolved = resolve_rust_import_path(imp["module"], full_p, root_abs)
+                    if resolved and resolved in file_map:
+                        graph.add_dependency(rel_src, file_map[resolved], [imp["module"]])
             except Exception:
                 pass
 

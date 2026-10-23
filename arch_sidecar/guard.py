@@ -745,6 +745,71 @@ def check_code_health(
             "duration_ms": duration_ms
         }
 
+    # Go preflight routing
+    if target_abs.endswith(".go"):
+        from .go_ast import parse_go_ast
+        parsed = parse_go_ast(source, filename=target_abs)
+        go_issues: List[Dict[str, Any]] = []
+
+        if not parsed["package"]:
+            go_issues.append({
+                "severity": "ERROR",
+                "type": "MISSING_PACKAGE_DECLARATION",
+                "line": 1,
+                "message": f"Go source file '{rel_path}' is missing a 'package <name>' declaration.",
+                "recommendation": "Add a valid package declaration at the top of the file."
+            })
+
+        errors = sum(1 for i in go_issues if i["severity"] == "ERROR")
+        warnings = sum(1 for i in go_issues if i["severity"] == "WARNING")
+        health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        return {
+            "success": errors == 0,
+            "file": rel_path,
+            "language": "go",
+            "health_score": health_score,
+            "total_issues": len(go_issues),
+            "errors": errors,
+            "warnings": warnings,
+            "issues": go_issues,
+            "duration_ms": duration_ms
+        }
+
+    # Rust preflight routing
+    if target_abs.endswith(".rs"):
+        from .rust_ast import parse_rust_ast
+        parsed = parse_rust_ast(source, filename=target_abs)
+        rs_issues: List[Dict[str, Any]] = []
+
+        brace_balance = source.count("{") - source.count("}")
+        if brace_balance != 0:
+            rs_issues.append({
+                "severity": "ERROR",
+                "type": "UNBALANCED_BRACES",
+                "line": len(source.splitlines()),
+                "message": f"Rust source file '{rel_path}' has unbalanced braces (delta: {brace_balance}).",
+                "recommendation": "Check for unclosed struct, enum, or function blocks."
+            })
+
+        errors = sum(1 for i in rs_issues if i["severity"] == "ERROR")
+        warnings = sum(1 for i in rs_issues if i["severity"] == "WARNING")
+        health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        return {
+            "success": errors == 0,
+            "file": rel_path,
+            "language": "rust",
+            "health_score": health_score,
+            "total_issues": len(rs_issues),
+            "errors": errors,
+            "warnings": warnings,
+            "issues": rs_issues,
+            "duration_ms": duration_ms
+        }
+
     # 1. AST Syntax Check
     try:
         tree = ast.parse(source, filename=target_abs)

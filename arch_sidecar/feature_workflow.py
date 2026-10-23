@@ -1,6 +1,7 @@
 import os
 import ast
 import re
+import json
 import subprocess
 import time
 from typing import Dict, List, Optional, Set, Any, Tuple
@@ -10,6 +11,9 @@ from .context import SymbolFinder, find_references_in_file
 from .uncertainty import scan_file_uncertainty, ConfidenceLevel
 from .guard import check_code_health, resolve_local_module_path
 from .session_logger import record_session
+from .ts_ast import parse_ts_js_ast
+from .go_ast import parse_go_ast
+from .rust_ast import parse_rust_ast
 
 
 STOPWORDS = {
@@ -101,9 +105,102 @@ class DetailedFileAnalyzer(ast.NodeVisitor):
             self._record_callable_or_class(node, node.name, "async_function")
 
 
+class PolyglotFileAnalyzer:
+    """Standardized representation of file symbols across TypeScript, Go, and Rust."""
+    def __init__(
+        self,
+        rel_path: str,
+        lines: List[str],
+        symbols: Dict[str, Dict[str, Any]],
+        imports: List[str],
+        exports_all: Optional[List[str]] = None,
+    ):
+        self.rel_path = rel_path
+        self.lines = lines
+        self.symbols = symbols
+        self.imports = imports
+        self.import_end_line = 0
+        self.exports_all = exports_all
+
+
+def build_ts_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
+    parsed = parse_ts_js_ast("".join(lines), filename=rel_path)
+    imports = [f"import {imp['module']}" for imp in parsed.get("imports", [])[:15]]
+    symbols: Dict[str, Dict[str, Any]] = {}
+    for decl in parsed.get("declarations", []):
+        name = decl["name"]
+        s_line = decl.get("start_line", decl.get("line", 1))
+        e_line = decl.get("end_line", decl.get("line", 1))
+        raw_slice = lines[s_line - 1 : e_line]
+        numbered_code = "".join(f"{s_line + idx}: {line}" for idx, line in enumerate(raw_slice))
+        raw_code = "".join(raw_slice)
+        symbols[name] = {
+            "type": decl.get("kind", "function"),
+            "name": name,
+            "filename": rel_path,
+            "start_line": s_line,
+            "end_line": e_line,
+            "signature": decl.get("signature", name),
+            "code": raw_code,
+            "numbered_code": numbered_code,
+            "ast_node": None,
+        }
+    return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
+
+
+def build_go_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
+    parsed = parse_go_ast("".join(lines), filename=rel_path)
+    imports = [f"import \"{imp['module']}\"" for imp in parsed.get("imports", [])[:15]]
+    symbols: Dict[str, Dict[str, Any]] = {}
+    for decl in parsed.get("declarations", []):
+        name = decl["name"]
+        s_line = decl.get("start_line", 1)
+        e_line = decl.get("end_line", 1)
+        raw_slice = lines[s_line - 1 : e_line]
+        numbered_code = "".join(f"{s_line + idx}: {line}" for idx, line in enumerate(raw_slice))
+        raw_code = "".join(raw_slice)
+        symbols[name] = {
+            "type": decl.get("kind", "function"),
+            "name": name,
+            "filename": rel_path,
+            "start_line": s_line,
+            "end_line": e_line,
+            "signature": decl.get("signature", name),
+            "code": raw_code,
+            "numbered_code": numbered_code,
+            "ast_node": None,
+        }
+    return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
+
+
+def build_rust_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
+    parsed = parse_rust_ast("".join(lines), filename=rel_path)
+    imports = [f"use {imp['module']};" for imp in parsed.get("imports", [])[:15]]
+    symbols: Dict[str, Dict[str, Any]] = {}
+    for decl in parsed.get("declarations", []):
+        name = decl["name"]
+        s_line = decl.get("start_line", 1)
+        e_line = decl.get("end_line", 1)
+        raw_slice = lines[s_line - 1 : e_line]
+        numbered_code = "".join(f"{s_line + idx}: {line}" for idx, line in enumerate(raw_slice))
+        raw_code = "".join(raw_slice)
+        symbols[name] = {
+            "type": decl.get("kind", "function"),
+            "name": name,
+            "filename": rel_path,
+            "start_line": s_line,
+            "end_line": e_line,
+            "signature": decl.get("signature", name),
+            "code": raw_code,
+            "numbered_code": numbered_code,
+            "ast_node": None,
+        }
+    return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
+
+
 def classify_feature_intent(task: str) -> Dict[str, Any]:
     """
-    Step 1: Understand the requested change.
+    Step 1: Understand the requested change across Python, TypeScript, Go, and Rust.
     Extracts intent category, explicit file mentions, identifier tokens, and route/CLI patterns.
     """
     task_lower = task.lower()
@@ -111,19 +208,20 @@ def classify_feature_intent(task: str) -> Dict[str, Any]:
         category = "add_or_update_endpoint"
     elif any(k in task_lower for k in ("option", "flag", "argument", "subcommand", "cli", "@click")):
         category = "add_or_update_cli_feature"
-    elif any(k in task_lower for k in ("class ", "subclass", "dataclass", "model")):
+    elif any(k in task_lower for k in ("class ", "subclass", "dataclass", "model", "struct", "interface", "trait")):
         category = "add_or_extend_class"
     elif any(k in task_lower for k in ("fix", "bug", "error", "exception", "handle", "validate")):
         category = "validation_or_bugfix"
     else:
         category = "add_or_extend_function"
 
-    explicit_files = re.findall(r"[\w\-./]+\.py\b", task)
+    explicit_files = re.findall(r"[\w\-./]+\.(?:py|ts|tsx|js|jsx|go|rs)\b", task)
     raw_tokens = re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", task)
     keywords = []
     seen = set()
     for tok in raw_tokens:
-        if tok.lower() not in STOPWORDS and not tok.endswith(".py") and tok not in seen:
+        tok_low = tok.lower()
+        if tok_low not in STOPWORDS and not any(tok.endswith(ext) for ext in (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs")) and tok not in seen:
             keywords.append(tok)
             seen.add(tok)
 
@@ -134,8 +232,9 @@ def classify_feature_intent(task: str) -> Dict[str, Any]:
     }
 
 
-def detect_git_modified_py_files(root_abs: str) -> List[str]:
-    """Detects modified or untracked Python files in a git working tree relative to root_abs."""
+def detect_git_modified_source_files(root_abs: str) -> List[str]:
+    """Detects modified or untracked source files in a git working tree relative to root_abs."""
+    valid_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs")
     try:
         res = subprocess.run(
             ["git", "status", "--porcelain"],
@@ -153,7 +252,7 @@ def detect_git_modified_py_files(root_abs: str) -> List[str]:
             path_part = line[3:].strip()
             if " -> " in path_part:
                 path_part = path_part.split(" -> ")[-1].strip()
-            if path_part.endswith(".py") and os.path.exists(os.path.join(root_abs, path_part)):
+            if path_part.endswith(valid_exts) and os.path.exists(os.path.join(root_abs, path_part)):
                 files.append(path_part)
         return files
     except Exception:
@@ -208,16 +307,30 @@ def run_feature_workflow(
     source_files: List[Tuple[str, str]] = []
     test_files: List[Tuple[str, str]] = []
 
+    valid_source_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs")
     for current_root, dirs, files in os.walk(root_abs):
         dirs[:] = [d for d in dirs if d not in DEFAULT_IGNORED_DIRS and not d.startswith(".")]
         for file in sorted(files):
-            if not file.endswith(".py"):
+            ext = os.path.splitext(file)[1].lower()
+            if ext not in valid_source_exts:
                 continue
             full_path = os.path.join(current_root, file)
             rel_path = os.path.relpath(full_path, root_abs)
             if is_ignored_path(rel_path) or is_minified_or_binary(full_path):
                 continue
-            is_test = "test" in rel_path.lower().split(os.sep) or file.startswith("test_") or file.endswith("_test.py")
+            rel_low = rel_path.lower()
+            is_test = False
+            if "test" in rel_low.split(os.sep) or "__tests__" in rel_low:
+                is_test = True
+            elif ext == ".py" and (file.startswith("test_") or file.endswith("_test.py")):
+                is_test = True
+            elif ext in (".ts", ".tsx", ".js", ".jsx") and (".test." in file or ".spec." in file):
+                is_test = True
+            elif ext == ".go" and file.endswith("_test.go"):
+                is_test = True
+            elif ext == ".rs" and (file.endswith("_test.rs") or rel_low.startswith("tests/")):
+                is_test = True
+
             if is_test:
                 test_files.append((rel_path, full_path))
             else:
@@ -227,7 +340,7 @@ def run_feature_workflow(
     if not source_files and test_files:
         source_files = list(test_files)
 
-    file_analyzers: Dict[str, DetailedFileAnalyzer] = {}
+    file_analyzers: Dict[str, Any] = {}
     file_lines_map: Dict[str, List[str]] = {}
     file_trees_map: Dict[str, ast.Module] = {}
 
@@ -235,12 +348,23 @@ def run_feature_workflow(
         try:
             with open(full_path, "r", encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
-            tree = ast.parse("".join(lines), filename=rel_path)
-            analyzer = DetailedFileAnalyzer(rel_path, lines)
-            analyzer.visit(tree)
-            file_analyzers[rel_path] = analyzer
-            file_lines_map[rel_path] = lines
-            file_trees_map[rel_path] = tree
+            ext = os.path.splitext(rel_path)[1].lower()
+            if ext == ".py":
+                tree = ast.parse("".join(lines), filename=rel_path)
+                analyzer = DetailedFileAnalyzer(rel_path, lines)
+                analyzer.visit(tree)
+                file_analyzers[rel_path] = analyzer
+                file_lines_map[rel_path] = lines
+                file_trees_map[rel_path] = tree
+            elif ext in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"):
+                file_analyzers[rel_path] = build_ts_analyzer(rel_path, lines)
+                file_lines_map[rel_path] = lines
+            elif ext == ".go":
+                file_analyzers[rel_path] = build_go_analyzer(rel_path, lines)
+                file_lines_map[rel_path] = lines
+            elif ext == ".rs":
+                file_analyzers[rel_path] = build_rust_analyzer(rel_path, lines)
+                file_lines_map[rel_path] = lines
         except Exception:
             continue
 
@@ -417,11 +541,37 @@ def run_feature_workflow(
     if not related_tests and test_files:
         related_tests = [t[0] for t in test_files[:2]]
 
-    has_src_layout = os.path.isdir(os.path.join(root_abs, "src"))
-    py_prefix = "PYTHONPATH=src " if has_src_layout else ""
     inferred_test_cmd = test_command
     if not inferred_test_cmd and related_tests:
-        inferred_test_cmd = f"{py_prefix}python3 -m pytest -q -p no:cacheprovider {related_tests[0]}"
+        test_file = related_tests[0]
+        t_ext = os.path.splitext(test_file)[1].lower()
+        if t_ext == ".py":
+            has_src_layout = os.path.isdir(os.path.join(root_abs, "src"))
+            py_prefix = "PYTHONPATH=src " if has_src_layout else ""
+            inferred_test_cmd = f"{py_prefix}python3 -m pytest -q -p no:cacheprovider {test_file}"
+        elif t_ext in (".ts", ".tsx", ".js", ".jsx"):
+            pkg_path = os.path.join(root_abs, "package.json")
+            if os.path.isfile(pkg_path):
+                try:
+                    with open(pkg_path, "r", encoding="utf-8") as pf:
+                        pkg_d = json.load(pf)
+                    scripts = pkg_d.get("scripts", {})
+                    if "test" in scripts and "vitest" in scripts["test"]:
+                        inferred_test_cmd = f"npx vitest run {test_file}"
+                    elif "test" in scripts and "jest" in scripts["test"]:
+                        inferred_test_cmd = f"npx jest {test_file}"
+                    else:
+                        inferred_test_cmd = f"npm test -- {test_file}"
+                except Exception:
+                    inferred_test_cmd = f"npx vitest run {test_file}"
+            else:
+                inferred_test_cmd = f"npx vitest run {test_file}"
+        elif t_ext == ".go":
+            t_dir = os.path.dirname(test_file)
+            inferred_test_cmd = f"go test -v ./{t_dir}" if t_dir else "go test -v ."
+        elif t_ext == ".rs":
+            stem = os.path.splitext(os.path.basename(test_file))[0]
+            inferred_test_cmd = f"cargo test --test {stem}"
 
     # 3d. Dynamic Reflection / Uncertainty in primary_file
     uncertainty_findings = []
@@ -642,7 +792,7 @@ def run_feature_workflow(
         elif explicit_single_file:
             files_to_check.append(explicit_single_file)
         else:
-            git_mod = detect_git_modified_py_files(root_abs)
+            git_mod = detect_git_modified_source_files(root_abs)
             if git_mod:
                 files_to_check.extend(git_mod)
             elif primary_file:

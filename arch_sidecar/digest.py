@@ -5,6 +5,8 @@ import sys
 from typing import Dict, List, Optional, Set, Any
 from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary, estimate_tokens
 from .ts_ast import format_ts_digest_skeleton
+from .go_ast import format_go_digest_skeleton
+from .rust_ast import format_rust_digest_skeleton
 
 def _format_arg(arg: ast.arg, default: Optional[ast.AST] = None) -> str:
     """Format an ast.arg with optional type annotation and default value."""
@@ -191,6 +193,24 @@ def parse_c_cpp_file(filepath: str) -> str:
     except Exception as e:
         return f"  [Error reading C/C++: {e}]\n"
     return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
+
+def parse_go_file(filepath: str) -> str:
+    """Extract package, imports, and declarations from Go files."""
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        return format_go_digest_skeleton(content, filename=filepath) + "\n"
+    except Exception as e:
+        return f"  [Error reading Go: {e}]\n"
+
+def parse_rust_file(filepath: str) -> str:
+    """Extract use statements, structs, traits, and functions from Rust files."""
+    try:
+        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+        return format_rust_digest_skeleton(content, filename=filepath) + "\n"
+    except Exception as e:
+        return f"  [Error reading Rust: {e}]\n"
 
 def parse_generic_file(filepath: str) -> str:
     """Generic fallback for other languages (Go, Rust, Dart, etc.)."""

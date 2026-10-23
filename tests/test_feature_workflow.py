@@ -135,3 +135,82 @@ def test_feature_workflow_verify_catches_hallucinated_symbol():
         ledger = res["verification_ledger"]
         assert ledger["statically_verified"] == []
         assert any("non_existent_helper_fn" in r for r in ledger["unverified_or_residual_risks"])
+
+
+def test_feature_workflow_typescript():
+    ts_service = """import { db } from './db';
+
+export class AuthManager {
+    async validateToken(token: string): Promise<boolean> {
+        return token.length > 0;
+    }
+}
+"""
+    ts_test = """import { AuthManager } from '../src/service';
+
+describe('AuthManager', () => {
+    it('validates tokens', () => {
+        const auth = new AuthManager();
+        expect(auth).toBeDefined();
+    });
+});
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        os.makedirs(os.path.join(tmpdir, "src"), exist_ok=True)
+        os.makedirs(os.path.join(tmpdir, "tests"), exist_ok=True)
+        with open(os.path.join(tmpdir, "src", "service.ts"), "w", encoding="utf-8") as f:
+            f.write(ts_service)
+        with open(os.path.join(tmpdir, "tests", "service.test.ts"), "w", encoding="utf-8") as f:
+            f.write(ts_test)
+
+        res = run_feature_workflow(
+            task="Add login method to AuthManager in src/service.ts",
+            project_root=tmpdir,
+        )
+
+        assert res["success"] is True
+        assert res["primary_file"] == "src/service.ts"
+        assert any(a["name"] == "AuthManager" for a in res["anchor_symbols"])
+        assert "tests/service.test.ts" in res["impact_map"]["related_tests"]
+        assert "vitest" in res["impact_map"]["inferred_test_command"] or "test" in res["impact_map"]["inferred_test_command"]
+
+
+def test_feature_workflow_go():
+    go_code = """package server
+
+type HTTPServer struct {
+    port int
+}
+
+func NewHTTPServer(port int) *HTTPServer {
+    return &HTTPServer{port: port}
+}
+"""
+    go_test = """package server
+
+import "testing"
+
+func TestHTTPServer(t *testing.T) {
+    s := NewHTTPServer(8080)
+    if s == nil {
+        t.Fatal("expected server")
+    }
+}
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with open(os.path.join(tmpdir, "server.go"), "w", encoding="utf-8") as f:
+            f.write(go_code)
+        with open(os.path.join(tmpdir, "server_test.go"), "w", encoding="utf-8") as f:
+            f.write(go_test)
+
+        res = run_feature_workflow(
+            task="Add Stop method to HTTPServer in server.go",
+            project_root=tmpdir,
+        )
+
+        assert res["success"] is True
+        assert res["primary_file"] == "server.go"
+        assert any(a["name"] == "HTTPServer" for a in res["anchor_symbols"])
+        assert "server_test.go" in res["impact_map"]["related_tests"]
+        assert "go test" in res["impact_map"]["inferred_test_command"]
+

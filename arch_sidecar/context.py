@@ -3,6 +3,9 @@ import ast
 import re
 from typing import Dict, List, Optional, Set, Any, Tuple
 from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, estimate_tokens
+from .ts_ast import parse_ts_js_ast
+from .go_ast import parse_go_ast
+from .rust_ast import parse_rust_ast
 
 class SymbolFinder(ast.NodeVisitor):
     def __init__(self, filename: str, lines: List[str]):
@@ -130,13 +133,13 @@ def locate_surgical_context(
 
     matched_symbols: Dict[str, Dict[str, Any]] = {}
     file_imports_map: Dict[str, List[str]] = {}
-    all_python_files: List[Tuple[str, str]] = []
+    all_source_files: List[Tuple[str, str]] = []
 
     file_docstrings_map: Dict[str, Optional[str]] = {}
     file_constants_map: Dict[str, List[str]] = {}
 
     def _index_py_file(rel_path: str, full_path: str):
-        all_python_files.append((rel_path, full_path))
+        all_source_files.append((rel_path, full_path))
         try:
             with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
                 lines = file_obj.readlines()
@@ -149,13 +152,98 @@ def locate_surgical_context(
 
             for sym_name, sym_info in finder.symbols.items():
                 if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                    sym_info["lang"] = "python"
                     matched_symbols[sym_name] = sym_info
         except (SyntaxError, OSError, UnicodeDecodeError):
             pass
 
+    def _index_ts_file(rel_path: str, full_path: str):
+        all_source_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                content = file_obj.read()
+            parsed = parse_ts_js_ast(content, filename=rel_path)
+            imports = [f"import {imp['module']}" for imp in parsed.get("imports", [])[:10]]
+            file_imports_map[rel_path] = imports
+            lang = "typescript" if rel_path.endswith((".ts", ".tsx")) else "javascript"
+            for decl in parsed.get("declarations", []):
+                sym_name = decl["name"]
+                if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                    matched_symbols[sym_name] = {
+                        "type": decl["kind"],
+                        "name": sym_name,
+                        "filename": rel_path,
+                        "start_line": decl.get("start_line", decl.get("line", 1)),
+                        "end_line": decl.get("end_line", decl.get("line", 1)),
+                        "code": decl.get("code", decl.get("signature", "")),
+                        "lang": lang
+                    }
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    def _index_go_file(rel_path: str, full_path: str):
+        all_source_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                content = file_obj.read()
+            parsed = parse_go_ast(content, filename=rel_path)
+            imports = [f"import \"{imp['module']}\"" for imp in parsed.get("imports", [])[:10]]
+            file_imports_map[rel_path] = imports
+            for decl in parsed.get("declarations", []):
+                sym_name = decl["name"]
+                if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                    matched_symbols[sym_name] = {
+                        "type": decl["kind"],
+                        "name": sym_name,
+                        "filename": rel_path,
+                        "start_line": decl["start_line"],
+                        "end_line": decl["end_line"],
+                        "code": decl["code"],
+                        "lang": "go"
+                    }
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    def _index_rs_file(rel_path: str, full_path: str):
+        all_source_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                content = file_obj.read()
+            parsed = parse_rust_ast(content, filename=rel_path)
+            imports = [f"use {imp['module']};" for imp in parsed.get("imports", [])[:10]]
+            file_imports_map[rel_path] = imports
+            for decl in parsed.get("declarations", []):
+                sym_name = decl["name"]
+                if sym_name in symbols_to_find or any(s.lower() == sym_name.lower() for s in symbols_to_find):
+                    # Prefer struct/enum/trait/function definition over standalone impl block
+                    if sym_name in matched_symbols and matched_symbols[sym_name]["type"] in ("struct", "enum", "trait", "function"):
+                        continue
+                    matched_symbols[sym_name] = {
+                        "type": decl["kind"],
+                        "name": sym_name,
+                        "filename": rel_path,
+                        "start_line": decl["start_line"],
+                        "end_line": decl["end_line"],
+                        "code": decl["code"],
+                        "lang": "rust"
+                    }
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    def _index_source_file(rel_path: str, full_path: str):
+        ext = os.path.splitext(rel_path)[1].lower()
+        if ext == ".py":
+            _index_py_file(rel_path, full_path)
+        elif ext in (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs"):
+            _index_ts_file(rel_path, full_path)
+        elif ext == ".go":
+            _index_go_file(rel_path, full_path)
+        elif ext == ".rs":
+            _index_rs_file(rel_path, full_path)
+
     # 1. First pass: find symbol definitions and imports
     if single_file_target:
-        _index_py_file(os.path.basename(single_file_target), single_file_target)
+        _index_source_file(os.path.basename(single_file_target), single_file_target)
     else:
         for root, dirs, files in os.walk(root_abs):
             dirs[:] = [
@@ -163,19 +251,20 @@ def locate_surgical_context(
                 if not is_ignored_path(os.path.relpath(os.path.join(root, d), root_abs))
             ]
             for f in files:
-                if f.endswith(".py"):
+                ext = os.path.splitext(f)[1].lower()
+                if ext in (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs"):
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, root_abs)
                     if is_ignored_path(rel_path):
                         continue
-                    _index_py_file(rel_path, full_path)
+                    _index_source_file(rel_path, full_path)
 
     # 2. Second pass: find references/callers across the codebase (e.g. tests)
     found_symbol_names = set(matched_symbols.keys())
     references_by_file: Dict[str, List[Dict[str, Any]]] = {}
 
     if found_symbol_names:
-        for rel_path, full_path in all_python_files:
+        for rel_path, full_path in all_source_files:
             refs = find_references_in_file(full_path, found_symbol_names)
             # Filter out the definition itself
             filtered_refs = []
@@ -210,15 +299,16 @@ def locate_surgical_context(
                 output.append(f"Module Constants: {', '.join(mod_consts[:8])}\n")
 
         # Relevant imports from same file
+        lang = sym_info.get("lang", "python")
         rel_imports = file_imports_map.get(rel, [])
         if rel_imports:
             output.append("### Module Imports in Source File:")
-            output.append("```python")
-            output.append("".join(rel_imports[:10]).strip())
+            output.append(f"```{lang}")
+            output.append("\n".join(rel_imports[:10]).strip())
             output.append("```")
             
         output.append("### Source Definition:")
-        output.append("```python")
+        output.append(f"```{lang}")
         output.append(sym_info["code"].strip())
         output.append("```\n")
 

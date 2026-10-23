@@ -329,3 +329,67 @@ def test_ts_guard_resolves_tsconfig_path_alias():
         assert res["health_score"] == 100.0
 
 
+def test_go_guard_clean_and_missing_package():
+    """Verifies Go preflight guard catches missing package declaration."""
+    clean_go = """package api
+
+import "fmt"
+
+func Hello() string {
+    return fmt.Sprintf("Hello, Go!")
+}
+"""
+    broken_go = """import "fmt"
+
+func Broken() string {
+    return "No package"
+}
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        clean_path = os.path.join(tmpdir, "clean.go")
+        broken_path = os.path.join(tmpdir, "broken.go")
+        with open(clean_path, "w", encoding="utf-8") as f:
+            f.write(clean_go)
+        with open(broken_path, "w", encoding="utf-8") as f:
+            f.write(broken_go)
+
+        res_clean = check_code_health(clean_path, project_root=tmpdir)
+        assert res_clean["success"] is True
+        assert res_clean["errors"] == 0
+        assert res_clean["language"] == "go"
+
+        res_broken = check_code_health(broken_path, project_root=tmpdir)
+        assert res_broken["success"] is False
+        assert res_broken["errors"] == 1
+        assert any(i["type"] == "MISSING_PACKAGE_DECLARATION" for i in res_broken["issues"])
+
+
+def test_rust_guard_clean_and_unbalanced_braces():
+    """Verifies Rust preflight guard catches syntax anomalies like unbalanced braces."""
+    clean_rs = """pub fn compute(a: i32, b: i32) -> i32 {
+    a + b
+}
+"""
+    broken_rs = """pub fn compute(a: i32, b: i32) -> i32 {
+    a + b
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        clean_path = os.path.join(tmpdir, "clean.rs")
+        broken_path = os.path.join(tmpdir, "broken.rs")
+        with open(clean_path, "w", encoding="utf-8") as f:
+            f.write(clean_rs)
+        with open(broken_path, "w", encoding="utf-8") as f:
+            f.write(broken_rs)
+
+        res_clean = check_code_health(clean_path, project_root=tmpdir)
+        assert res_clean["success"] is True
+        assert res_clean["errors"] == 0
+        assert res_clean["language"] == "rust"
+
+        res_broken = check_code_health(broken_path, project_root=tmpdir)
+        assert res_broken["success"] is False
+        assert res_broken["errors"] == 1
+        assert any(i["type"] == "UNBALANCED_BRACES" for i in res_broken["issues"])
+
+
+

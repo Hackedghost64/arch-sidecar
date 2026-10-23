@@ -224,12 +224,31 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
                 name = m.group(2)
                 # Signature slice
                 sig = line_stripped.split("{")[0].strip().rstrip(";")
+                # Extract declaration block range
+                brace_count = 0
+                found_brace = False
+                end_idx = line_idx
+                for j in range(line_idx, len(lines)):
+                    l = lines[j]
+                    brace_count += l.count("{") - l.count("}")
+                    if "{" in l:
+                        found_brace = True
+                    if found_brace and brace_count <= 0:
+                        end_idx = j
+                        break
+                    if not found_brace and ";" in l:
+                        end_idx = j
+                        break
+                decl_code = "\n".join(lines[line_idx : end_idx + 1])
                 declarations.append({
                     "kind": kind,
                     "name": name,
                     "is_exported": is_exported,
                     "signature": sig,
                     "line": line_idx + 1,
+                    "start_line": line_idx + 1,
+                    "end_line": end_idx + 1,
+                    "code": decl_code,
                 })
                 break
 

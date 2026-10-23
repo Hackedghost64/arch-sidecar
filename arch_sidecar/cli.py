@@ -5,6 +5,13 @@ import os
 
 from .digest import generate_digest
 from .quality import audit_file, audit_repository, QualityReport
+from .git_ops import (
+    audit_git_changeset,
+    analyze_git_change_impact,
+    install_git_hook,
+    uninstall_git_hook,
+    is_git_repository,
+)
 from .context import locate_surgical_context
 from .decouple import prefactor_decouple
 from .mcp_server import run_mcp_server
@@ -149,7 +156,21 @@ def main():
     )
     audit_parser.add_argument("path", nargs="?", default=".", help="Target file or repository directory (default: .)")
     audit_parser.add_argument("--strict", "-s", action="store_true", help="Fail if any warnings are detected (zero-tolerance mode)")
+    audit_parser.add_argument("--staged", action="store_true", help="Audit only Git staged files (sub-10ms fast path)")
+    audit_parser.add_argument("--diff", help="Audit only files modified against a base branch (e.g. --diff main)")
     audit_parser.add_argument("--json", action="store_true", help="Output raw structured JSON")
+
+    # Command: git (Git Integration & Hooks)
+    git_parser = subparsers.add_parser(
+        "git",
+        help="Devrith Git integration: pre-commit hooks, staged audits, and PR blast radius"
+    )
+    git_parser.add_argument("action", choices=["hook", "impact"], help="Git action: 'hook' to manage pre-commit guard, or 'impact' to predict PR blast radius")
+    git_parser.add_argument("subaction", nargs="?", choices=["install", "uninstall"], default="install", help="For hook action: 'install' or 'uninstall'")
+    git_parser.add_argument("--path", default=".", help="Repository root path (default: .)")
+    git_parser.add_argument("--base", default="main", help="Base branch for impact comparison (default: main)")
+    git_parser.add_argument("--staged", action="store_true", help="Target only staged files for impact analysis")
+    git_parser.add_argument("--json", action="store_true", help="Output raw JSON payload")
 
     # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
@@ -420,10 +441,11 @@ def main():
                 print(f"✅ [arch-sidecar check] Clean! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)")
                 print(f"   Target: {res.get('file')} | 0 errors | {res.get('warnings', 0)} warnings")
                 for issue in res.get("issues", []):
-                    if issue.get("severity") == "WARNING":
-                        print(f"   [WARN] Line {issue.get('line')}: {issue.get('message')}")
-                        if issue.get("recommendation"):
-                            print(f"          ↳ Fix: {issue.get('recommendation')}")
+                    if issue.get("severity") != "WARNING":
+                        continue
+                    print(f"   [WARN] Line {issue.get('line')}: {issue.get('message')}")
+                    if issue.get("recommendation"):
+                        print(f"          ↳ Fix: {issue.get('recommendation')}")
             else:
                 print(f"❌ [arch-sidecar check] Preflight Issues Found! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)", file=sys.stderr)
                 print(f"   Target: {res.get('file')} | {res.get('errors')} error(s) | {res.get('warnings')} warning(s)", file=sys.stderr)
@@ -455,7 +477,9 @@ def main():
 
     elif args.command == "audit":
         target = os.path.abspath(args.path)
-        if os.path.isfile(target):
+        if args.staged or args.diff:
+            report = audit_git_changeset(target, staged_only=args.staged, base_branch=args.diff, strict=args.strict)
+        elif os.path.isfile(target):
             issues = audit_file(target)
             report = QualityReport(
                 total_files=1,
@@ -500,6 +524,37 @@ def main():
 
             if not report.clean and args.strict:
                 sys.exit(1)
+
+    elif args.command == "git":
+        repo_dir = os.path.abspath(args.path)
+        if args.action == "hook":
+            if args.subaction == "install":
+                ok, msg = install_git_hook(repo_dir)
+                icon = "✅" if ok else "❌"
+                print(f"{icon} {msg}")
+                if not ok:
+                    sys.exit(1)
+            elif args.subaction == "uninstall":
+                ok, msg = uninstall_git_hook(repo_dir)
+                icon = "✅" if ok else "❌"
+                print(f"{icon} {msg}")
+                if not ok:
+                    sys.exit(1)
+        elif args.action == "impact":
+            impact = analyze_git_change_impact(repo_dir, staged_only=args.staged, base_branch=args.base)
+            if args.json:
+                print(json.dumps(impact, indent=2))
+            else:
+                print("\n🔍 [Devrith Git Change Impact Predictor]")
+                print(f"  Risk Level: {impact.get('risk_level')}")
+                print(f"  Modified Files ({len(impact.get('modified_files', []))}):")
+                for f in impact.get("modified_files", []):
+                    print(f"    - {f}")
+                print(f"\n  Affected Clusters: {', '.join(impact.get('affected_clusters', [])) or 'None'}")
+                print(f"  Direct Callers ({len(impact.get('direct_callers', []))}): {', '.join(impact.get('direct_callers', [])[:10]) or 'None'}")
+                print(f"  Recommended Tests ({len(impact.get('recommended_test_files', []))}):")
+                for t in impact.get("recommended_test_files", []):
+                    print(f"    ✓ {t}")
 
     elif args.command == "serve":
         run_mcp_server()

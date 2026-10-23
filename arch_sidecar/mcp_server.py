@@ -18,6 +18,7 @@ from .cluster import (
     predict_change_impact,
 )
 from .quality import audit_file, audit_repository, QualityReport
+from .git_ops import audit_git_changeset, analyze_git_change_impact, install_git_hook, uninstall_git_hook
 from .session_logger import (
     generate_session_summary,
     format_session_report_markdown,
@@ -373,6 +374,58 @@ TOOLS = [
                 }
             }
         }
+    },
+    {
+        "name": "audit_git_changes",
+        "description": "Fast Git Changeset Audit (<10ms): Audits only modified, staged, or branch-diff Python files against code craft, anti-pattern, and OOP standards without re-scanning unchanged repository files.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                },
+                "staged_only": {
+                    "type": "boolean",
+                    "description": "If true, audits only Git staged files (pre-commit fast path)",
+                    "default": False
+                },
+                "base_branch": {
+                    "type": "string",
+                    "description": "Optional base branch to diff against (e.g. 'main')"
+                },
+                "strict": {
+                    "type": "boolean",
+                    "description": "If true, treats warnings as failures",
+                    "default": False
+                }
+            }
+        }
+    },
+    {
+        "name": "get_git_change_impact",
+        "description": "Git Architectural Blast Radius Predictor: Computes transitive downstream blast radius, crossed subsystem clusters, and recommended test suites for all modified or staged git files.",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_path": {
+                    "type": "string",
+                    "description": "Path to the repository root directory (default: '.')",
+                    "default": "."
+                },
+                "staged_only": {
+                    "type": "boolean",
+                    "description": "Target only staged files",
+                    "default": False
+                },
+                "base_branch": {
+                    "type": "string",
+                    "description": "Base branch to diff against (default: 'main')",
+                    "default": "main"
+                }
+            }
+        }
     }
 ]
 
@@ -661,6 +714,27 @@ def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
 
             return {
                 "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
+                "isError": False
+            }
+
+        elif name == "audit_git_changes":
+            repo_p = arguments.get("repo_path", ".")
+            staged = arguments.get("staged_only", False)
+            base = arguments.get("base_branch")
+            strict = arguments.get("strict", False)
+            report = audit_git_changeset(repo_p, staged_only=staged, base_branch=base, strict=strict)
+            return {
+                "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
+                "isError": False
+            }
+
+        elif name == "get_git_change_impact":
+            repo_p = arguments.get("repo_path", ".")
+            staged = arguments.get("staged_only", False)
+            base = arguments.get("base_branch", "main")
+            impact = analyze_git_change_impact(repo_p, staged_only=staged, base_branch=base)
+            return {
+                "content": [{"type": "text", "text": json.dumps(impact, indent=2)}],
                 "isError": False
             }
 

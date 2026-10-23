@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
-[![Tests Passing](https://img.shields.io/badge/tests-68%20passed-success.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-72%20passed-success.svg)](tests/)
 [![Empirical Case Study](https://img.shields.io/badge/Case%20Study-Documented-orange.svg)](CASE_STUDY.md)
 
 > `arch-sidecar` (Devrith Engine) provides **architecture-aware context retrieval**, **feature implementation planning**, **deterministic AST refactoring**, and **static scope/import preflight verification** for AI coding agents.
@@ -58,11 +58,24 @@ Compiler-grade AST audit that prevents LLMs from introducing procedural spaghett
 # Audit a single file or repository
 arch-sidecar audit src/
 
+# Fast Git staged audit (<10ms)
+arch-sidecar audit --staged
+
 # Strict zero-tolerance mode for CI/CD
 arch-sidecar audit src/ --strict
 ```
 
-### 4. Automated Real-World Test & Telemetry Reporting (`arch-sidecar report`)
+### 4. Git Integration & Pre-Commit Guard (`arch-sidecar git`)
+Install an automated Git pre-commit hook that guards your git history from AI bugs, circular imports, and silent swallows:
+```bash
+# Install automated Git pre-commit guard
+arch-sidecar git hook install
+
+# Predict architectural blast radius of uncommitted/staged git changes
+arch-sidecar git impact
+```
+
+### 5. Automated Real-World Test & Telemetry Reporting (`arch-sidecar report`)
 Automatically logs every execution session locally to `~/.devrith/sessions.jsonl` (zero network traffic). View anytime via terminal or prompt your agent:
 ```bash
 # Terminal ASCII dashboard
@@ -116,6 +129,8 @@ Add to your Model Context Protocol (MCP) configuration (`claude_desktop_config.j
 Once connected, your agent gains access to:
 - `feature_workflow`
 - `audit_code_quality`
+- `audit_git_changes`
+- `get_git_change_impact`
 - `get_subsystem_clusters`
 - `predict_change_impact`
 - `plan_adaptive_retrieval`

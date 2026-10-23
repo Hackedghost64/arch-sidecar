@@ -1,0 +1,1476 @@
+{
+  "metadata": {
+    "freeze_commit": "afd4136",
+    "repo": "pallets/werkzeug",
+    "timestamp": "2026-10-23T13:53:07.198119+00:00",
+    "pre_registered_thresholds": {
+      "recall_lower_bound_target": 0.7,
+      "false_rejection_target": 0.1,
+      "max_accepted_regressions": 0,
+      "minimum_hazard_gate": 10
+    }
+  },
+  "completed_count": 73,
+  "evaluations": [
+    {
+      "repo": "werkzeug",
+      "symbol": "environ_property",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_environ_property.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 306.1,
+      "control_durations_ms": {
+        "apply": 282.7,
+        "stage1_import": 137.2,
+        "stage2_linter": 77.4,
+        "stage3_tests": 10408.9,
+        "total_control": 10906.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "make_set_header_set",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_make_set_header_set.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 253.29,
+      "control_durations_ms": {
+        "apply": 277.5,
+        "stage1_import": 136.4,
+        "stage2_linter": 76.5,
+        "stage3_tests": 10252.6,
+        "total_control": 10743.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/_header_property.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 275.05,
+      "control_durations_ms": {
+        "apply": 270.9,
+        "stage1_import": 134.6,
+        "stage2_linter": 72.0,
+        "stage3_tests": 9868.2,
+        "total_control": 10345.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/_internal.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 268.51,
+      "control_durations_ms": {
+        "apply": 267.3,
+        "stage1_import": 134.6,
+        "stage2_linter": 66.4,
+        "stage3_tests": 9759.1,
+        "total_control": 10227.3
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ReloaderLoop",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/_reloader.py",
+      "to_file": "src/werkzeug/_extracted_reloaderloop.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 283.25,
+      "control_durations_ms": {
+        "apply": 263.2,
+        "stage1_import": 146.3,
+        "stage2_linter": 74.2,
+        "stage3_tests": 9893.3,
+        "total_control": 10377.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ensure_echo_on",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/_reloader.py",
+      "to_file": "src/werkzeug/_extracted_ensure_echo_on.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 280.13,
+      "control_durations_ms": {
+        "apply": 273.0,
+        "stage1_import": 143.6,
+        "stage2_linter": 74.0,
+        "stage3_tests": 9898.1,
+        "total_control": 10388.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Accept",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/accept.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_accept.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/datastructures/_extracted_accept.py:156:20: undefined name '_q_value_re'",
+      "preflight_duration_ms": 260.95,
+      "control_durations_ms": {
+        "apply": 269.8,
+        "stage1_import": 134.3,
+        "stage2_linter": 73.5,
+        "stage3_tests": 0.0,
+        "total_control": 477.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Authorization",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/auth.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_authorization.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 277.82,
+      "control_durations_ms": {
+        "apply": 271.3,
+        "stage1_import": 138.5,
+        "stage2_linter": 72.7,
+        "stage3_tests": 9706.2,
+        "total_control": 10188.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "RequestCacheControl",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/cache_control.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_requestcachecontrol.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 1, in <module>\n    from .serving import run_simple as run_simple\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/serving.py\", line 37, in <module>\n    from .datastructures.set import HeaderSet\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/datastructures/__init__.py\", line 10, in <module>\n    from .cache_control import RequestCacheControl as RequestCacheContr",
+      "preflight_duration_ms": 256.62,
+      "control_durations_ms": {
+        "apply": 260.8,
+        "stage1_import": 117.9,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 378.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ContentSecurityPolicy",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/csp.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_contentsecuritypolicy.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 1, in <module>\n    from .serving import run_simple as run_simple\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/serving.py\", line 37, in <module>\n    from .datastructures.set import HeaderSet\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/datastructures/__init__.py\", line 12, in <module>\n    from .csp import ContentSecurityPolicy as ContentSecurityPolicy\n  F",
+      "preflight_duration_ms": 259.87,
+      "control_durations_ms": {
+        "apply": 268.7,
+        "stage1_import": 113.0,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 381.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ETag",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/etag.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_etag.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 278.06,
+      "control_durations_ms": {
+        "apply": 262.2,
+        "stage1_import": 136.0,
+        "stage2_linter": 71.6,
+        "stage3_tests": 9757.6,
+        "total_control": 10227.4
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "FileStorage",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/file_storage.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_filestorage.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/datastructures/_extracted_filestorage.py:40:25: undefined name '_guess_filename'",
+      "preflight_duration_ms": 254.66,
+      "control_durations_ms": {
+        "apply": 260.2,
+        "stage1_import": 141.0,
+        "stage2_linter": 67.9,
+        "stage3_tests": 0.0,
+        "total_control": 469.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Headers",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/headers.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_headers.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 1, in <module>\n    from .serving import run_simple as run_simple\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/serving.py\", line 37, in <module>\n    from .datastructures.set import HeaderSet\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/datastructures/__init__.py\", line 15, in <module>\n    from .file_storage import FileMultiDict as FileMultiDict\n  File \"/t",
+      "preflight_duration_ms": 272.72,
+      "control_durations_ms": {
+        "apply": 294.4,
+        "stage1_import": 127.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 421.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/datastructures/headers.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 285.0,
+      "control_durations_ms": {
+        "apply": 273.2,
+        "stage1_import": 134.6,
+        "stage2_linter": 81.4,
+        "stage3_tests": 9782.3,
+        "total_control": 10271.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ImmutableMultiDictMixin",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/mixins.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_immutablemultidictmixin.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 1, in <module>\n    from .serving import run_simple as run_simple\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/serving.py\", line 37, in <module>\n    from .datastructures.set import HeaderSet\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/datastructures/__init__.py\", line 8, in <module>\n    from .auth import Authorization as Authorization\n  File \"/tmp/bench_",
+      "preflight_duration_ms": 258.62,
+      "control_durations_ms": {
+        "apply": 265.5,
+        "stage1_import": 105.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 370.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "K",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/datastructures/mixins.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_k.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 281.29,
+      "control_durations_ms": {
+        "apply": 268.6,
+        "stage1_import": 139.6,
+        "stage2_linter": 75.9,
+        "stage3_tests": 9739.3,
+        "total_control": 10223.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "IfRange",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/range.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_ifrange.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 260.41,
+      "control_durations_ms": {
+        "apply": 271.0,
+        "stage1_import": 139.3,
+        "stage2_linter": 74.0,
+        "stage3_tests": 9867.5,
+        "total_control": 10351.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/datastructures/range.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 271.31,
+      "control_durations_ms": {
+        "apply": 266.4,
+        "stage1_import": 162.1,
+        "stage2_linter": 73.2,
+        "stage3_tests": 9791.6,
+        "total_control": 10293.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "HeaderSet",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/set.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_headerset.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 256.83,
+      "control_durations_ms": {
+        "apply": 258.5,
+        "stage1_import": 139.0,
+        "stage2_linter": 69.2,
+        "stage3_tests": 9745.4,
+        "total_control": 10212.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "MultiDict",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_multidict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/datastructures/_extracted_multidict.py:314:31: undefined name 'deepcopy' | src/werkzeug/datastructures/_extracted_multidict.py:359:27: undefined name 'iter_multi_items'",
+      "preflight_duration_ms": 276.57,
+      "control_durations_ms": {
+        "apply": 292.5,
+        "stage1_import": 142.5,
+        "stage2_linter": 88.1,
+        "stage3_tests": 0.0,
+        "total_control": 523.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "iter_multi_items",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_iter_multi_items.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 1, in <module>\n    from .serving import run_simple as run_simple\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/serving.py\", line 37, in <module>\n    from .datastructures.set import HeaderSet\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/datastructures/__init__.py\", line 8, in <module>\n    from .auth import Authorization as Authorization\n  File \"/tmp/bench_",
+      "preflight_duration_ms": 305.93,
+      "control_durations_ms": {
+        "apply": 284.6,
+        "stage1_import": 124.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 409.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "K",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/datastructures/structures.py",
+      "to_file": "src/werkzeug/datastructures/_extracted_k.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 300.93,
+      "control_durations_ms": {
+        "apply": 277.7,
+        "stage1_import": 137.5,
+        "stage2_linter": 90.4,
+        "stage3_tests": 9743.3,
+        "total_control": 10248.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DebuggedApplication",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_debuggedapplication.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/debug/_extracted_debuggedapplication.py:87:52: undefined name '_ConsoleFrame' | src/werkzeug/debug/_extracted_debuggedapplication.py:191:36: undefined name '_ConsoleFrame' | src/werkzeug/debug/_extracted_debuggedapplication.py:265:31: undefined name 'PIN_TIME'",
+      "preflight_duration_ms": 277.97,
+      "control_durations_ms": {
+        "apply": 279.0,
+        "stage1_import": 157.5,
+        "stage2_linter": 76.7,
+        "stage3_tests": 0.0,
+        "total_control": 513.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "hash_pin",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_hash_pin.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "FAILED tests/test_utils.py::test_find_modules - AssertionError: assert ['werk... | ======================== 1 failed, 1017 passed in 9.36s ========================",
+      "preflight_duration_ms": 280.01,
+      "control_durations_ms": {
+        "apply": 269.9,
+        "stage1_import": 144.7,
+        "stage2_linter": 76.1,
+        "stage3_tests": 9828.8,
+        "total_control": 10319.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "PIN_TIME",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/debug/__init__.py",
+      "to_file": "src/werkzeug/debug/_extracted_pin_time.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "FAILED tests/test_utils.py::test_find_modules - AssertionError: assert ['werk... | ======================== 1 failed, 1017 passed in 9.56s ========================",
+      "preflight_duration_ms": 287.37,
+      "control_durations_ms": {
+        "apply": 269.4,
+        "stage1_import": 145.1,
+        "stage2_linter": 77.5,
+        "stage3_tests": 10022.9,
+        "total_control": 10514.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "HTMLStringO",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/debug/console.py",
+      "to_file": "src/werkzeug/debug/_extracted_htmlstringo.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "FAILED tests/test_utils.py::test_find_modules - AssertionError: assert ['werk... | ======================== 1 failed, 1017 passed in 9.45s ========================",
+      "preflight_duration_ms": 270.88,
+      "control_durations_ms": {
+        "apply": 257.3,
+        "stage1_import": 151.0,
+        "stage2_linter": 70.2,
+        "stage3_tests": 9931.8,
+        "total_control": 10410.3
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DebugReprGenerator",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_debugreprgenerator.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/debug/__init__.py\", line 34, in <module>\n    from .console import Console\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/debug/console.py\", line 11, in <module>\n    from .repr import debug_repr\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/debug/repr.py\", line 18, in <module>\n    from ._extracted_debugreprgenerator import DebugReprGenerator\n  File \"/tmp/bench_repos/werkzeug/s",
+      "preflight_duration_ms": 260.24,
+      "control_durations_ms": {
+        "apply": 276.5,
+        "stage1_import": 150.1,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 426.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "debug_repr",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_debug_repr.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/debug/_extracted_debug_repr.py:9:12: undefined name 'DebugReprGenerator'",
+      "preflight_duration_ms": 258.77,
+      "control_durations_ms": {
+        "apply": 264.8,
+        "stage1_import": 147.1,
+        "stage2_linter": 72.7,
+        "stage3_tests": 0.0,
+        "total_control": 484.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "HELP_HTML",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/debug/repr.py",
+      "to_file": "src/werkzeug/debug/_extracted_help_html.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "FAILED tests/test_utils.py::test_find_modules - AssertionError: assert ['werk... | ======================== 1 failed, 1017 passed in 9.43s ========================",
+      "preflight_duration_ms": 274.24,
+      "control_durations_ms": {
+        "apply": 272.9,
+        "stage1_import": 141.9,
+        "stage2_linter": 72.5,
+        "stage3_tests": 9797.4,
+        "total_control": 10284.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DebugTraceback",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_debugtraceback.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/debug/_extracted_debugtraceback.py:113:16: undefined name 'SUMMARY_HTML' | src/werkzeug/debug/_extracted_debugtraceback.py:24:20: undefined name '_process_traceback' | src/werkzeug/debug/_extracted_debugtraceback.py:131:16: undefined name 'PAGE_HTML'",
+      "preflight_duration_ms": 267.82,
+      "control_durations_ms": {
+        "apply": 277.3,
+        "stage1_import": 152.0,
+        "stage2_linter": 74.3,
+        "stage3_tests": 0.0,
+        "total_control": 503.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "render_console_html",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_render_console_html.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/debug/_extracted_render_console_html.py:8:12: undefined name 'CONSOLE_HTML'",
+      "preflight_duration_ms": 256.91,
+      "control_durations_ms": {
+        "apply": 260.2,
+        "stage1_import": 143.5,
+        "stage2_linter": 71.7,
+        "stage3_tests": 0.0,
+        "total_control": 475.3
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "HEADER",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/debug/tbtools.py",
+      "to_file": "src/werkzeug/debug/_extracted_header.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "FAILED tests/test_utils.py::test_find_modules - AssertionError: assert ['werk... | ======================== 1 failed, 1017 passed in 9.42s ========================",
+      "preflight_duration_ms": 276.91,
+      "control_durations_ms": {
+        "apply": 265.5,
+        "stage1_import": 150.2,
+        "stage2_linter": 72.0,
+        "stage3_tests": 9775.9,
+        "total_control": 10263.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "HTTPException",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/exceptions.py",
+      "to_file": "src/werkzeug/_extracted_httpexception.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 256.75,
+      "control_durations_ms": {
+        "apply": 279.9,
+        "stage1_import": 140.1,
+        "stage2_linter": 75.2,
+        "stage3_tests": 9713.9,
+        "total_control": 10209.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "abort",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/exceptions.py",
+      "to_file": "src/werkzeug/_extracted_abort.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_abort.py:19:5: undefined name '_aborter'",
+      "preflight_duration_ms": 257.11,
+      "control_durations_ms": {
+        "apply": 270.7,
+        "stage1_import": 136.0,
+        "stage2_linter": 76.0,
+        "stage3_tests": 0.0,
+        "total_control": 482.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "TStreamFactory",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/formparser.py",
+      "to_file": "src/werkzeug/_extracted_tstreamfactory.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 271.91,
+      "control_durations_ms": {
+        "apply": 271.3,
+        "stage1_import": 139.4,
+        "stage2_linter": 73.5,
+        "stage3_tests": 9783.0,
+        "total_control": 10267.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/formparser.py",
+      "to_file": "src/werkzeug/_extracted_f.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 276.11,
+      "control_durations_ms": {
+        "apply": 269.2,
+        "stage1_import": 134.3,
+        "stage2_linter": 73.1,
+        "stage3_tests": 9794.8,
+        "total_control": 10271.4
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "COEP",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/http.py",
+      "to_file": "src/werkzeug/_extracted_coep.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 319.54,
+      "control_durations_ms": {
+        "apply": 281.9,
+        "stage1_import": 145.6,
+        "stage2_linter": 88.7,
+        "stage3_tests": 9875.6,
+        "total_control": 10391.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "quote_header_value",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/http.py",
+      "to_file": "src/werkzeug/_extracted_quote_header_value.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_quote_header_value.py:35:23: undefined name '_token_chars'",
+      "preflight_duration_ms": 265.97,
+      "control_durations_ms": {
+        "apply": 280.7,
+        "stage1_import": 138.7,
+        "stage2_linter": 88.4,
+        "stage3_tests": 0.0,
+        "total_control": 507.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Local",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_local.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_local.py:43:10: undefined name 'LocalProxy' | src/werkzeug/_extracted_local.py:51:16: undefined name 'LocalProxy'",
+      "preflight_duration_ms": 283.57,
+      "control_durations_ms": {
+        "apply": 291.0,
+        "stage1_import": 141.0,
+        "stage2_linter": 79.0,
+        "stage3_tests": 0.0,
+        "total_control": 511.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "release_local",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_release_local.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_release_local.py:8:26: undefined name 'Local' | src/werkzeug/_extracted_release_local.py:8:34: undefined name 'LocalStack'",
+      "preflight_duration_ms": 263.17,
+      "control_durations_ms": {
+        "apply": 278.6,
+        "stage1_import": 136.3,
+        "stage2_linter": 79.1,
+        "stage3_tests": 0.0,
+        "total_control": 494.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/local.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 275.39,
+      "control_durations_ms": {
+        "apply": 267.4,
+        "stage1_import": 138.2,
+        "stage2_linter": 78.8,
+        "stage3_tests": 9814.6,
+        "total_control": 10299.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DispatcherMiddleware",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/dispatcher.py",
+      "to_file": "src/werkzeug/middleware/_extracted_dispatchermiddleware.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 266.12,
+      "control_durations_ms": {
+        "apply": 283.7,
+        "stage1_import": 135.7,
+        "stage2_linter": 64.4,
+        "stage3_tests": 9822.6,
+        "total_control": 10306.4
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ProxyMiddleware",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/http_proxy.py",
+      "to_file": "src/werkzeug/middleware/_extracted_proxymiddleware.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 273.54,
+      "control_durations_ms": {
+        "apply": 267.9,
+        "stage1_import": 135.5,
+        "stage2_linter": 66.9,
+        "stage3_tests": 9735.5,
+        "total_control": 10205.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "WSGIWarning",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/lint.py",
+      "to_file": "src/werkzeug/middleware/_extracted_wsgiwarning.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 277.84,
+      "control_durations_ms": {
+        "apply": 265.4,
+        "stage1_import": 137.3,
+        "stage2_linter": 73.1,
+        "stage3_tests": 9835.8,
+        "total_control": 10311.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "check_type",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/middleware/lint.py",
+      "to_file": "src/werkzeug/middleware/_extracted_check_type.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/middleware/_extracted_check_type.py:12:13: undefined name 'WSGIWarning'",
+      "preflight_duration_ms": 258.97,
+      "control_durations_ms": {
+        "apply": 267.8,
+        "stage1_import": 136.8,
+        "stage2_linter": 73.1,
+        "stage3_tests": 0.0,
+        "total_control": 477.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ProfilerMiddleware",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/profiler.py",
+      "to_file": "src/werkzeug/middleware/_extracted_profilermiddleware.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/middleware/_extracted_profilermiddleware.py:109:19: undefined name 'Profile'",
+      "preflight_duration_ms": 272.75,
+      "control_durations_ms": {
+        "apply": 262.6,
+        "stage1_import": 141.8,
+        "stage2_linter": 65.8,
+        "stage3_tests": 0.0,
+        "total_control": 470.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ProxyFix",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/proxy_fix.py",
+      "to_file": "src/werkzeug/middleware/_extracted_proxyfix.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 269.51,
+      "control_durations_ms": {
+        "apply": 265.4,
+        "stage1_import": 134.4,
+        "stage2_linter": 66.0,
+        "stage3_tests": 9903.7,
+        "total_control": 10369.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "SharedDataMiddleware",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/middleware/shared_data.py",
+      "to_file": "src/werkzeug/middleware/_extracted_shareddatamiddleware.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/middleware/_extracted_shareddatamiddleware.py:128:41: undefined name '_TOpener' | src/werkzeug/middleware/_extracted_shareddatamiddleware.py:77:39: undefined name '_TLoader' | src/werkzeug/middleware/_extracted_shareddatamiddleware.py:138:70: undefined name '_TLoader'",
+      "preflight_duration_ms": 260.11,
+      "control_durations_ms": {
+        "apply": 268.0,
+        "stage1_import": 135.8,
+        "stage2_linter": 72.1,
+        "stage3_tests": 0.0,
+        "total_control": 475.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ValidationError",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/routing/converters.py",
+      "to_file": "src/werkzeug/routing/_extracted_validationerror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 269.91,
+      "control_durations_ms": {
+        "apply": 280.3,
+        "stage1_import": 146.2,
+        "stage2_linter": 72.3,
+        "stage3_tests": 10280.3,
+        "total_control": 10779.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DuplicateRuleError",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/routing/exceptions.py",
+      "to_file": "src/werkzeug/routing/_extracted_duplicateruleerror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 274.09,
+      "control_durations_ms": {
+        "apply": 256.9,
+        "stage1_import": 149.2,
+        "stage2_linter": 67.2,
+        "stage3_tests": 9778.1,
+        "total_control": 10251.3
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Map",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/routing/map.py",
+      "to_file": "src/werkzeug/routing/_extracted_map.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/routing/__init__.py\", line 124, in <module>\n    from .map import Map as Map\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/routing/map.py\", line 33, in <module>\n    from ._extracted_map import Map\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/routing/_extracted_map.py\", line 21, in <module>\n    class Map:\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/routing/_extracted_map.p",
+      "preflight_duration_ms": 273.35,
+      "control_durations_ms": {
+        "apply": 283.5,
+        "stage1_import": 149.8,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 433.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "SlashRequired",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/routing/matcher.py",
+      "to_file": "src/werkzeug/routing/_extracted_slashrequired.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 276.41,
+      "control_durations_ms": {
+        "apply": 265.3,
+        "stage1_import": 144.6,
+        "stage2_linter": 69.3,
+        "stage3_tests": 9884.5,
+        "total_control": 10363.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Weighting",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/routing/rules.py",
+      "to_file": "src/werkzeug/routing/_extracted_weighting.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 291.66,
+      "control_durations_ms": {
+        "apply": 288.7,
+        "stage1_import": 152.9,
+        "stage2_linter": 85.9,
+        "stage3_tests": 9643.1,
+        "total_control": 10170.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "parse_converter_args",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/routing/rules.py",
+      "to_file": "src/werkzeug/routing/_extracted_parse_converter_args.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/routing/_extracted_parse_converter_args.py:23:17: undefined name '_pythonize' | src/werkzeug/routing/_extracted_parse_converter_args.py:14:17: undefined name '_converter_args_re'",
+      "preflight_duration_ms": 267.29,
+      "control_durations_ms": {
+        "apply": 274.3,
+        "stage1_import": 147.9,
+        "stage2_linter": 86.4,
+        "stage3_tests": 0.0,
+        "total_control": 508.5
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "parse_cookie",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/sansio/http.py",
+      "to_file": "src/werkzeug/sansio/_extracted_parse_cookie.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/sansio/_extracted_parse_cookie.py:46:18: undefined name '_cookie_re' | src/werkzeug/sansio/_extracted_parse_cookie.py:61:18: undefined name '_cookie_unslash_re' | src/werkzeug/sansio/_extracted_parse_cookie.py:62:17: undefined name '_cookie_unslash_replace'",
+      "preflight_duration_ms": 252.05,
+      "control_durations_ms": {
+        "apply": 259.7,
+        "stage1_import": 135.5,
+        "stage2_linter": 65.9,
+        "stage3_tests": 0.0,
+        "total_control": 461.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Event",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/sansio/multipart.py",
+      "to_file": "src/werkzeug/sansio/_extracted_event.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 274.73,
+      "control_durations_ms": {
+        "apply": 273.2,
+        "stage1_import": 143.9,
+        "stage2_linter": 71.7,
+        "stage3_tests": 9896.7,
+        "total_control": 10385.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "NEED_DATA",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/sansio/multipart.py",
+      "to_file": "src/werkzeug/sansio/_extracted_need_data.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 2, in <module>\n    from .test import Client as Client\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/test.py\", line 36, in <module>\n    from .sansio.multipart import Data\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/sansio/multipart.py\", line 12, in <module>\n    from ._extracted_need_data import NEED_DATA\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/sans",
+      "preflight_duration_ms": 252.41,
+      "control_durations_ms": {
+        "apply": 269.0,
+        "stage1_import": 126.1,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 395.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/sansio/request.py",
+      "to_file": "src/werkzeug/sansio/_extracted_request.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 259.16,
+      "control_durations_ms": {
+        "apply": 279.1,
+        "stage1_import": 143.0,
+        "stage2_linter": 71.9,
+        "stage3_tests": 9841.0,
+        "total_control": 10335.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/sansio/response.py",
+      "to_file": "src/werkzeug/sansio/_extracted_response.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 267.33,
+      "control_durations_ms": {
+        "apply": 281.5,
+        "stage1_import": 136.9,
+        "stage2_linter": 74.4,
+        "stage3_tests": 9756.0,
+        "total_control": 10248.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "host_is_trusted",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/sansio/utils.py",
+      "to_file": "src/werkzeug/sansio/_extracted_host_is_trusted.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/sansio/_extracted_host_is_trusted.py:36:14: undefined name '_host_re'",
+      "preflight_duration_ms": 253.65,
+      "control_durations_ms": {
+        "apply": 259.9,
+        "stage1_import": 136.3,
+        "stage2_linter": 66.8,
+        "stage3_tests": 0.0,
+        "total_control": 462.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "generate_password_hash",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/security.py",
+      "to_file": "src/werkzeug/_extracted_generate_password_hash.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_generate_password_hash.py:46:24: undefined name '_hash_internal'",
+      "preflight_duration_ms": 266.58,
+      "control_durations_ms": {
+        "apply": 256.7,
+        "stage1_import": 138.7,
+        "stage2_linter": 66.9,
+        "stage3_tests": 0.0,
+        "total_control": 462.2
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DEFAULT_PBKDF2_ITERATIONS",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/security.py",
+      "to_file": "src/werkzeug/_extracted_default_pbkdf2_iterations.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 319.3,
+      "control_durations_ms": {
+        "apply": 261.4,
+        "stage1_import": 136.5,
+        "stage2_linter": 66.3,
+        "stage3_tests": 9901.4,
+        "total_control": 10365.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "DechunkedInput",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_dechunkedinput.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 328.61,
+      "control_durations_ms": {
+        "apply": 285.4,
+        "stage1_import": 145.7,
+        "stage2_linter": 87.6,
+        "stage3_tests": 9770.6,
+        "total_control": 10289.3
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "generate_adhoc_ssl_pair",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_generate_adhoc_ssl_pair.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 290.51,
+      "control_durations_ms": {
+        "apply": 281.9,
+        "stage1_import": 138.3,
+        "stage2_linter": 89.6,
+        "stage3_tests": 9891.0,
+        "total_control": 10400.8
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "LISTEN_QUEUE",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/serving.py",
+      "to_file": "src/werkzeug/_extracted_listen_queue.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 305.12,
+      "control_durations_ms": {
+        "apply": 281.7,
+        "stage1_import": 141.4,
+        "stage2_linter": 88.0,
+        "stage3_tests": 9832.9,
+        "total_control": 10343.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "uri_to_iri",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/urls.py",
+      "to_file": "src/werkzeug/_extracted_uri_to_iri.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_uri_to_iri.py:53:16: undefined name '_unquote_user' | src/werkzeug/_extracted_uri_to_iri.py:37:12: undefined name '_unquote_path' | src/werkzeug/_extracted_uri_to_iri.py:38:13: undefined name '_unquote_query'",
+      "preflight_duration_ms": 254.01,
+      "control_durations_ms": {
+        "apply": 264.5,
+        "stage1_import": 136.5,
+        "stage2_linter": 67.3,
+        "stage3_tests": 0.0,
+        "total_control": 468.4
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "cached_property",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_cached_property.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 294.83,
+      "control_durations_ms": {
+        "apply": 269.2,
+        "stage1_import": 136.9,
+        "stage2_linter": 76.4,
+        "stage3_tests": 9905.1,
+        "total_control": 10387.6
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "secure_filename",
+      "symbol_type": "Function",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_secure_filename.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/werkzeug/_extracted_secure_filename.py:43:16: undefined name '_filename_ascii_strip_re'",
+      "preflight_duration_ms": 256.56,
+      "control_durations_ms": {
+        "apply": 268.9,
+        "stage1_import": 134.1,
+        "stage2_linter": 76.8,
+        "stage3_tests": 0.0,
+        "total_control": 479.9
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/utils.py",
+      "to_file": "src/werkzeug/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 278.62,
+      "control_durations_ms": {
+        "apply": 272.5,
+        "stage1_import": 140.0,
+        "stage2_linter": 75.7,
+        "stage3_tests": 9790.5,
+        "total_control": 10278.7
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/wrappers/request.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_request.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 2, in <module>\n    from .test import Client as Client\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/test.py\", line 46, in <module>\n    from .wrappers.request import Request\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/wrappers/__init__.py\", line 1, in <module>\n    from .request import Request as Request\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/wrapp",
+      "preflight_duration_ms": 267.28,
+      "control_durations_ms": {
+        "apply": 283.6,
+        "stage1_import": 141.4,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 425.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/werkzeug/wrappers/request.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 276.96,
+      "control_durations_ms": {
+        "apply": 274.9,
+        "stage1_import": 137.6,
+        "stage2_linter": 77.1,
+        "stage3_tests": 9936.6,
+        "total_control": 10426.1
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/wrappers/response.py",
+      "to_file": "src/werkzeug/wrappers/_extracted_response.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/__init__.py\", line 2, in <module>\n    from .test import Client as Client\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/test.py\", line 46, in <module>\n    from .wrappers.request import Request\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/wrappers/__init__.py\", line 2, in <module>\n    from .response import Response as Response\n  File \"/tmp/bench_repos/werkzeug/src/werkzeug/wr",
+      "preflight_duration_ms": 275.69,
+      "control_durations_ms": {
+        "apply": 288.9,
+        "stage1_import": 142.1,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 431.0
+      }
+    },
+    {
+      "repo": "werkzeug",
+      "symbol": "ClosingIterator",
+      "symbol_type": "Class",
+      "from_file": "src/werkzeug/wsgi.py",
+      "to_file": "src/werkzeug/_extracted_closingiterator.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 282.86,
+      "control_durations_ms": {
+        "apply": 275.2,
+        "stage1_import": 140.6,
+        "stage2_linter": 75.1,
+        "stage3_tests": 10106.3,
+        "total_control": 10597.1
+      }
+    }
+  ]
+}

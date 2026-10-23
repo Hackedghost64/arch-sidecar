@@ -122,5 +122,177 @@ def generate_predictions():
 
     print(f"Predictions written to {PREDICTIONS_PATH}")
 
+def rollback(repo_path):
+    subprocess.run("git restore . && git clean -fd", shell=True, cwd=repo_path, capture_output=True)
+
+def run_cmd(cmd, cwd):
+    t0 = time.perf_counter()
+    res = subprocess.run(cmd, shell=True, cwd=cwd, capture_output=True, text=True)
+    dt_ms = (time.perf_counter() - t0) * 1000.0
+    return res.returncode, dt_ms, res.stdout, res.stderr
+
+def run_ground_truth():
+    with open(PREDICTIONS_PATH, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    predictions = data["predictions"]
+    print(f"Starting ground truth evaluation for {len(predictions)} Werkzeug predictions...")
+
+    results = []
+    done_keys = set()
+    if os.path.exists(RESULTS_PATH):
+        try:
+            with open(RESULTS_PATH, "r", encoding="utf-8") as f:
+                saved = json.load(f)
+                results = saved.get("evaluations", [])
+                for r in results:
+                    done_keys.add((r["from_file"], r["symbol"]))
+                print(f"Resuming: {len(done_keys)} already evaluated.")
+        except Exception:
+            results = []
+
+    # Cache clean baseline pyflakes per file
+    baseline_pyflakes = {}
+    for item in predictions:
+        from_f = item["from_file"]
+        if from_f not in baseline_pyflakes:
+            rc, _, out, err = run_cmd(f"pyflakes {from_f}", REPO_PATH)
+            baseline_pyflakes[from_f] = set((out + "\n" + err).strip().splitlines())
+
+    for idx, item in enumerate(predictions, 1):
+        sym = item["symbol"]
+        from_file = item["from_file"]
+        to_file = item["to_file"]
+        pred_label = item["predicted_label"]
+
+        if (from_file, sym) in done_keys:
+            continue
+
+        print(f"[{idx}/{len(predictions)}] Evaluating werkzeug::{sym} ({item['symbol_type']}) from {from_file}...")
+
+        rollback(REPO_PATH)
+
+        t_apply_0 = time.perf_counter()
+        try:
+            apply_res = prefactor_decouple(
+                symbol=sym,
+                from_file=from_file,
+                to_file=to_file,
+                project_root=REPO_PATH,
+                dry_run=False,
+                allow_circular=True,
+                allow_globals=True,
+                allow_desync=True,
+                add_backward_compat_alias=True
+            )
+            apply_ms = (time.perf_counter() - t_apply_0) * 1000.0
+            apply_ok = apply_res.get("success", False)
+            apply_err = apply_res.get("error", "")
+        except Exception as e:
+            apply_ms = (time.perf_counter() - t_apply_0) * 1000.0
+            apply_ok = False
+            apply_err = str(e)
+
+        failed_stage = None
+        error_details = ""
+        stg1_ms = 0.0
+        stg2_ms = 0.0
+        stg3_ms = 0.0
+
+        if not apply_ok:
+            ground_truth = "HAZARD"
+            failed_stage = "STAGE_0_APPLY"
+            error_details = f"Mover transformation failed: {apply_err}"
+        else:
+            # Stage 1: Import smoke test (package + modified module)
+            mod_name = from_file.replace("src/", "").replace(".py", "").replace("/", ".")
+            if mod_name.endswith(".__init__"):
+                mod_name = mod_name[:-9]
+            rc1, stg1_ms, out1, err1 = run_cmd(f'PYTHONPATH=/tmp/bench_repos/werkzeug/src uv run python -c "import werkzeug; import {mod_name}"', REPO_PATH)
+            if rc1 != 0:
+                ground_truth = "HAZARD"
+                failed_stage = "STAGE_1_IMPORT"
+                error_details = (err1.strip() or out1.strip())[:500]
+            else:
+                # Stage 2: Static linter for NEW undefined names relative to clean checkout
+                rc2, stg2_ms, out2, err2 = run_cmd(f"pyflakes {from_file} {to_file}", REPO_PATH)
+                current_lines = set((out2 + "\n" + err2).strip().splitlines())
+                base_lines = baseline_pyflakes.get(from_file, set())
+                new_lines = current_lines - base_lines
+
+                new_undefined = [l for l in new_lines if "undefined name" in l or "syntax error" in l.lower() or "syntaxerror" in l.lower()]
+
+                if new_undefined:
+                    ground_truth = "HAZARD"
+                    failed_stage = "STAGE_2_LINTER"
+                    error_details = " | ".join(new_undefined[:3])
+                else:
+                    # Stage 3: Full native test suite
+                    rc3, stg3_ms, out3, err3 = run_cmd('PYTHONPATH=/tmp/bench_repos/werkzeug/src uv run pytest', REPO_PATH)
+                    if rc3 != 0:
+                        # Rerun to rule out flakiness
+                        rc3_retry, _, out3_retry, _ = run_cmd('PYTHONPATH=/tmp/bench_repos/werkzeug/src uv run pytest', REPO_PATH)
+                        if rc3_retry != 0:
+                            ground_truth = "HAZARD"
+                            failed_stage = "STAGE_3_TEST_SUITE"
+                            fail_lines = [l for l in out3_retry.splitlines() if l.startswith("FAILED ") or "failed" in l]
+                            error_details = " | ".join(fail_lines[-5:]) if fail_lines else "Pytest failed"
+                        else:
+                            ground_truth = "SAFE"
+                            failed_stage = None
+                    else:
+                        ground_truth = "SAFE"
+                        failed_stage = None
+
+        rollback(REPO_PATH)
+
+        if pred_label == "REJECT" and ground_truth == "HAZARD":
+            outcome = "TRUE_POSITIVE"
+        elif pred_label == "ACCEPT" and ground_truth == "SAFE":
+            outcome = "TRUE_NEGATIVE"
+        elif pred_label == "REJECT" and ground_truth == "SAFE":
+            outcome = "FALSE_POSITIVE"
+        elif pred_label == "ACCEPT" and ground_truth == "HAZARD":
+            outcome = "FALSE_NEGATIVE"
+        else:
+            outcome = "UNEXPECTED"
+
+        total_control_ms = apply_ms + stg1_ms + stg2_ms + stg3_ms
+
+        eval_record = {
+            "repo": "werkzeug",
+            "symbol": sym,
+            "symbol_type": item["symbol_type"],
+            "from_file": from_file,
+            "to_file": to_file,
+            "predicted_label": pred_label,
+            "ground_truth": ground_truth,
+            "outcome": outcome,
+            "failed_stage": failed_stage,
+            "error_details": error_details,
+            "preflight_duration_ms": item["preflight_duration_ms"],
+            "control_durations_ms": {
+                "apply": round(apply_ms, 1),
+                "stage1_import": round(stg1_ms, 1),
+                "stage2_linter": round(stg2_ms, 1),
+                "stage3_tests": round(stg3_ms, 1),
+                "total_control": round(total_control_ms, 1)
+            }
+        }
+
+        results.append(eval_record)
+        done_keys.add((from_file, sym))
+
+        with open(RESULTS_PATH, "w", encoding="utf-8") as f:
+            json.dump({
+                "metadata": data["metadata"],
+                "completed_count": len(results),
+                "evaluations": results
+            }, f, indent=2)
+
+        print(f"  -> Pred: {pred_label} | GT: {ground_truth} | Outcome: {outcome} | FailedStage: {failed_stage} | ControlTime: {total_control_ms:.0f}ms")
+
+    print(f"All {len(results)} Werkzeug evaluations complete! Saved to {RESULTS_PATH}.")
+
 if __name__ == '__main__':
-    generate_predictions()
+    run_ground_truth()

@@ -1,0 +1,3001 @@
+{
+  "metadata": {
+    "freeze_commit": "509f131",
+    "timestamp": "2026-10-23T13:30:36.847460+00:00",
+    "pre_registered_thresholds": {
+      "recall_lower_bound_target": 0.7,
+      "false_rejection_target": 0.1,
+      "max_accepted_regressions": 0,
+      "minimum_hazard_gate": 10,
+      "inconclusive_rule": "If N_hazard < 10, recall is marked INCONCLUSIVE DUE TO INSUFFICIENT HAZARD BASE RATE"
+    },
+    "eval_datasets": {
+      "headline": "flask (all 98 public symbols, 100% untuned)",
+      "secondary": "click & requests (unseen symbols only, reported separately)",
+      "speed_only": "django (time comparison only, slow test suite)"
+    }
+  },
+  "completed_count": 149,
+  "evaluations": [
+    {
+      "repo": "flask",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_f.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 167.6,
+      "control_durations_ms": {
+        "apply": 166.0,
+        "stage1_import": 202.5,
+        "stage2_linter": 88.4,
+        "stage3_tests": 1821.5,
+        "total_control": 2278.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "remove_ctx",
+      "symbol_type": "Function",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_remove_ctx.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_remove_ctx.py:12:19: undefined name 'F' | src/flask/_extracted_remove_ctx.py:12:25: undefined name 'F' | src/flask/_extracted_remove_ctx.py:13:23: undefined name 'Flask'",
+      "preflight_duration_ms": 135.46,
+      "control_durations_ms": {
+        "apply": 163.3,
+        "stage1_import": 196.9,
+        "stage2_linter": 87.0,
+        "stage3_tests": 0.0,
+        "total_control": 447.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "add_ctx",
+      "symbol_type": "Function",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_add_ctx.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_add_ctx.py:13:16: undefined name 'F' | src/flask/_extracted_add_ctx.py:13:22: undefined name 'F' | src/flask/_extracted_add_ctx.py:14:23: undefined name 'Flask'",
+      "preflight_duration_ms": 133.74,
+      "control_durations_ms": {
+        "apply": 160.9,
+        "stage1_import": 195.0,
+        "stage2_linter": 87.2,
+        "stage3_tests": 0.0,
+        "total_control": 443.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Flask",
+      "symbol_type": "Class",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_flask.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_flask.py:250:47: undefined name 'remove_ctx' | src/flask/_extracted_flask.py:251:49: undefined name 'add_ctx' | src/flask/_extracted_flask.py:445:21: undefined name 'request'",
+      "preflight_duration_ms": 143.56,
+      "control_durations_ms": {
+        "apply": 181.6,
+        "stage1_import": 205.2,
+        "stage2_linter": 87.6,
+        "stage3_tests": 0.0,
+        "total_control": 474.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Blueprint",
+      "symbol_type": "Class",
+      "from_file": "src/flask/blueprints.py",
+      "to_file": "src/flask/_extracted_blueprint.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_blueprint.py:79:50: undefined name 'Response'",
+      "preflight_duration_ms": 135.94,
+      "control_durations_ms": {
+        "apply": 137.8,
+        "stage1_import": 198.3,
+        "stage2_linter": 65.0,
+        "stage3_tests": 0.0,
+        "total_control": 401.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "NoAppException",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_noappexception.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 153.01,
+      "control_durations_ms": {
+        "apply": 153.7,
+        "stage1_import": 199.6,
+        "stage2_linter": 87.7,
+        "stage3_tests": 1895.7,
+        "total_control": 2336.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "find_best_app",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_find_best_app.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_find_best_app.py:9:42: undefined name 'Flask' | src/flask/_extracted_find_best_app.py:28:15: undefined name 'NoAppException' | src/flask/_extracted_find_best_app.py:45:24: undefined name '_called_with_wrong_args'",
+      "preflight_duration_ms": 124.19,
+      "control_durations_ms": {
+        "apply": 153.8,
+        "stage1_import": 194.8,
+        "stage2_linter": 89.4,
+        "stage3_tests": 0.0,
+        "total_control": 438.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "find_app_by_string",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_find_app_by_string.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_find_app_by_string.py:10:62: undefined name 'Flask' | src/flask/_extracted_find_app_by_string.py:21:15: undefined name 'NoAppException' | src/flask/_extracted_find_app_by_string.py:32:19: undefined name 'NoAppException'",
+      "preflight_duration_ms": 124.36,
+      "control_durations_ms": {
+        "apply": 158.2,
+        "stage1_import": 200.2,
+        "stage2_linter": 96.9,
+        "stage3_tests": 0.0,
+        "total_control": 455.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "prepare_import",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_prepare_import.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 151.71,
+      "control_durations_ms": {
+        "apply": 153.5,
+        "stage1_import": 198.5,
+        "stage2_linter": 87.2,
+        "stage3_tests": 1884.0,
+        "total_control": 2323.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "locate_app",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_locate_app.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_locate_app.py:13:6: undefined name 'Flask' | src/flask/_extracted_locate_app.py:19:6: undefined name 'Flask' | src/flask/_extracted_locate_app.py:24:6: undefined name 'Flask'",
+      "preflight_duration_ms": 123.76,
+      "control_durations_ms": {
+        "apply": 167.8,
+        "stage1_import": 218.1,
+        "stage2_linter": 95.6,
+        "stage3_tests": 0.0,
+        "total_control": 481.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_version",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_get_version.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 148.92,
+      "control_durations_ms": {
+        "apply": 154.3,
+        "stage1_import": 203.5,
+        "stage2_linter": 91.0,
+        "stage3_tests": 1851.1,
+        "total_control": 2299.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "ScriptInfo",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_scriptinfo.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_scriptinfo.py:26:37: undefined name 'Flask' | src/flask/_extracted_scriptinfo.py:49:27: undefined name 'Flask' | src/flask/_extracted_scriptinfo.py:51:27: undefined name 'Flask'",
+      "preflight_duration_ms": 128.45,
+      "control_durations_ms": {
+        "apply": 160.3,
+        "stage1_import": 197.9,
+        "stage2_linter": 87.3,
+        "stage3_tests": 0.0,
+        "total_control": 445.6
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "with_appcontext",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_with_appcontext.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_with_appcontext.py:11:24: undefined name 'F' | src/flask/_extracted_with_appcontext.py:11:30: undefined name 'F' | src/flask/_extracted_with_appcontext.py:28:37: undefined name 'ScriptInfo'",
+      "preflight_duration_ms": 123.09,
+      "control_durations_ms": {
+        "apply": 154.5,
+        "stage1_import": 199.4,
+        "stage2_linter": 90.4,
+        "stage3_tests": 0.0,
+        "total_control": 444.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "AppGroup",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_appgroup.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_appgroup.py:28:21: undefined name 'with_appcontext'",
+      "preflight_duration_ms": 124.01,
+      "control_durations_ms": {
+        "apply": 163.5,
+        "stage1_import": 203.3,
+        "stage2_linter": 92.1,
+        "stage3_tests": 0.0,
+        "total_control": 458.9
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "FlaskGroup",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_flaskgroup.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 31, in <module>\n    from . import cli\n  File \"/tmp/bench_repos/flask/src/flask/cli.py\", line 26, in <module>\n    from ._extracted_flaskgroup import FlaskGroup\n  File \"/tmp/bench_repos/flask/src/flask/_extracted_flaskgroup.py\", line 13, in <module>\n    class Fl",
+      "preflight_duration_ms": 129.76,
+      "control_durations_ms": {
+        "apply": 166.3,
+        "stage1_import": 163.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 329.6
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "load_dotenv",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_load_dotenv.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 155.75,
+      "control_durations_ms": {
+        "apply": 152.3,
+        "stage1_import": 196.1,
+        "stage2_linter": 91.4,
+        "stage3_tests": 1875.2,
+        "total_control": 2315.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "show_server_banner",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_show_server_banner.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 152.2,
+      "control_durations_ms": {
+        "apply": 157.4,
+        "stage1_import": 204.0,
+        "stage2_linter": 87.0,
+        "stage3_tests": 1839.3,
+        "total_control": 2287.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "CertParamType",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_certparamtype.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 150.34,
+      "control_durations_ms": {
+        "apply": 158.6,
+        "stage1_import": 198.8,
+        "stage2_linter": 89.1,
+        "stage3_tests": 1837.7,
+        "total_control": 2284.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "SeparatedPathType",
+      "symbol_type": "Class",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_separatedpathtype.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 152.12,
+      "control_durations_ms": {
+        "apply": 155.1,
+        "stage1_import": 199.1,
+        "stage2_linter": 87.1,
+        "stage3_tests": 1835.7,
+        "total_control": 2277.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "run_command",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_run_command.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 31, in <module>\n    from . import cli\n  File \"/tmp/bench_repos/flask/src/flask/cli.py\", line 26, in <module>\n    from ._extracted_run_command import run_command\n  File \"/tmp/bench_repos/flask/src/flask/_extracted_run_command.py\", line 20, in <module>\n    type=",
+      "preflight_duration_ms": 128.84,
+      "control_durations_ms": {
+        "apply": 159.9,
+        "stage1_import": 162.9,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 322.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "shell_command",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_shell_command.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 31, in <module>\n    from . import cli\n  File \"/tmp/bench_repos/flask/src/flask/cli.py\", line 26, in <module>\n    from ._extracted_shell_command import shell_command\n  File \"/tmp/bench_repos/flask/src/flask/_extracted_shell_command.py\", line 13, in <module>\n   ",
+      "preflight_duration_ms": 120.7,
+      "control_durations_ms": {
+        "apply": 156.4,
+        "stage1_import": 181.8,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 338.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "routes_command",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_routes_command.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 31, in <module>\n    from . import cli\n  File \"/tmp/bench_repos/flask/src/flask/cli.py\", line 26, in <module>\n    from ._extracted_routes_command import routes_command\n  File \"/tmp/bench_repos/flask/src/flask/_extracted_routes_command.py\", line 22, in <module>\n",
+      "preflight_duration_ms": 125.33,
+      "control_durations_ms": {
+        "apply": 162.9,
+        "stage1_import": 166.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 329.6
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "main",
+      "symbol_type": "Function",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_main.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_main.py:8:5: undefined name 'cli'",
+      "preflight_duration_ms": 126.74,
+      "control_durations_ms": {
+        "apply": 164.5,
+        "stage1_import": 195.3,
+        "stage2_linter": 89.0,
+        "stage3_tests": 0.0,
+        "total_control": 448.9
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_t.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 131.04,
+      "control_durations_ms": {
+        "apply": 134.6,
+        "stage1_import": 198.9,
+        "stage2_linter": 69.3,
+        "stage3_tests": 1918.6,
+        "total_control": 2321.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "ConfigAttribute",
+      "symbol_type": "Class",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_configattribute.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 44, in <module>\n    from .sansio.app import App\n  File \"/tmp/bench_repos/flask/src/flask/sansio/app.py\", line 22, in <module>\n    from ..config import Config\n  File \"/tmp/bench_repos/flask/src/flask/config.py\", line 10, in <module>\n    from ._extracted_configa",
+      "preflight_duration_ms": 133.76,
+      "control_durations_ms": {
+        "apply": 139.8,
+        "stage1_import": 165.9,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 305.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Config",
+      "symbol_type": "Class",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_config.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 137.47,
+      "control_durations_ms": {
+        "apply": 140.1,
+        "stage1_import": 197.6,
+        "stage2_linter": 69.7,
+        "stage3_tests": 1833.8,
+        "total_control": 2241.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "after_this_request",
+      "symbol_type": "Function",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_after_this_request.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 115.06,
+      "control_durations_ms": {
+        "apply": 138.1,
+        "stage1_import": 201.6,
+        "stage2_linter": 77.1,
+        "stage3_tests": 1957.9,
+        "total_control": 2374.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "copy_current_request_context",
+      "symbol_type": "Function",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_copy_current_request_context.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_copy_current_request_context.py:10:37: undefined name 'F' | src/flask/_extracted_copy_current_request_context.py:10:43: undefined name 'F'",
+      "preflight_duration_ms": 137.26,
+      "control_durations_ms": {
+        "apply": 167.7,
+        "stage1_import": 195.0,
+        "stage2_linter": 72.1,
+        "stage3_tests": 0.0,
+        "total_control": 434.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "has_request_context",
+      "symbol_type": "Function",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_has_request_context.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 133.08,
+      "control_durations_ms": {
+        "apply": 142.5,
+        "stage1_import": 208.4,
+        "stage2_linter": 72.3,
+        "stage3_tests": 2088.1,
+        "total_control": 2511.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "has_app_context",
+      "symbol_type": "Function",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_has_app_context.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 134.2,
+      "control_durations_ms": {
+        "apply": 136.3,
+        "stage1_import": 199.3,
+        "stage2_linter": 73.6,
+        "stage3_tests": 1916.9,
+        "total_control": 2326.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "AppContext",
+      "symbol_type": "Class",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_appcontext.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_appcontext.py:59:14: undefined name 'Flask' | src/flask/_extracted_appcontext.py:61:18: undefined name 'Request' | src/flask/_extracted_appcontext.py:62:18: undefined name 'SessionMixin'",
+      "preflight_duration_ms": 120.66,
+      "control_durations_ms": {
+        "apply": 171.9,
+        "stage1_import": 210.3,
+        "stage2_linter": 74.1,
+        "stage3_tests": 0.0,
+        "total_control": 456.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "UnexpectedUnicodeError",
+      "symbol_type": "Class",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_unexpectedunicodeerror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 129.31,
+      "control_durations_ms": {
+        "apply": 132.6,
+        "stage1_import": 195.9,
+        "stage2_linter": 67.4,
+        "stage3_tests": 1988.8,
+        "total_control": 2384.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "DebugFilesKeyError",
+      "symbol_type": "Class",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_debugfileskeyerror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_debugfileskeyerror.py:12:33: undefined name 'Request'",
+      "preflight_duration_ms": 133.09,
+      "control_durations_ms": {
+        "apply": 135.8,
+        "stage1_import": 192.9,
+        "stage2_linter": 68.6,
+        "stage3_tests": 0.0,
+        "total_control": 397.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "FormDataRoutingRedirect",
+      "symbol_type": "Class",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_formdataroutingredirect.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_formdataroutingredirect.py:15:33: undefined name 'Request'",
+      "preflight_duration_ms": 131.33,
+      "control_durations_ms": {
+        "apply": 142.2,
+        "stage1_import": 189.2,
+        "stage2_linter": 68.0,
+        "stage3_tests": 0.0,
+        "total_control": 399.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "attach_enctype_error_multidict",
+      "symbol_type": "Function",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_attach_enctype_error_multidict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_attach_enctype_error_multidict.py:8:45: undefined name 'Request' | src/flask/_extracted_attach_enctype_error_multidict.py:25:23: undefined name 'DebugFilesKeyError'",
+      "preflight_duration_ms": 113.65,
+      "control_durations_ms": {
+        "apply": 135.0,
+        "stage1_import": 192.0,
+        "stage2_linter": 94.1,
+        "stage3_tests": 0.0,
+        "total_control": 421.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "explain_template_loading_attempts",
+      "symbol_type": "Function",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_explain_template_loading_attempts.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_explain_template_loading_attempts.py:18:13: undefined name 'Scaffold' | src/flask/_extracted_explain_template_loading_attempts.py:41:21: undefined name '_dump_loader_info'",
+      "preflight_duration_ms": 113.55,
+      "control_durations_ms": {
+        "apply": 141.9,
+        "stage1_import": 201.6,
+        "stage2_linter": 78.6,
+        "stage3_tests": 0.0,
+        "total_control": 422.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_debug_flag",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_debug_flag.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:678:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 135.74,
+      "control_durations_ms": {
+        "apply": 146.8,
+        "stage1_import": 199.0,
+        "stage2_linter": 76.9,
+        "stage3_tests": 0.0,
+        "total_control": 422.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_load_dotenv",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_load_dotenv.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:671:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 138.25,
+      "control_durations_ms": {
+        "apply": 148.7,
+        "stage1_import": 209.5,
+        "stage2_linter": 72.8,
+        "stage3_tests": 0.0,
+        "total_control": 431.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "stream_with_context",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_stream_with_context.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:592:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 137.0,
+      "control_durations_ms": {
+        "apply": 155.3,
+        "stage1_import": 205.1,
+        "stage2_linter": 72.8,
+        "stage3_tests": 0.0,
+        "total_control": 433.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "make_response",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_make_response.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:637:19: undefined name 'BaseExceptionGroup' | src/flask/_extracted_make_response.py:9:36: undefined name 'Response'",
+      "preflight_duration_ms": 135.66,
+      "control_durations_ms": {
+        "apply": 140.9,
+        "stage1_import": 208.7,
+        "stage2_linter": 98.4,
+        "stage3_tests": 0.0,
+        "total_control": 448.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "url_for",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_url_for.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:632:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 133.56,
+      "control_durations_ms": {
+        "apply": 215.7,
+        "stage1_import": 217.8,
+        "stage2_linter": 81.9,
+        "stage3_tests": 0.0,
+        "total_control": 515.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "redirect",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_redirect.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:659:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 134.91,
+      "control_durations_ms": {
+        "apply": 149.5,
+        "stage1_import": 201.6,
+        "stage2_linter": 76.3,
+        "stage3_tests": 0.0,
+        "total_control": 427.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "abort",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_abort.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:663:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 134.43,
+      "control_durations_ms": {
+        "apply": 167.8,
+        "stage1_import": 199.9,
+        "stage2_linter": 76.4,
+        "stage3_tests": 0.0,
+        "total_control": 444.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_template_attribute",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_template_attribute.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:664:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 136.47,
+      "control_durations_ms": {
+        "apply": 147.9,
+        "stage1_import": 213.9,
+        "stage2_linter": 78.5,
+        "stage3_tests": 0.0,
+        "total_control": 440.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "flash",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_flash.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:652:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 136.3,
+      "control_durations_ms": {
+        "apply": 157.5,
+        "stage1_import": 216.4,
+        "stage2_linter": 78.1,
+        "stage3_tests": 0.0,
+        "total_control": 452.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_flashed_messages",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_flashed_messages.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:644:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 132.91,
+      "control_durations_ms": {
+        "apply": 207.3,
+        "stage1_import": 211.4,
+        "stage2_linter": 87.7,
+        "stage3_tests": 0.0,
+        "total_control": 506.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "send_file",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_send_file.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:560:19: undefined name 'BaseExceptionGroup' | src/flask/_extracted_send_file.py:21:6: undefined name 'Response' | src/flask/_extracted_send_file.py:124:11: undefined name '_prepare_send_file_kwargs'",
+      "preflight_duration_ms": 114.97,
+      "control_durations_ms": {
+        "apply": 166.3,
+        "stage1_import": 224.5,
+        "stage2_linter": 79.0,
+        "stage3_tests": 0.0,
+        "total_control": 469.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "send_from_directory",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_send_from_directory.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:642:19: undefined name 'BaseExceptionGroup' | src/flask/_extracted_send_from_directory.py:14:6: undefined name 'Response' | src/flask/_extracted_send_from_directory.py:50:28: undefined name '_prepare_send_file_kwargs'",
+      "preflight_duration_ms": 113.73,
+      "control_durations_ms": {
+        "apply": 154.3,
+        "stage1_import": 217.7,
+        "stage2_linter": 79.4,
+        "stage3_tests": 0.0,
+        "total_control": 451.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "get_root_path",
+      "symbol_type": "Function",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_root_path.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/helpers.py:629:19: undefined name 'BaseExceptionGroup'",
+      "preflight_duration_ms": 137.9,
+      "control_durations_ms": {
+        "apply": 148.8,
+        "stage1_import": 210.3,
+        "stage2_linter": 78.2,
+        "stage3_tests": 0.0,
+        "total_control": 437.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "dumps",
+      "symbol_type": "Function",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_dumps.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 128.58,
+      "control_durations_ms": {
+        "apply": 146.8,
+        "stage1_import": 206.9,
+        "stage2_linter": 74.5,
+        "stage3_tests": 2086.0,
+        "total_control": 2514.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "dump",
+      "symbol_type": "Function",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_dump.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 129.34,
+      "control_durations_ms": {
+        "apply": 170.3,
+        "stage1_import": 237.7,
+        "stage2_linter": 107.0,
+        "stage3_tests": 2435.8,
+        "total_control": 2950.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "loads",
+      "symbol_type": "Function",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_loads.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 129.63,
+      "control_durations_ms": {
+        "apply": 160.2,
+        "stage1_import": 313.9,
+        "stage2_linter": 108.2,
+        "stage3_tests": 2174.4,
+        "total_control": 2756.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "load",
+      "symbol_type": "Function",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_load.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 127.43,
+      "control_durations_ms": {
+        "apply": 133.9,
+        "stage1_import": 194.5,
+        "stage2_linter": 64.5,
+        "stage3_tests": 1850.5,
+        "total_control": 2243.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "jsonify",
+      "symbol_type": "Function",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_jsonify.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/json/_extracted_jsonify.py:9:47: undefined name 'Response'",
+      "preflight_duration_ms": 129.01,
+      "control_durations_ms": {
+        "apply": 132.9,
+        "stage1_import": 195.6,
+        "stage2_linter": 64.6,
+        "stage3_tests": 0.0,
+        "total_control": 393.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "JSONProvider",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/provider.py",
+      "to_file": "src/flask/json/_extracted_jsonprovider.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/json/_extracted_jsonprovider.py:28:29: undefined name 'App' | src/flask/json/_extracted_jsonprovider.py:29:20: undefined name 'App' | src/flask/json/_extracted_jsonprovider.py:79:58: undefined name 'Response'",
+      "preflight_duration_ms": 131.31,
+      "control_durations_ms": {
+        "apply": 133.8,
+        "stage1_import": 191.2,
+        "stage2_linter": 70.1,
+        "stage3_tests": 0.0,
+        "total_control": 395.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "DefaultJSONProvider",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/provider.py",
+      "to_file": "src/flask/json/_extracted_defaultjsonprovider.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 1, in <module>\n    from . import json as json\n  File \"/tmp/bench_repos/flask/src/flask/json/__init__.py\", line 7, in <module>\n    from .provider import _default\n  File \"/tmp/bench_repos/flask/src/flask/json/provider.py\", line 12, in <module>\n    from ._extracted_defaultjsonprovider import DefaultJSONProvider\n  File \"/tmp/bench_repos/flask/src/flask/json/_extracted",
+      "preflight_duration_ms": 112.7,
+      "control_durations_ms": {
+        "apply": 134.9,
+        "stage1_import": 134.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 269.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "JSONTag",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_jsontag.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/json/_extracted_jsontag.py:17:36: undefined name 'TaggedJSONSerializer'",
+      "preflight_duration_ms": 115.74,
+      "control_durations_ms": {
+        "apply": 137.8,
+        "stage1_import": 199.8,
+        "stage2_linter": 72.3,
+        "stage3_tests": 0.0,
+        "total_control": 409.9
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagDict",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagdict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 115.32,
+      "control_durations_ms": {
+        "apply": 138.8,
+        "stage1_import": 194.9,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 333.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "PassDict",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_passdict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 117.86,
+      "control_durations_ms": {
+        "apply": 142.3,
+        "stage1_import": 201.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 344.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagTuple",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagtuple.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 117.07,
+      "control_durations_ms": {
+        "apply": 138.2,
+        "stage1_import": 191.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 329.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "PassList",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_passlist.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 116.31,
+      "control_durations_ms": {
+        "apply": 140.4,
+        "stage1_import": 192.5,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 332.9
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagBytes",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagbytes.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 116.19,
+      "control_durations_ms": {
+        "apply": 135.8,
+        "stage1_import": 192.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 328.1
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagMarkup",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagmarkup.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 115.18,
+      "control_durations_ms": {
+        "apply": 137.2,
+        "stage1_import": 191.8,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 328.9
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagUUID",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_taguuid.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 118.4,
+      "control_durations_ms": {
+        "apply": 140.6,
+        "stage1_import": 192.2,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 332.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TagDateTime",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagdatetime.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 115.78,
+      "control_durations_ms": {
+        "apply": 136.4,
+        "stage1_import": 198.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 334.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "TaggedJSONSerializer",
+      "symbol_type": "Class",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_taggedjsonserializer.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 14, in <module>\n    from .json.tag import TaggedJSONSerializer\n  File \"/tmp/bench_repos/flask/src/flask/json/tag.py\", line 58, in",
+      "preflight_duration_ms": 114.79,
+      "control_durations_ms": {
+        "apply": 143.8,
+        "stage1_import": 197.1,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 340.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "wsgi_errors_stream",
+      "symbol_type": "Function",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_wsgi_errors_stream.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 127.25,
+      "control_durations_ms": {
+        "apply": 132.6,
+        "stage1_import": 190.4,
+        "stage2_linter": 64.9,
+        "stage3_tests": 1879.8,
+        "total_control": 2267.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "has_level_handler",
+      "symbol_type": "Function",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_has_level_handler.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 127.5,
+      "control_durations_ms": {
+        "apply": 134.1,
+        "stage1_import": 193.8,
+        "stage2_linter": 65.0,
+        "stage3_tests": 1851.8,
+        "total_control": 2244.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "create_logger",
+      "symbol_type": "Function",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_create_logger.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_create_logger.py:8:24: undefined name 'App' | src/flask/_extracted_create_logger.py:26:12: undefined name 'has_level_handler' | src/flask/_extracted_create_logger.py:27:27: undefined name 'default_handler'",
+      "preflight_duration_ms": 111.93,
+      "control_durations_ms": {
+        "apply": 129.4,
+        "stage1_import": 192.9,
+        "stage2_linter": 63.7,
+        "stage3_tests": 0.0,
+        "total_control": 386.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "App",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sansio/app.py",
+      "to_file": "src/flask/sansio/_extracted_app.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 44, in <module>\n    from .sansio.app import App\n  File \"/tmp/bench_repos/flask/src/flask/sansio/app.py\", line 36, in <module>\n    from _extracted_app import App\nModuleNotFoundError: No module named '_extracted_app'",
+      "preflight_duration_ms": 130.7,
+      "control_durations_ms": {
+        "apply": 159.6,
+        "stage1_import": 187.9,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 347.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "BlueprintSetupState",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sansio/blueprints.py",
+      "to_file": "src/flask/sansio/_extracted_blueprintsetupstate.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 3, in <module>\n    from .blueprints import Blueprint as Blueprint\n  File \"/tmp/bench_repos/flask/src/flask/blueprints.py\", line 10, in <module>\n    from .sansio.blueprints import Blueprint as SansioBlueprint\n  File \"/tmp/bench_repos/flask/src/flask/sansio/blueprints.py\", line 13, in <module>\n    from _extracted_blueprintsetupstate import BlueprintSetupState\nModule",
+      "preflight_duration_ms": 130.89,
+      "control_durations_ms": {
+        "apply": 148.0,
+        "stage1_import": 203.5,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 351.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "setupmethod",
+      "symbol_type": "Function",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_setupmethod.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 44, in <module>\n    from .sansio.app import App\n  File \"/tmp/bench_repos/flask/src/flask/sansio/app.py\", line 32, in <module>\n    from .scaffold import _endpoint_from_view_func\n  File \"/tmp/bench_repos/flask/src/flask/sansio/scaffold.py\", line 20, in <module>\n",
+      "preflight_duration_ms": 120.23,
+      "control_durations_ms": {
+        "apply": 149.2,
+        "stage1_import": 189.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 338.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Scaffold",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_scaffold.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 44, in <module>\n    from .sansio.app import App\n  File \"/tmp/bench_repos/flask/src/flask/sansio/app.py\", line 32, in <module>\n    from .scaffold import _endpoint_from_view_func\n  File \"/tmp/bench_repos/flask/src/flask/sansio/scaffold.py\", line 20, in <module>\n",
+      "preflight_duration_ms": 128.6,
+      "control_durations_ms": {
+        "apply": 151.3,
+        "stage1_import": 189.0,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 340.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "find_package",
+      "symbol_type": "Function",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_find_package.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 44, in <module>\n    from .sansio.app import App\n  File \"/tmp/bench_repos/flask/src/flask/sansio/app.py\", line 32, in <module>\n    from .scaffold import _endpoint_from_view_func\n  File \"/tmp/bench_repos/flask/src/flask/sansio/scaffold.py\", line 20, in <module>\n",
+      "preflight_duration_ms": 118.52,
+      "control_durations_ms": {
+        "apply": 139.9,
+        "stage1_import": 192.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 332.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "SessionMixin",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_sessionmixin.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 135.88,
+      "control_durations_ms": {
+        "apply": 132.9,
+        "stage1_import": 207.4,
+        "stage2_linter": 69.1,
+        "stage3_tests": 1916.6,
+        "total_control": 2326.0
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "SecureCookieSession",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_securecookiesession.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 15, in <module>\n    from ._extracted_securecookiesession import SecureCookieSession\n  File \"/tmp/bench_repos/flask/src/flask/_ext",
+      "preflight_duration_ms": 115.02,
+      "control_durations_ms": {
+        "apply": 141.0,
+        "stage1_import": 195.8,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 336.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "NullSession",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_nullsession.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 15, in <module>\n    from ._extracted_nullsession import NullSession\n  File \"/tmp/bench_repos/flask/src/flask/_extracted_nullsessi",
+      "preflight_duration_ms": 113.94,
+      "control_durations_ms": {
+        "apply": 134.9,
+        "stage1_import": 193.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 328.5
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "SessionInterface",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_sessioninterface.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 15, in <module>\n    from ._extracted_sessioninterface import SessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/_extracted",
+      "preflight_duration_ms": 113.58,
+      "control_durations_ms": {
+        "apply": 135.4,
+        "stage1_import": 196.4,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 331.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "SecureCookieSessionInterface",
+      "symbol_type": "Class",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_securecookiesessioninterface.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/flask/src/flask/__init__.py\", line 2, in <module>\n    from .app import Flask as Flask\n  File \"/tmp/bench_repos/flask/src/flask/app.py\", line 45, in <module>\n    from .sessions import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/flask/src/flask/sessions.py\", line 15, in <module>\n    from ._extracted_securecookiesessioninterface import SecureCookieSessionInterface\n  File \"/tmp/bench_repos/fl",
+      "preflight_duration_ms": 115.91,
+      "control_durations_ms": {
+        "apply": 140.6,
+        "stage1_import": 191.0,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 331.6
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Environment",
+      "symbol_type": "Class",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_environment.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_environment.py:15:29: undefined name 'App'",
+      "preflight_duration_ms": 129.28,
+      "control_durations_ms": {
+        "apply": 135.5,
+        "stage1_import": 195.0,
+        "stage2_linter": 70.3,
+        "stage3_tests": 0.0,
+        "total_control": 400.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "DispatchingJinjaLoader",
+      "symbol_type": "Class",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_dispatchingjinjaloader.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_dispatchingjinjaloader.py:16:29: undefined name 'App' | src/flask/_extracted_dispatchingjinjaloader.py:60:64: undefined name 'Scaffold'",
+      "preflight_duration_ms": 138.1,
+      "control_durations_ms": {
+        "apply": 136.4,
+        "stage1_import": 191.0,
+        "stage2_linter": 68.9,
+        "stage3_tests": 0.0,
+        "total_control": 396.3
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "render_template",
+      "symbol_type": "Function",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_render_template.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_render_template.py:22:12: undefined name '_render'",
+      "preflight_duration_ms": 112.78,
+      "control_durations_ms": {
+        "apply": 134.0,
+        "stage1_import": 190.7,
+        "stage2_linter": 70.1,
+        "stage3_tests": 0.0,
+        "total_control": 394.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "render_template_string",
+      "symbol_type": "Function",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_render_template_string.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_render_template_string.py:18:12: undefined name '_render'",
+      "preflight_duration_ms": 114.92,
+      "control_durations_ms": {
+        "apply": 138.3,
+        "stage1_import": 198.2,
+        "stage2_linter": 69.4,
+        "stage3_tests": 0.0,
+        "total_control": 405.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "stream_template",
+      "symbol_type": "Function",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_stream_template.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_stream_template.py:26:12: undefined name '_stream'",
+      "preflight_duration_ms": 113.06,
+      "control_durations_ms": {
+        "apply": 130.6,
+        "stage1_import": 194.7,
+        "stage2_linter": 69.4,
+        "stage3_tests": 0.0,
+        "total_control": 394.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "stream_template_string",
+      "symbol_type": "Function",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_stream_template_string.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_stream_template_string.py:21:12: undefined name '_stream'",
+      "preflight_duration_ms": 113.79,
+      "control_durations_ms": {
+        "apply": 136.4,
+        "stage1_import": 191.0,
+        "stage2_linter": 69.9,
+        "stage3_tests": 0.0,
+        "total_control": 397.2
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "View",
+      "symbol_type": "Class",
+      "from_file": "src/flask/views.py",
+      "to_file": "src/flask/_extracted_view.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 128.5,
+      "control_durations_ms": {
+        "apply": 132.3,
+        "stage1_import": 191.9,
+        "stage2_linter": 65.3,
+        "stage3_tests": 1841.3,
+        "total_control": 2230.8
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "MethodView",
+      "symbol_type": "Class",
+      "from_file": "src/flask/views.py",
+      "to_file": "src/flask/_extracted_methodview.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_methodview.py:11:18: undefined name 'View' | src/flask/_extracted_methodview.py:48:24: undefined name 'http_method_funcs'",
+      "preflight_duration_ms": 112.12,
+      "control_durations_ms": {
+        "apply": 131.4,
+        "stage1_import": 188.8,
+        "stage2_linter": 67.2,
+        "stage3_tests": 0.0,
+        "total_control": 387.4
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "from_file": "src/flask/wrappers.py",
+      "to_file": "src/flask/_extracted_request.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/flask/_extracted_request.py:39:15: undefined name 'Rule'",
+      "preflight_duration_ms": 114.5,
+      "control_durations_ms": {
+        "apply": 137.3,
+        "stage1_import": 190.7,
+        "stage2_linter": 67.6,
+        "stage3_tests": 0.0,
+        "total_control": 395.7
+      }
+    },
+    {
+      "repo": "flask",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "from_file": "src/flask/wrappers.py",
+      "to_file": "src/flask/_extracted_response.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "SAFE",
+      "outcome": "FALSE_POSITIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 110.93,
+      "control_durations_ms": {
+        "apply": 134.9,
+        "stage1_import": 194.0,
+        "stage2_linter": 66.5,
+        "stage3_tests": 1846.2,
+        "total_control": 2241.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "CYGWIN",
+      "symbol_type": "Constant",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_cygwin.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 234.17,
+      "control_durations_ms": {
+        "apply": 225.9,
+        "stage1_import": 57.6,
+        "stage2_linter": 80.4,
+        "stage3_tests": 9461.8,
+        "total_control": 9825.7
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "get_binary_stdout",
+      "symbol_type": "Function",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_get_binary_stdout.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_get_binary_stdout.py:10:14: undefined name '_find_binary_writer'",
+      "preflight_duration_ms": 196.05,
+      "control_durations_ms": {
+        "apply": 222.0,
+        "stage1_import": 57.3,
+        "stage2_linter": 79.0,
+        "stage3_tests": 0.0,
+        "total_control": 358.3
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "open_stream",
+      "symbol_type": "Function",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_open_stream.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_open_stream.py:24:24: undefined name 'get_binary_stdout' | src/click/_extracted_open_stream.py:25:20: undefined name 'get_text_stdout' | src/click/_extracted_open_stream.py:27:20: undefined name 'get_binary_stdin'",
+      "preflight_duration_ms": 204.65,
+      "control_durations_ms": {
+        "apply": 235.6,
+        "stage1_import": 57.7,
+        "stage2_linter": 79.2,
+        "stage3_tests": 0.0,
+        "total_control": 372.6
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "get_pager_file",
+      "symbol_type": "Function",
+      "from_file": "src/click/_termui_impl.py",
+      "to_file": "src/click/_extracted_get_pager_file.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_get_pager_file.py:20:10: undefined name '_pager_contextmanager' | src/click/_extracted_get_pager_file.py:26:18: undefined name '_PagerWriter'",
+      "preflight_duration_ms": 211.43,
+      "control_durations_ms": {
+        "apply": 240.9,
+        "stage1_import": 58.9,
+        "stage2_linter": 87.0,
+        "stage3_tests": 0.0,
+        "total_control": 386.9
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "UNSET",
+      "symbol_type": "Constant",
+      "from_file": "src/click/_utils.py",
+      "to_file": "src/click/_extracted_unset.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 25, in <module>\n    from ._utils import FLAG_NEEDS_VALUE\n  File \"/tmp/bench_repos/click/src/click/_utils.py\", line 5, in <module>\n    from ._extracted_unset import UNSET\n  File \"/tmp/bench_repos/click/src/click/_extracted_unset.py\", line 8, in <module",
+      "preflight_duration_ms": 188.82,
+      "control_durations_ms": {
+        "apply": 209.1,
+        "stage1_import": 106.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 315.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "STDERR_HANDLE",
+      "symbol_type": "Constant",
+      "from_file": "src/click/_winconsole.py",
+      "to_file": "src/click/_extracted_stderr_handle.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_stderr_handle.py:7:17: undefined name 'GetStdHandle'",
+      "preflight_duration_ms": 191.92,
+      "control_durations_ms": {
+        "apply": 219.0,
+        "stage1_import": 54.1,
+        "stage2_linter": 71.2,
+        "stage3_tests": 0.0,
+        "total_control": 344.3
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "MAX_BYTES_WRITTEN",
+      "symbol_type": "Constant",
+      "from_file": "src/click/_winconsole.py",
+      "to_file": "src/click/_extracted_max_bytes_written.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 213.89,
+      "control_durations_ms": {
+        "apply": 216.5,
+        "stage1_import": 54.8,
+        "stage2_linter": 70.7,
+        "stage3_tests": 9560.7,
+        "total_control": 9902.6
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "iter_params_for_processing",
+      "symbol_type": "Function",
+      "from_file": "src/click/core.py",
+      "to_file": "src/click/_extracted_iter_params_for_processing.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_iter_params_for_processing.py:9:37: undefined name 'Parameter' | src/click/_extracted_iter_params_for_processing.py:10:38: undefined name 'Parameter' | src/click/_extracted_iter_params_for_processing.py:11:11: undefined name 'Parameter'",
+      "preflight_duration_ms": 262.77,
+      "control_durations_ms": {
+        "apply": 352.3,
+        "stage1_import": 69.7,
+        "stage2_linter": 149.2,
+        "stage3_tests": 0.0,
+        "total_control": 571.2
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "Parameter",
+      "symbol_type": "Class",
+      "from_file": "src/click/core.py",
+      "to_file": "src/click/_extracted_parameter.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_parameter.py:159:27: undefined name 'Context' | src/click/_extracted_parameter.py:169:21: undefined name 'Context' | src/click/_extracted_parameter.py:169:52: undefined name 'CompletionItem'",
+      "preflight_duration_ms": 283.36,
+      "control_durations_ms": {
+        "apply": 343.3,
+        "stage1_import": 70.2,
+        "stage2_linter": 154.3,
+        "stage3_tests": 0.0,
+        "total_control": 567.8
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "pass_context",
+      "symbol_type": "Function",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_pass_context.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_pass_context.py:11:32: undefined name 'te' | src/click/_extracted_pass_context.py:11:56: undefined name 'P' | src/click/_extracted_pass_context.py:11:60: undefined name 'R'",
+      "preflight_duration_ms": 255.13,
+      "control_durations_ms": {
+        "apply": 217.7,
+        "stage1_import": 73.8,
+        "stage2_linter": 77.6,
+        "stage3_tests": 0.0,
+        "total_control": 369.1
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "command",
+      "symbol_type": "Function",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_command.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_command.py:11:19: undefined name '_AnyCallable' | src/click/_extracted_command.py:19:15: undefined name 'CmdType' | src/click/_extracted_command.py:21:18: undefined name '_AnyCallable'",
+      "preflight_duration_ms": 212.04,
+      "control_durations_ms": {
+        "apply": 216.4,
+        "stage1_import": 57.1,
+        "stage2_linter": 78.9,
+        "stage3_tests": 0.0,
+        "total_control": 352.4
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "group",
+      "symbol_type": "Function",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_group.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_group.py:11:17: undefined name '_AnyCallable' | src/click/_extracted_group.py:19:15: undefined name 'GrpType' | src/click/_extracted_group.py:21:18: undefined name '_AnyCallable'",
+      "preflight_duration_ms": 203.11,
+      "control_durations_ms": {
+        "apply": 217.3,
+        "stage1_import": 58.7,
+        "stage2_linter": 77.9,
+        "stage3_tests": 0.0,
+        "total_control": 353.9
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "confirmation_option",
+      "symbol_type": "Function",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_confirmation_option.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_confirmation_option.py:11:76: undefined name 'FC' | src/click/_extracted_confirmation_option.py:11:81: undefined name 'FC' | src/click/_extracted_confirmation_option.py:32:12: undefined name 'option'",
+      "preflight_duration_ms": 197.18,
+      "control_durations_ms": {
+        "apply": 221.8,
+        "stage1_import": 57.4,
+        "stage2_linter": 77.2,
+        "stage3_tests": 0.0,
+        "total_control": 356.4
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "UsageError",
+      "symbol_type": "Class",
+      "from_file": "src/click/exceptions.py",
+      "to_file": "src/click/_extracted_usageerror.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 17, in <module>\n    from .exceptions import BadParameter\n  File \"/tmp/bench_repos/click/src/click/exceptions.py\", line 12, in <module>\n    from ._extracte",
+      "preflight_duration_ms": 197.29,
+      "control_durations_ms": {
+        "apply": 219.1,
+        "stage1_import": 106.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 325.4
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "BadOptionUsage",
+      "symbol_type": "Class",
+      "from_file": "src/click/exceptions.py",
+      "to_file": "src/click/_extracted_badoptionusage.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 17, in <module>\n    from .exceptions import BadParameter\n  File \"/tmp/bench_repos/click/src/click/exceptions.py\", line 12, in <module>\n    from ._extracte",
+      "preflight_duration_ms": 198.95,
+      "control_durations_ms": {
+        "apply": 222.5,
+        "stage1_import": 106.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 329.1
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "FORCED_WIDTH",
+      "symbol_type": "Constant",
+      "from_file": "src/click/formatting.py",
+      "to_file": "src/click/_extracted_forced_width.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 212.33,
+      "control_durations_ms": {
+        "apply": 218.1,
+        "stage1_import": 60.7,
+        "stage2_linter": 73.7,
+        "stage3_tests": 9388.0,
+        "total_control": 9740.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "push_context",
+      "symbol_type": "Function",
+      "from_file": "src/click/globals.py",
+      "to_file": "src/click/_extracted_push_context.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_push_context.py:7:23: undefined name 'Context' | src/click/_extracted_push_context.py:9:5: undefined name '_local'",
+      "preflight_duration_ms": 189.18,
+      "control_durations_ms": {
+        "apply": 210.0,
+        "stage1_import": 56.9,
+        "stage2_linter": 63.8,
+        "stage3_tests": 0.0,
+        "total_control": 330.7
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "CompletionItem",
+      "symbol_type": "Class",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_completionitem.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_completionitem.py:8:32: undefined name '_ValueT_co' | src/click/_extracted_completionitem.py:31:16: undefined name '_ValueT_co' | src/click/_extracted_completionitem.py:36:21: undefined name '_ValueT_co'",
+      "preflight_duration_ms": 219.51,
+      "control_durations_ms": {
+        "apply": 224.4,
+        "stage1_import": 54.7,
+        "stage2_linter": 78.3,
+        "stage3_tests": 0.0,
+        "total_control": 357.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "get_completion_class",
+      "symbol_type": "Function",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_get_completion_class.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_get_completion_class.py:9:60: undefined name 'BashComplete' | src/click/_extracted_get_completion_class.py:13:60: undefined name 'FishComplete' | src/click/_extracted_get_completion_class.py:17:59: undefined name 'ZshComplete'",
+      "preflight_duration_ms": 202.4,
+      "control_durations_ms": {
+        "apply": 227.7,
+        "stage1_import": 54.7,
+        "stage2_linter": 78.0,
+        "stage3_tests": 0.0,
+        "total_control": 360.4
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "split_arg_string",
+      "symbol_type": "Function",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_split_arg_string.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 223.19,
+      "control_durations_ms": {
+        "apply": 223.3,
+        "stage1_import": 55.9,
+        "stage2_linter": 77.2,
+        "stage3_tests": 9534.9,
+        "total_control": 9891.3
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "confirm",
+      "symbol_type": "Function",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_confirm.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_confirm.py:42:14: undefined name '_build_prompt' | src/click/_extracted_confirm.py:51:21: undefined name '_readline_prompt' | src/click/_extracted_confirm.py:51:38: undefined name 'visible_prompt_func'",
+      "preflight_duration_ms": 196.75,
+      "control_durations_ms": {
+        "apply": 228.2,
+        "stage1_import": 57.7,
+        "stage2_linter": 81.0,
+        "stage3_tests": 0.0,
+        "total_control": 366.9
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "progressbar",
+      "symbol_type": "Function",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_progressbar.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/click/_extracted_progressbar.py:27:6: undefined name 'ProgressBar' | src/click/_extracted_progressbar.py:32:29: undefined name 'V' | src/click/_extracted_progressbar.py:39:33: undefined name 'V'",
+      "preflight_duration_ms": 222.55,
+      "control_durations_ms": {
+        "apply": 232.7,
+        "stage1_import": 57.1,
+        "stage2_linter": 80.2,
+        "stage3_tests": 0.0,
+        "total_control": 370.0
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "edit",
+      "symbol_type": "Function",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_edit.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 229.56,
+      "control_durations_ms": {
+        "apply": 225.6,
+        "stage1_import": 58.6,
+        "stage2_linter": 80.0,
+        "stage3_tests": 9548.3,
+        "total_control": 9912.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "raw_terminal",
+      "symbol_type": "Function",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_raw_terminal.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 226.16,
+      "control_durations_ms": {
+        "apply": 220.5,
+        "stage1_import": 59.2,
+        "stage2_linter": 80.6,
+        "stage3_tests": 9573.1,
+        "total_control": 9933.4
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "UnprocessedParamType",
+      "symbol_type": "Class",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_unprocessedparamtype.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 21, in <module>\n    from ._extracted_unprocessedparamtype import UnprocessedParamType\n  File \"/tmp/bench_repos/click/src/click/_extracted_unprocessedparam",
+      "preflight_duration_ms": 203.85,
+      "control_durations_ms": {
+        "apply": 237.4,
+        "stage1_import": 111.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 349.1
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "IntParamType",
+      "symbol_type": "Class",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_intparamtype.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 21, in <module>\n    from ._extracted_intparamtype import IntParamType\n  File \"/tmp/bench_repos/click/src/click/_extracted_intparamtype.py\", line 8, in <mo",
+      "preflight_duration_ms": 209.05,
+      "control_durations_ms": {
+        "apply": 244.5,
+        "stage1_import": 109.8,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 354.3
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "FileInfoDict",
+      "symbol_type": "Class",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_fileinfodict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 21, in <module>\n    from ._extracted_fileinfodict import FileInfoDict\n  File \"/tmp/bench_repos/click/src/click/_extracted_fileinfodict.py\", line 7, in <mo",
+      "preflight_duration_ms": 201.34,
+      "control_durations_ms": {
+        "apply": 235.1,
+        "stage1_import": 110.4,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 345.5
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "Tuple",
+      "symbol_type": "Class",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_tuple.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 21, in <module>\n    from ._extracted_tuple import Tuple\n  File \"/tmp/bench_repos/click/src/click/_extracted_tuple.py\", line 10, in <module>\n    class Tupl",
+      "preflight_duration_ms": 217.59,
+      "control_durations_ms": {
+        "apply": 252.3,
+        "stage1_import": 136.4,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 388.7
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "STRING",
+      "symbol_type": "Constant",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_string.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/click/src/click/__init__.py\", line 10, in <module>\n    from .core import Argument as Argument\n  File \"/tmp/bench_repos/click/src/click/core.py\", line 24, in <module>\n    from . import types\n  File \"/tmp/bench_repos/click/src/click/types.py\", line 21, in <module>\n    from ._extracted_string import STRING\n  File \"/tmp/bench_repos/click/src/click/_extracted_string.py\", line 10, in <module>\n    STRING:",
+      "preflight_duration_ms": 205.0,
+      "control_durations_ms": {
+        "apply": 260.0,
+        "stage1_import": 111.0,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 370.9
+      }
+    },
+    {
+      "repo": "click",
+      "symbol": "OptionHelpExtra",
+      "symbol_type": "Class",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_optionhelpextra.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "SAFE",
+      "outcome": "TRUE_NEGATIVE",
+      "failed_stage": null,
+      "error_details": "",
+      "preflight_duration_ms": 236.18,
+      "control_durations_ms": {
+        "apply": 237.5,
+        "stage1_import": 64.5,
+        "stage2_linter": 96.2,
+        "stage3_tests": 9538.8,
+        "total_control": 9937.1
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "check_compatibility",
+      "symbol_type": "Function",
+      "from_file": "src/requests/__init__.py",
+      "to_file": "src/requests/_extracted_check_compatibility.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 77, in <module>\n    check_compatibility(\nNameError: name 'check_compatibility' is not defined",
+      "preflight_duration_ms": 106.28,
+      "control_durations_ms": {
+        "apply": 98.0,
+        "stage1_import": 147.4,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 245.4
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "SupportsRead",
+      "symbol_type": "Class",
+      "from_file": "src/requests/_types.py",
+      "to_file": "src/requests/_extracted_supportsread.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 158, in <module>\n    from . import packages, utils\n  File \"/tmp/bench_repos/requests/src/requests/utils.py\", line 45, in <module>\n    from ._types import SupportsItems as _SupportsItems\n  File \"/tmp/bench_repos/requests/src/requests/_types.py\", line 21, in <module>\n    from ._extracted_supportsread import SupportsRead\n  File \"/tmp/bench_repos/requests/src/re",
+      "preflight_duration_ms": 99.81,
+      "control_durations_ms": {
+        "apply": 100.7,
+        "stage1_import": 159.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 260.4
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "DEFAULT_POOLBLOCK",
+      "symbol_type": "Constant",
+      "from_file": "src/requests/adapters.py",
+      "to_file": "src/requests/_extracted_default_poolblock.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 105.75,
+      "control_durations_ms": {
+        "apply": 110.8,
+        "stage1_import": 138.1,
+        "stage2_linter": 75.5,
+        "stage3_tests": 16705.2,
+        "total_control": 17029.5
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "BaseAdapter",
+      "symbol_type": "Class",
+      "from_file": "src/requests/adapters.py",
+      "to_file": "src/requests/_extracted_baseadapter.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_baseadapter.py:16:18: undefined name 'PreparedRequest' | src/requests/_extracted_baseadapter.py:18:18: undefined name '_t' | src/requests/_extracted_baseadapter.py:19:17: undefined name '_t'",
+      "preflight_duration_ms": 106.35,
+      "control_durations_ms": {
+        "apply": 107.9,
+        "stage1_import": 137.5,
+        "stage2_linter": 76.4,
+        "stage3_tests": 0.0,
+        "total_control": 321.8
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "options",
+      "symbol_type": "Function",
+      "from_file": "src/requests/api.py",
+      "to_file": "src/requests/_extracted_options.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_options.py:8:18: undefined name '_t' | src/requests/_extracted_options.py:8:40: undefined name 'Unpack' | src/requests/_extracted_options.py:8:47: undefined name '_t'",
+      "preflight_duration_ms": 75.69,
+      "control_durations_ms": {
+        "apply": 94.3,
+        "stage1_import": 135.3,
+        "stage2_linter": 64.4,
+        "stage3_tests": 0.0,
+        "total_control": 293.9
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "delete",
+      "symbol_type": "Function",
+      "from_file": "src/requests/api.py",
+      "to_file": "src/requests/_extracted_delete.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_delete.py:8:17: undefined name '_t' | src/requests/_extracted_delete.py:8:39: undefined name 'Unpack' | src/requests/_extracted_delete.py:8:46: undefined name '_t'",
+      "preflight_duration_ms": 78.42,
+      "control_durations_ms": {
+        "apply": 98.2,
+        "stage1_import": 137.4,
+        "stage2_linter": 65.8,
+        "stage3_tests": 0.0,
+        "total_control": 301.4
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "HTTPBasicAuth",
+      "symbol_type": "Class",
+      "from_file": "src/requests/auth.py",
+      "to_file": "src/requests/_extracted_httpbasicauth.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 171, in <module>\n    from .api import delete, get, head, options, patch, post, put, request\n  File \"/tmp/bench_repos/requests/src/requests/api.py\", line 15, in <module>\n    from . import sessions\n  File \"/tmp/bench_repos/requests/src/requests/sessions.py\", line 21, in <module>\n    from .adapters import HTTPAdapter\n  File \"/tmp/bench_repos/requests/src/reques",
+      "preflight_duration_ms": 80.77,
+      "control_durations_ms": {
+        "apply": 114.3,
+        "stage1_import": 209.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 323.9
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "MockResponse",
+      "symbol_type": "Class",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_mockresponse.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 110.2,
+      "control_durations_ms": {
+        "apply": 235.6,
+        "stage1_import": 141.2,
+        "stage2_linter": 86.3,
+        "stage3_tests": 16710.0,
+        "total_control": 17173.0
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "CookieConflictError",
+      "symbol_type": "Class",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_cookieconflicterror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 113.11,
+      "control_durations_ms": {
+        "apply": 196.2,
+        "stage1_import": 154.8,
+        "stage2_linter": 91.1,
+        "stage3_tests": 16669.1,
+        "total_control": 17111.2
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "cookiejar_from_dict",
+      "symbol_type": "Function",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_cookiejar_from_dict.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_cookiejar_from_dict.py:14:6: undefined name 'RequestsCookieJar' | src/requests/_extracted_cookiejar_from_dict.py:20:16: undefined name '_CookieJarT' | src/requests/_extracted_cookiejar_from_dict.py:22:6: undefined name '_CookieJarT'",
+      "preflight_duration_ms": 85.39,
+      "control_durations_ms": {
+        "apply": 117.1,
+        "stage1_import": 137.2,
+        "stage2_linter": 78.9,
+        "stage3_tests": 0.0,
+        "total_control": 333.1
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "InvalidJSONError",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_invalidjsonerror.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 47, in <module>\n    from .exceptions import RequestsDependencyWarning\n  File \"/tmp/bench_repos/requests/src/requests/exceptions.py\", line 15, in <module>\n    from ._extracted_invalidjsonerror import InvalidJSONError\n  File \"/tmp/bench_repos/requests/src/requests/_extracted_invalidjsonerror.py\", line 7, in <module>\n    class InvalidJSONError(RequestException)",
+      "preflight_duration_ms": 74.36,
+      "control_durations_ms": {
+        "apply": 97.9,
+        "stage1_import": 143.3,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 241.1
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "ProxyError",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_proxyerror.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 97.21,
+      "control_durations_ms": {
+        "apply": 92.0,
+        "stage1_import": 135.6,
+        "stage2_linter": 64.7,
+        "stage3_tests": 16671.5,
+        "total_control": 16963.9
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "ReadTimeout",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_readtimeout.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 47, in <module>\n    from .exceptions import RequestsDependencyWarning\n  File \"/tmp/bench_repos/requests/src/requests/exceptions.py\", line 15, in <module>\n    from ._extracted_readtimeout import ReadTimeout\n  File \"/tmp/bench_repos/requests/src/requests/_extracted_readtimeout.py\", line 7, in <module>\n    class ReadTimeout(Timeout):\nNameError: name 'Timeout' i",
+      "preflight_duration_ms": 81.61,
+      "control_durations_ms": {
+        "apply": 124.8,
+        "stage1_import": 192.7,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 317.5
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "InvalidURL",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_invalidurl.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 47, in <module>\n    from .exceptions import RequestsDependencyWarning\n  File \"/tmp/bench_repos/requests/src/requests/exceptions.py\", line 15, in <module>\n    from ._extracted_invalidurl import InvalidURL\nModuleNotFoundError: No module named 'requests._extracted_readtimeout'",
+      "preflight_duration_ms": 125.47,
+      "control_durations_ms": {
+        "apply": 130.2,
+        "stage1_import": 208.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 338.9
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "ContentDecodingError",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_contentdecodingerror.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_1_IMPORT",
+      "error_details": "Traceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n  File \"/tmp/bench_repos/requests/src/requests/__init__.py\", line 47, in <module>\n    from .exceptions import RequestsDependencyWarning\n  File \"/tmp/bench_repos/requests/src/requests/exceptions.py\", line 15, in <module>\n    from ._extracted_contentdecodingerror import ContentDecodingError\n  File \"/tmp/bench_repos/requests/src/requests/_extracted_contentdecodingerror.py\", line 8, in <module>\n    class ContentDecodingError(R",
+      "preflight_duration_ms": 96.77,
+      "control_durations_ms": {
+        "apply": 234.7,
+        "stage1_import": 261.6,
+        "stage2_linter": 0.0,
+        "stage3_tests": 0.0,
+        "total_control": 496.3
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "RequestsWarning",
+      "symbol_type": "Class",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_requestswarning.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 102.19,
+      "control_durations_ms": {
+        "apply": 149.6,
+        "stage1_import": 202.0,
+        "stage2_linter": 102.9,
+        "stage3_tests": 17062.7,
+        "total_control": 17517.3
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "main",
+      "symbol_type": "Function",
+      "from_file": "src/requests/help.py",
+      "to_file": "src/requests/_extracted_main.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_main.py:9:22: undefined name 'info'",
+      "preflight_duration_ms": 86.66,
+      "control_durations_ms": {
+        "apply": 97.5,
+        "stage1_import": 136.1,
+        "stage2_linter": 67.7,
+        "stage3_tests": 0.0,
+        "total_control": 301.3
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "REDIRECT_STATI",
+      "symbol_type": "Constant",
+      "from_file": "src/requests/models.py",
+      "to_file": "src/requests/_extracted_redirect_stati.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 126.88,
+      "control_durations_ms": {
+        "apply": 126.1,
+        "stage1_import": 143.1,
+        "stage2_linter": 92.9,
+        "stage3_tests": 16677.5,
+        "total_control": 17039.6
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "RequestHooksMixin",
+      "symbol_type": "Class",
+      "from_file": "src/requests/models.py",
+      "to_file": "src/requests/_extracted_requesthooksmixin.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 89.2,
+      "control_durations_ms": {
+        "apply": 123.6,
+        "stage1_import": 142.0,
+        "stage2_linter": 94.0,
+        "stage3_tests": 16682.7,
+        "total_control": 17042.3
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "merge_hooks",
+      "symbol_type": "Function",
+      "from_file": "src/requests/sessions.py",
+      "to_file": "src/requests/_extracted_merge_hooks.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_merge_hooks.py:9:20: undefined name '_t' | src/requests/_extracted_merge_hooks.py:10:20: undefined name '_t' | src/requests/_extracted_merge_hooks.py:12:6: undefined name '_t'",
+      "preflight_duration_ms": 84.41,
+      "control_durations_ms": {
+        "apply": 120.1,
+        "stage1_import": 142.7,
+        "stage2_linter": 82.3,
+        "stage3_tests": 0.0,
+        "total_control": 345.2
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "NETRC_FILES",
+      "symbol_type": "Constant",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_netrc_files.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 126.29,
+      "control_durations_ms": {
+        "apply": 127.3,
+        "stage1_import": 144.7,
+        "stage2_linter": 90.6,
+        "stage3_tests": 16555.9,
+        "total_control": 16918.5
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "dict_to_sequence",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dict_to_sequence.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_dict_to_sequence.py:11:8: undefined name '_t'",
+      "preflight_duration_ms": 119.68,
+      "control_durations_ms": {
+        "apply": 119.1,
+        "stage1_import": 136.8,
+        "stage2_linter": 87.8,
+        "stage3_tests": 0.0,
+        "total_control": 343.7
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "from_key_val_list",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_from_key_val_list.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 119.64,
+      "control_durations_ms": {
+        "apply": 117.6,
+        "stage1_import": 138.0,
+        "stage2_linter": 88.3,
+        "stage3_tests": 16599.5,
+        "total_control": 16943.4
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "dict_from_cookiejar",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dict_from_cookiejar.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_dict_from_cookiejar.py:8:29: undefined name 'CookieJar'",
+      "preflight_duration_ms": 120.47,
+      "control_durations_ms": {
+        "apply": 126.3,
+        "stage1_import": 136.1,
+        "stage2_linter": 88.0,
+        "stage3_tests": 0.0,
+        "total_control": 350.4
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "stream_decode_response_unicode",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_stream_decode_response_unicode.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_stream_decode_response_unicode.py:11:35: undefined name 'Response'",
+      "preflight_duration_ms": 121.42,
+      "control_durations_ms": {
+        "apply": 120.7,
+        "stage1_import": 136.7,
+        "stage2_linter": 87.7,
+        "stage3_tests": 0.0,
+        "total_control": 345.0
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "get_unicode_from_response",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_get_unicode_from_response.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_get_unicode_from_response.py:9:34: undefined name 'Response' | src/requests/_extracted_get_unicode_from_response.py:35:16: undefined name 'get_encoding_from_headers'",
+      "preflight_duration_ms": 88.36,
+      "control_durations_ms": {
+        "apply": 118.8,
+        "stage1_import": 137.3,
+        "stage2_linter": 89.6,
+        "stage3_tests": 0.0,
+        "total_control": 345.7
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "dotted_netmask",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dotted_netmask.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 119.83,
+      "control_durations_ms": {
+        "apply": 120.1,
+        "stage1_import": 137.6,
+        "stage2_linter": 87.8,
+        "stage3_tests": 16569.2,
+        "total_control": 16914.8
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "should_bypass_proxies",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_should_bypass_proxies.py",
+      "predicted_label": "REJECT",
+      "ground_truth": "HAZARD",
+      "outcome": "TRUE_POSITIVE",
+      "failed_stage": "STAGE_2_LINTER",
+      "error_details": "src/requests/_extracted_should_bypass_proxies.py:39:12: undefined name 'is_ipv4_address' | src/requests/_extracted_should_bypass_proxies.py:41:20: undefined name 'is_valid_cidr' | src/requests/_extracted_should_bypass_proxies.py:42:24: undefined name 'address_in_network'",
+      "preflight_duration_ms": 87.76,
+      "control_durations_ms": {
+        "apply": 122.4,
+        "stage1_import": 137.6,
+        "stage2_linter": 88.4,
+        "stage3_tests": 0.0,
+        "total_control": 348.3
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "default_user_agent",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_default_user_agent.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 120.61,
+      "control_durations_ms": {
+        "apply": 119.6,
+        "stage1_import": 136.8,
+        "stage2_linter": 87.9,
+        "stage3_tests": 16574.5,
+        "total_control": 16918.8
+      }
+    },
+    {
+      "repo": "requests",
+      "symbol": "prepend_scheme_if_needed",
+      "symbol_type": "Function",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_prepend_scheme_if_needed.py",
+      "predicted_label": "ACCEPT",
+      "ground_truth": "HAZARD",
+      "outcome": "FALSE_NEGATIVE",
+      "failed_stage": "STAGE_3_TEST_SUITE",
+      "error_details": "Pytest failed",
+      "preflight_duration_ms": 121.72,
+      "control_durations_ms": {
+        "apply": 123.5,
+        "stage1_import": 137.0,
+        "stage2_linter": 88.6,
+        "stage3_tests": 16601.0,
+        "total_control": 16950.2
+      }
+    }
+  ]
+}

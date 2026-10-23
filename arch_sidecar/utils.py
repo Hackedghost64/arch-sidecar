@@ -72,7 +72,7 @@ def is_ignored_path(rel_path: str, ignored_dirs: Set[str] = DEFAULT_IGNORED_DIRS
     for part in parts:
         if part in ignored_dirs or part.endswith(".egg-info"):
             return True
-        if part.startswith(".") and part not in {".github"}:
+        if part.startswith(".") and part not in {".", "..", ".github"}:
             # Ignore hidden directories by default except .github
             if len(parts) > 1 and part != parts[-1]:
                 return True

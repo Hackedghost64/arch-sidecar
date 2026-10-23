@@ -1,0 +1,372 @@
+{
+  "benchmark_timestamp": "2026-10-23T15:27:25+0530",
+  "total_repositories": 4,
+  "total_files_scanned": 424,
+  "total_issues_detected": 732,
+  "total_errors": 125,
+  "total_warnings": 607,
+  "total_duration_sec": 3.59,
+  "overall_throughput_fps": 118.2,
+  "repositories": {
+    "requests": {
+      "files": 37,
+      "duration_ms": 420.15,
+      "throughput_fps": 88.1,
+      "ms_per_file": 11.36,
+      "score": 93.78378378378379,
+      "errors": 9,
+      "warnings": 70,
+      "categories": {
+        "complexity": 31,
+        "anti_pattern": 10,
+        "oop_cohesion": 33,
+        "contract": 5
+      },
+      "sample_issues": [
+        {
+          "file_path": "/tmp/big_sample_repos/requests/src/requests/__init__.py",
+          "line": 146,
+          "symbol": "<module>",
+          "category": "anti_pattern",
+          "severity": "warning",
+          "rule": "silent_exception_swallowing",
+          "message": "Exception silently swallowed with 'pass' without logging or re-raising.",
+          "suggestion": "Log the exception with traceback or re-raise a domain-specific exception."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/requests/src/requests/utils.py",
+          "line": 99,
+          "symbol": "proxy_bypass_registry",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'proxy_bypass_registry' has cyclomatic complexity of 9 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/requests/src/requests/utils.py",
+          "line": 160,
+          "symbol": "super_len",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_cyclomatic_complexity",
+          "message": "Function 'super_len' has cyclomatic complexity of 16 (limit: 15).",
+          "suggestion": "Decompose this function into smaller, single-purpose helper functions."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/requests/src/requests/utils.py",
+          "line": 214,
+          "symbol": "super_len",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/requests/src/requests/utils.py",
+          "line": 231,
+          "symbol": "get_netrc_auth",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'get_netrc_auth' has cyclomatic complexity of 15 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        }
+      ]
+    },
+    "click": {
+      "files": 91,
+      "duration_ms": 1023.3,
+      "throughput_fps": 88.9,
+      "ms_per_file": 11.25,
+      "score": 93.34065934065934,
+      "errors": 30,
+      "warnings": 153,
+      "categories": {
+        "complexity": 71,
+        "anti_pattern": 39,
+        "oop_cohesion": 63,
+        "contract": 10
+      },
+      "sample_issues": [
+        {
+          "file_path": "/tmp/big_sample_repos/click/src/click/_textwrap.py",
+          "line": 66,
+          "symbol": "_wrap_chunks",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_cyclomatic_complexity",
+          "message": "Function '_wrap_chunks' has cyclomatic complexity of 30 (limit: 15).",
+          "suggestion": "Decompose this function into smaller, single-purpose helper functions."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/click/src/click/_textwrap.py",
+          "line": 140,
+          "symbol": "_wrap_chunks",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/click/src/click/_textwrap.py",
+          "line": 141,
+          "symbol": "_wrap_chunks",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 5 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/click/src/click/_textwrap.py",
+          "line": 151,
+          "symbol": "_wrap_chunks",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 5 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/click/src/click/_textwrap.py",
+          "line": 153,
+          "symbol": "_wrap_chunks",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 6 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        }
+      ]
+    },
+    "flask": {
+      "files": 83,
+      "duration_ms": 555.44,
+      "throughput_fps": 149.4,
+      "ms_per_file": 6.69,
+      "score": 95.97590361445783,
+      "errors": 9,
+      "warnings": 122,
+      "categories": {
+        "complexity": 20,
+        "anti_pattern": 23,
+        "oop_cohesion": 87,
+        "contract": 1
+      },
+      "sample_issues": [
+        {
+          "file_path": "/tmp/big_sample_repos/flask/src/flask/cli.py",
+          "line": 41,
+          "symbol": "find_best_app",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'find_best_app' has cyclomatic complexity of 11 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/flask/src/flask/cli.py",
+          "line": 74,
+          "symbol": "find_best_app",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/flask/src/flask/cli.py",
+          "line": 77,
+          "symbol": "find_best_app",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/flask/src/flask/cli.py",
+          "line": 120,
+          "symbol": "find_app_by_string",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'find_app_by_string' has cyclomatic complexity of 12 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/flask/src/flask/cli.py",
+          "line": 698,
+          "symbol": "load_dotenv",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'load_dotenv' has cyclomatic complexity of 13 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        }
+      ]
+    },
+    "rich": {
+      "files": 213,
+      "duration_ms": 1584.16,
+      "throughput_fps": 134.5,
+      "ms_per_file": 7.44,
+      "score": 93.92488262910798,
+      "errors": 77,
+      "warnings": 262,
+      "categories": {
+        "complexity": 190,
+        "anti_pattern": 65,
+        "oop_cohesion": 81,
+        "contract": 3
+      },
+      "sample_issues": [
+        {
+          "file_path": "/tmp/big_sample_repos/rich/examples/layout.py",
+          "line": 54,
+          "symbol": "<module>",
+          "category": "anti_pattern",
+          "severity": "warning",
+          "rule": "silent_exception_swallowing",
+          "message": "Exception silently swallowed with 'pass' without logging or re-raising.",
+          "suggestion": "Log the exception with traceback or re-raise a domain-specific exception."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/rich/examples/exception.py",
+          "line": 25,
+          "symbol": "divide_all",
+          "category": "anti_pattern",
+          "severity": "warning",
+          "rule": "unlogged_broad_exception",
+          "message": "Broad exception caught without logging or re-raising.",
+          "suggestion": "Catch a specific exception type or log the failure before handling."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/rich/examples/recursive_error.py",
+          "line": 24,
+          "symbol": "<module>",
+          "category": "anti_pattern",
+          "severity": "warning",
+          "rule": "unlogged_broad_exception",
+          "message": "Broad exception caught without logging or re-raising.",
+          "suggestion": "Catch a specific exception type or log the failure before handling."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/rich/examples/print_calendar.py",
+          "line": 20,
+          "symbol": "print_calendar",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "high_cyclomatic_complexity",
+          "message": "Function 'print_calendar' has cyclomatic complexity of 9 (limit: 8).",
+          "suggestion": "Simplify branching logic or extract sub-operations."
+        },
+        {
+          "file_path": "/tmp/big_sample_repos/rich/examples/print_calendar.py",
+          "line": 48,
+          "symbol": "print_calendar",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        }
+      ]
+    }
+  },
+  "ai_slop_samples": {
+    "ai_generated_feature": {
+      "issues_count": 7,
+      "issues": [
+        {
+          "file_path": "<string>",
+          "line": 8,
+          "symbol": "handle_incoming_webhook",
+          "category": "complexity",
+          "severity": "warning",
+          "rule": "deep_nesting",
+          "message": "Block nested 4 levels deep (limit: 3).",
+          "suggestion": "Use early returns or guard clauses to flatten the control flow."
+        },
+        {
+          "file_path": "<string>",
+          "line": 9,
+          "symbol": "handle_incoming_webhook",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 5 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        },
+        {
+          "file_path": "<string>",
+          "line": 10,
+          "symbol": "handle_incoming_webhook",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 6 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        },
+        {
+          "file_path": "<string>",
+          "line": 11,
+          "symbol": "handle_incoming_webhook",
+          "category": "complexity",
+          "severity": "error",
+          "rule": "excessive_nesting_depth",
+          "message": "Block nested 7 levels deep (limit: 5).",
+          "suggestion": "Invert conditional guards (early return) or extract inner block into a dedicated function."
+        },
+        {
+          "file_path": "<string>",
+          "line": 2,
+          "symbol": "handle_incoming_webhook",
+          "category": "anti_pattern",
+          "severity": "error",
+          "rule": "mutable_default_argument",
+          "message": "Function 'handle_incoming_webhook' uses mutable default argument.",
+          "suggestion": "Replace with `None` and initialize inside the function (`if arg is None: arg = []`)."
+        },
+        {
+          "file_path": "<string>",
+          "line": 16,
+          "symbol": "handle_incoming_webhook",
+          "category": "anti_pattern",
+          "severity": "error",
+          "rule": "silent_exception_swallowing",
+          "message": "Exception silently swallowed with 'pass' without logging or re-raising.",
+          "suggestion": "Log the exception with traceback or re-raise a domain-specific exception."
+        },
+        {
+          "file_path": "<string>",
+          "line": 13,
+          "symbol": "handle_incoming_webhook",
+          "category": "anti_pattern",
+          "severity": "warning",
+          "rule": "parameter_subscript_mutation",
+          "message": "Parameter 'cache' mutated in-place via subscript assignment.",
+          "suggestion": "Create and return a new dictionary/list copy rather than mutating caller's state."
+        }
+      ]
+    },
+    "ai_sprawling_god_method": {
+      "issues_count": 1,
+      "issues": [
+        {
+          "file_path": "<string>",
+          "line": 5,
+          "symbol": "PaymentProcessor",
+          "category": "oop_cohesion",
+          "severity": "warning",
+          "rule": "law_of_demeter_violation",
+          "message": "Deep property access chain (6 levels). Violates Law of Demeter.",
+          "suggestion": "Encapsulate traversal: tell, don't ask. Let the intermediate object provide a direct method."
+        }
+      ]
+    }
+  }
+}

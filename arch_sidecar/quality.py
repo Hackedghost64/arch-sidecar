@@ -638,9 +638,9 @@ def audit_repository(repo_path: str, strict: bool = False) -> QualityReport:
         if rel_root != "." and is_ignored_path(rel_root):
             dirs.clear()
             continue
-        dirs[:] = [d for d in dirs if not is_ignored_path(os.path.join(rel_root, d))]
+        dirs[:] = [d for d in dirs if not is_ignored_path(d if rel_root == "." else os.path.join(rel_root, d))]
         for f in files:
-            rel_file = os.path.join(rel_root, f) if rel_root != "." else f
+            rel_file = f if rel_root == "." else os.path.join(rel_root, f)
             if f.endswith(".py") and not is_ignored_path(rel_file):
                 py_files.append(os.path.join(root, f))
 
@@ -655,9 +655,10 @@ def audit_repository(repo_path: str, strict: bool = False) -> QualityReport:
     report.error_count = sum(1 for i in all_issues if i.severity == "error")
     report.warning_count = sum(1 for i in all_issues if i.severity == "warning")
 
-    # Score calculation: 100 - (errors * 10) - (warnings * 2), bounded between 0 and 100
+    # Score calculation normalized per file: 100 - (errors * 10 + warnings * 2) / total_files
     penalty = (report.error_count * 10.0) + (report.warning_count * 2.0)
-    report.score = max(0.0, min(100.0, 100.0 - penalty))
+    penalty_per_file = (penalty / report.total_files) if report.total_files > 0 else 0.0
+    report.score = max(0.0, min(100.0, 100.0 - penalty_per_file))
 
     if strict:
         report.clean = (report.total_issues == 0)
@@ -671,10 +672,14 @@ def audit_repository(repo_path: str, strict: bool = False) -> QualityReport:
         "oop_cohesion": sum(1 for i in all_issues if i.category == "oop_cohesion"),
         "contract": sum(1 for i in all_issues if i.category == "contract"),
     }
+    clean_files_count = report.total_files - len({i.file_path for i in all_issues})
+    clean_pct = (clean_files_count / report.total_files * 100.0) if report.total_files > 0 else 100.0
     report.metrics = {
         "categories": category_counts,
-        "clean_files": report.total_files - len({i.file_path for i in all_issues}),
+        "clean_files": clean_files_count,
         "affected_files": len({i.file_path for i in all_issues}),
+        "clean_files_percentage": round(clean_pct, 1),
+        "issues_per_file": round(report.total_issues / max(1, report.total_files), 2),
     }
 
     return report

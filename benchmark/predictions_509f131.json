@@ -1,0 +1,3001 @@
+{
+  "metadata": {
+    "freeze_commit": "509f131",
+    "timestamp": "2026-10-23T13:30:36.847460+00:00",
+    "pre_registered_thresholds": {
+      "recall_lower_bound_target": 0.7,
+      "false_rejection_target": 0.1,
+      "max_accepted_regressions": 0,
+      "minimum_hazard_gate": 10,
+      "inconclusive_rule": "If N_hazard < 10, recall is marked INCONCLUSIVE DUE TO INSUFFICIENT HAZARD BASE RATE"
+    },
+    "eval_datasets": {
+      "headline": "flask (all 98 public symbols, 100% untuned)",
+      "secondary": "click & requests (unseen symbols only, reported separately)",
+      "speed_only": "django (time comparison only, slow test suite)"
+    }
+  },
+  "predictions": [
+    {
+      "repo": "flask",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 167.6
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_remove_ctx.py",
+      "symbol": "remove_ctx",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Flask",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Flask'",
+          "recommendation": "Also extract 'Flask' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 135.46
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_add_ctx.py",
+      "symbol": "add_ctx",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Flask",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Flask'",
+          "recommendation": "Also extract 'Flask' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 133.74
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/app.py",
+      "to_file": "src/flask/_extracted_flask.py",
+      "symbol": "Flask",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "remove_ctx",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'remove_ctx'",
+          "recommendation": "Also extract 'remove_ctx' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "add_ctx",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'add_ctx'",
+          "recommendation": "Also extract 'add_ctx' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Flask",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/app.py -> src/flask/_extracted_flask.py -> src/flask/__init__.py -> src/flask/app.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/app.py' imports 'src/flask/_extracted_flask.py', but 'src/flask/_extracted_flask.py' transitively reaches 'src/flask/app.py' via src/flask/_extracted_flask.py -> src/flask/__init__.py -> src/flask/app.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/app.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 143.56
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/blueprints.py",
+      "to_file": "src/flask/_extracted_blueprint.py",
+      "symbol": "Blueprint",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 135.94
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_noappexception.py",
+      "symbol": "NoAppException",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 153.01
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_find_best_app.py",
+      "symbol": "find_best_app",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_called_with_wrong_args",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_called_with_wrong_args'",
+          "recommendation": "Also extract '_called_with_wrong_args' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 124.19
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_find_app_by_string.py",
+      "symbol": "find_app_by_string",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_called_with_wrong_args",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_called_with_wrong_args'",
+          "recommendation": "Also extract '_called_with_wrong_args' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 124.36
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_prepare_import.py",
+      "symbol": "prepare_import",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 151.71
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_locate_app.py",
+      "symbol": "locate_app",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "find_best_app",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_best_app'",
+          "recommendation": "Also extract 'find_best_app' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "find_app_by_string",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_app_by_string'",
+          "recommendation": "Also extract 'find_app_by_string' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 123.76
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_locate_app.py",
+      "symbol": "locate_app",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "find_best_app",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_best_app'",
+          "recommendation": "Also extract 'find_best_app' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "find_app_by_string",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_app_by_string'",
+          "recommendation": "Also extract 'find_app_by_string' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 122.62
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_locate_app.py",
+      "symbol": "locate_app",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "find_best_app",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_best_app'",
+          "recommendation": "Also extract 'find_best_app' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "find_app_by_string",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'find_app_by_string'",
+          "recommendation": "Also extract 'find_app_by_string' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 125.94
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_get_version.py",
+      "symbol": "get_version",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 148.92
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_scriptinfo.py",
+      "symbol": "ScriptInfo",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "prepare_import",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'prepare_import'",
+          "recommendation": "Also extract 'prepare_import' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "locate_app",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'locate_app'",
+          "recommendation": "Also extract 'locate_app' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 128.45
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 149.74
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_with_appcontext.py",
+      "symbol": "with_appcontext",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "ScriptInfo",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ScriptInfo'",
+          "recommendation": "Also extract 'ScriptInfo' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 123.09
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_appgroup.py",
+      "symbol": "AppGroup",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "with_appcontext",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'with_appcontext'",
+          "recommendation": "Also extract 'with_appcontext' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 124.01
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_flaskgroup.py",
+      "symbol": "FlaskGroup",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 10,
+      "hazards": [
+        {
+          "symbol": "run_command",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'run_command'",
+          "recommendation": "Also extract 'run_command' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "shell_command",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'shell_command'",
+          "recommendation": "Also extract 'shell_command' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "ScriptInfo",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ScriptInfo'",
+          "recommendation": "Also extract 'ScriptInfo' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "AppGroup",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'AppGroup'",
+          "recommendation": "Also extract 'AppGroup' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "NoAppException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NoAppException'",
+          "recommendation": "Also extract 'NoAppException' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "routes_command",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'routes_command'",
+          "recommendation": "Also extract 'routes_command' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_env_file_option",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_env_file_option'",
+          "recommendation": "Pass '_env_file_option' as a parameter or extract '_env_file_option' to a shared config module."
+        },
+        {
+          "symbol": "_app_option",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_app_option'",
+          "recommendation": "Pass '_app_option' as a parameter or extract '_app_option' to a shared config module."
+        },
+        {
+          "symbol": "version_option",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'version_option'",
+          "recommendation": "Pass 'version_option' as a parameter or extract 'version_option' to a shared config module."
+        },
+        {
+          "symbol": "_debug_option",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_debug_option'",
+          "recommendation": "Pass '_debug_option' as a parameter or extract '_debug_option' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 129.76
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_load_dotenv.py",
+      "symbol": "load_dotenv",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 155.75
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_show_server_banner.py",
+      "symbol": "show_server_banner",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 152.2
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_certparamtype.py",
+      "symbol": "CertParamType",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 150.34
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_separatedpathtype.py",
+      "symbol": "SeparatedPathType",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 152.12
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_run_command.py",
+      "symbol": "run_command",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 6,
+      "hazards": [
+        {
+          "symbol": "ScriptInfo",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ScriptInfo'",
+          "recommendation": "Also extract 'ScriptInfo' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "SeparatedPathType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SeparatedPathType'",
+          "recommendation": "Also extract 'SeparatedPathType' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "show_server_banner",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'show_server_banner'",
+          "recommendation": "Also extract 'show_server_banner' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "CertParamType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'CertParamType'",
+          "recommendation": "Also extract 'CertParamType' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_validate_key",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_validate_key'",
+          "recommendation": "Also extract '_validate_key' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "pass_script_info",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'pass_script_info'",
+          "recommendation": "Pass 'pass_script_info' as a parameter or extract 'pass_script_info' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 128.84
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_shell_command.py",
+      "symbol": "shell_command",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "with_appcontext",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'with_appcontext'",
+          "recommendation": "Also extract 'with_appcontext' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 120.7
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_routes_command.py",
+      "symbol": "routes_command",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "with_appcontext",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'with_appcontext'",
+          "recommendation": "Also extract 'with_appcontext' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 125.33
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/cli.py",
+      "to_file": "src/flask/_extracted_main.py",
+      "symbol": "main",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "cli",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'cli'",
+          "recommendation": "Pass 'cli' as a parameter or extract 'cli' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 126.74
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_t.py",
+      "symbol": "T",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 131.04
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_configattribute.py",
+      "symbol": "ConfigAttribute",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 133.76
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/config.py",
+      "to_file": "src/flask/_extracted_config.py",
+      "symbol": "Config",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 137.47
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_after_this_request.py",
+      "symbol": "after_this_request",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "after_this_request",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/ctx.py -> src/flask/_extracted_after_this_request.py -> src/flask/__init__.py -> src/flask/ctx.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/ctx.py' imports 'src/flask/_extracted_after_this_request.py', but 'src/flask/_extracted_after_this_request.py' transitively reaches 'src/flask/ctx.py' via src/flask/_extracted_after_this_request.py -> src/flask/__init__.py -> src/flask/ctx.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/ctx.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 115.06
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 132.61
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_copy_current_request_context.py",
+      "symbol": "copy_current_request_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 137.26
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_has_request_context.py",
+      "symbol": "has_request_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 133.08
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_has_app_context.py",
+      "symbol": "has_app_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 134.2
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/ctx.py",
+      "to_file": "src/flask/_extracted_appcontext.py",
+      "symbol": "AppContext",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_AppCtxGlobals",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_AppCtxGlobals'",
+          "recommendation": "Also extract '_AppCtxGlobals' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "AppContext",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/ctx.py -> src/flask/_extracted_appcontext.py -> src/flask/__init__.py -> src/flask/ctx.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/ctx.py' imports 'src/flask/_extracted_appcontext.py', but 'src/flask/_extracted_appcontext.py' transitively reaches 'src/flask/ctx.py' via src/flask/_extracted_appcontext.py -> src/flask/__init__.py -> src/flask/ctx.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/ctx.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 120.66
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_unexpectedunicodeerror.py",
+      "symbol": "UnexpectedUnicodeError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 129.31
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_debugfileskeyerror.py",
+      "symbol": "DebugFilesKeyError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 133.09
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_formdataroutingredirect.py",
+      "symbol": "FormDataRoutingRedirect",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 131.33
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_attach_enctype_error_multidict.py",
+      "symbol": "attach_enctype_error_multidict",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "DebugFilesKeyError",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'DebugFilesKeyError'",
+          "recommendation": "Also extract 'DebugFilesKeyError' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.65
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/debughelpers.py",
+      "to_file": "src/flask/_extracted_explain_template_loading_attempts.py",
+      "symbol": "explain_template_loading_attempts",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_dump_loader_info",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_dump_loader_info'",
+          "recommendation": "Also extract '_dump_loader_info' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.55
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_debug_flag.py",
+      "symbol": "get_debug_flag",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 135.74
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_load_dotenv.py",
+      "symbol": "get_load_dotenv",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 138.25
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_stream_with_context.py",
+      "symbol": "stream_with_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 137.0
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_stream_with_context.py",
+      "symbol": "stream_with_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 136.67
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_stream_with_context.py",
+      "symbol": "stream_with_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 135.47
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_make_response.py",
+      "symbol": "make_response",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 135.66
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_url_for.py",
+      "symbol": "url_for",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 133.56
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_redirect.py",
+      "symbol": "redirect",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 134.91
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_abort.py",
+      "symbol": "abort",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 134.43
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_template_attribute.py",
+      "symbol": "get_template_attribute",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 136.47
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_flash.py",
+      "symbol": "flash",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 136.3
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_flashed_messages.py",
+      "symbol": "get_flashed_messages",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 132.91
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_send_file.py",
+      "symbol": "send_file",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_prepare_send_file_kwargs",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_prepare_send_file_kwargs'",
+          "recommendation": "Also extract '_prepare_send_file_kwargs' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 114.97
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_send_from_directory.py",
+      "symbol": "send_from_directory",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_prepare_send_file_kwargs",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_prepare_send_file_kwargs'",
+          "recommendation": "Also extract '_prepare_send_file_kwargs' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.73
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/helpers.py",
+      "to_file": "src/flask/_extracted_get_root_path.py",
+      "symbol": "get_root_path",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 137.9
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_dumps.py",
+      "symbol": "dumps",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 128.58
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_dump.py",
+      "symbol": "dump",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 129.34
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_loads.py",
+      "symbol": "loads",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 129.63
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_load.py",
+      "symbol": "load",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 127.43
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/__init__.py",
+      "to_file": "src/flask/json/_extracted_jsonify.py",
+      "symbol": "jsonify",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 129.01
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/provider.py",
+      "to_file": "src/flask/json/_extracted_jsonprovider.py",
+      "symbol": "JSONProvider",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 131.31
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/provider.py",
+      "to_file": "src/flask/json/_extracted_defaultjsonprovider.py",
+      "symbol": "DefaultJSONProvider",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_default",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_default'",
+          "recommendation": "Also extract '_default' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "JSONProvider",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONProvider'",
+          "recommendation": "Also extract 'JSONProvider' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 112.7
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_jsontag.py",
+      "symbol": "JSONTag",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "TaggedJSONSerializer",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TaggedJSONSerializer'",
+          "recommendation": "Also extract 'TaggedJSONSerializer' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 115.74
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagdict.py",
+      "symbol": "TagDict",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 115.32
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_passdict.py",
+      "symbol": "PassDict",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 117.86
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagtuple.py",
+      "symbol": "TagTuple",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 117.07
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_passlist.py",
+      "symbol": "PassList",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 116.31
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagbytes.py",
+      "symbol": "TagBytes",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 116.19
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagmarkup.py",
+      "symbol": "TagMarkup",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 115.18
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_taguuid.py",
+      "symbol": "TagUUID",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 118.4
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_tagdatetime.py",
+      "symbol": "TagDateTime",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 115.78
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/json/tag.py",
+      "to_file": "src/flask/json/_extracted_taggedjsonserializer.py",
+      "symbol": "TaggedJSONSerializer",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 9,
+      "hazards": [
+        {
+          "symbol": "JSONTag",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'JSONTag'",
+          "recommendation": "Also extract 'JSONTag' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagMarkup",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagMarkup'",
+          "recommendation": "Also extract 'TagMarkup' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "PassList",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'PassList'",
+          "recommendation": "Also extract 'PassList' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagDateTime",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagDateTime'",
+          "recommendation": "Also extract 'TagDateTime' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "PassDict",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'PassDict'",
+          "recommendation": "Also extract 'PassDict' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagTuple",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagTuple'",
+          "recommendation": "Also extract 'TagTuple' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagDict",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagDict'",
+          "recommendation": "Also extract 'TagDict' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagBytes",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagBytes'",
+          "recommendation": "Also extract 'TagBytes' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TagUUID",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TagUUID'",
+          "recommendation": "Also extract 'TagUUID' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 114.79
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_wsgi_errors_stream.py",
+      "symbol": "wsgi_errors_stream",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 127.25
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_has_level_handler.py",
+      "symbol": "has_level_handler",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 127.5
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/logging.py",
+      "to_file": "src/flask/_extracted_create_logger.py",
+      "symbol": "create_logger",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "has_level_handler",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'has_level_handler'",
+          "recommendation": "Also extract 'has_level_handler' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "default_handler",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'default_handler'",
+          "recommendation": "Pass 'default_handler' as a parameter or extract 'default_handler' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 111.93
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/app.py",
+      "to_file": "src/flask/sansio/_extracted_app.py",
+      "symbol": "App",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_make_timedelta",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_make_timedelta'",
+          "recommendation": "Also extract '_make_timedelta' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "App",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/sansio/app.py -> src/flask/sansio/_extracted_app.py -> src/flask/__init__.py -> src/flask/app.py -> src/flask/sansio/app.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/sansio/app.py' imports 'src/flask/sansio/_extracted_app.py', but 'src/flask/sansio/_extracted_app.py' transitively reaches 'src/flask/sansio/app.py' via src/flask/sansio/_extracted_app.py -> src/flask/__init__.py -> src/flask/app.py -> src/flask/sansio/app.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/sansio/app.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 130.7
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/blueprints.py",
+      "to_file": "src/flask/sansio/_extracted_blueprintsetupstate.py",
+      "symbol": "BlueprintSetupState",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "Blueprint",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Blueprint'",
+          "recommendation": "Also extract 'Blueprint' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "BlueprintSetupState",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/sansio/blueprints.py -> src/flask/sansio/_extracted_blueprintsetupstate.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/blueprints.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/sansio/blueprints.py' imports 'src/flask/sansio/_extracted_blueprintsetupstate.py', but 'src/flask/sansio/_extracted_blueprintsetupstate.py' transitively reaches 'src/flask/sansio/blueprints.py' via src/flask/sansio/_extracted_blueprintsetupstate.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/blueprints.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/sansio/blueprints.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 130.89
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/blueprints.py",
+      "to_file": "src/flask/sansio/_extracted_blueprint.py",
+      "symbol": "Blueprint",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "BlueprintSetupState",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'BlueprintSetupState'",
+          "recommendation": "Also extract 'BlueprintSetupState' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Blueprint",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/sansio/blueprints.py -> src/flask/sansio/_extracted_blueprint.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/blueprints.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/sansio/blueprints.py' imports 'src/flask/sansio/_extracted_blueprint.py', but 'src/flask/sansio/_extracted_blueprint.py' transitively reaches 'src/flask/sansio/blueprints.py' via src/flask/sansio/_extracted_blueprint.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/blueprints.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/sansio/blueprints.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        },
+        {
+          "symbol": "DeferredSetupFunction",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'DeferredSetupFunction'",
+          "recommendation": "Pass 'DeferredSetupFunction' as a parameter or extract 'DeferredSetupFunction' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 131.43
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 140.22
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_setupmethod.py",
+      "symbol": "setupmethod",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Scaffold",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Scaffold'",
+          "recommendation": "Also extract 'Scaffold' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 120.23
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_scaffold.py",
+      "symbol": "Scaffold",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "setupmethod",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'setupmethod'",
+          "recommendation": "Also extract 'setupmethod' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Scaffold",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/sansio/scaffold.py -> src/flask/sansio/_extracted_scaffold.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/scaffold.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/sansio/scaffold.py' imports 'src/flask/sansio/_extracted_scaffold.py', but 'src/flask/sansio/_extracted_scaffold.py' transitively reaches 'src/flask/sansio/scaffold.py' via src/flask/sansio/_extracted_scaffold.py -> src/flask/__init__.py -> src/flask/blueprints.py -> src/flask/sansio/scaffold.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/sansio/scaffold.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 128.6
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sansio/scaffold.py",
+      "to_file": "src/flask/sansio/_extracted_find_package.py",
+      "symbol": "find_package",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_find_package_path",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_find_package_path'",
+          "recommendation": "Also extract '_find_package_path' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 118.52
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_sessionmixin.py",
+      "symbol": "SessionMixin",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 135.88
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_securecookiesession.py",
+      "symbol": "SecureCookieSession",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "SessionMixin",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SessionMixin'",
+          "recommendation": "Also extract 'SessionMixin' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 115.02
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_nullsession.py",
+      "symbol": "NullSession",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "SecureCookieSession",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SecureCookieSession'",
+          "recommendation": "Also extract 'SecureCookieSession' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.94
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_sessioninterface.py",
+      "symbol": "SessionInterface",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "NullSession",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'NullSession'",
+          "recommendation": "Also extract 'NullSession' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "SessionMixin",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SessionMixin'",
+          "recommendation": "Also extract 'SessionMixin' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.58
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/sessions.py",
+      "to_file": "src/flask/_extracted_securecookiesessioninterface.py",
+      "symbol": "SecureCookieSessionInterface",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 5,
+      "hazards": [
+        {
+          "symbol": "_lazy_sha1",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_lazy_sha1'",
+          "recommendation": "Also extract '_lazy_sha1' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "SessionInterface",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SessionInterface'",
+          "recommendation": "Also extract 'SessionInterface' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "SessionMixin",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SessionMixin'",
+          "recommendation": "Also extract 'SessionMixin' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "SecureCookieSession",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'SecureCookieSession'",
+          "recommendation": "Also extract 'SecureCookieSession' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "session_json_serializer",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'session_json_serializer'",
+          "recommendation": "Pass 'session_json_serializer' as a parameter or extract 'session_json_serializer' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 115.91
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_environment.py",
+      "symbol": "Environment",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 129.28
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_dispatchingjinjaloader.py",
+      "symbol": "DispatchingJinjaLoader",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 138.1
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_render_template.py",
+      "symbol": "render_template",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_render",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_render'",
+          "recommendation": "Also extract '_render' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 112.78
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_render_template_string.py",
+      "symbol": "render_template_string",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_render",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_render'",
+          "recommendation": "Also extract '_render' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 114.92
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_stream_template.py",
+      "symbol": "stream_template",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_stream",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_stream'",
+          "recommendation": "Also extract '_stream' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.06
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/templating.py",
+      "to_file": "src/flask/_extracted_stream_template_string.py",
+      "symbol": "stream_template_string",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_stream",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_stream'",
+          "recommendation": "Also extract '_stream' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 113.79
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/views.py",
+      "to_file": "src/flask/_extracted_f.py",
+      "symbol": "F",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 131.36
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/views.py",
+      "to_file": "src/flask/_extracted_view.py",
+      "symbol": "View",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 128.5
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/views.py",
+      "to_file": "src/flask/_extracted_methodview.py",
+      "symbol": "MethodView",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "View",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'View'",
+          "recommendation": "Also extract 'View' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "http_method_funcs",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'http_method_funcs'",
+          "recommendation": "Pass 'http_method_funcs' as a parameter or extract 'http_method_funcs' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 112.12
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/wrappers.py",
+      "to_file": "src/flask/_extracted_request.py",
+      "symbol": "Request",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Request",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/wrappers.py -> src/flask/_extracted_request.py -> src/flask/__init__.py -> src/flask/wrappers.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/wrappers.py' imports 'src/flask/_extracted_request.py', but 'src/flask/_extracted_request.py' transitively reaches 'src/flask/wrappers.py' via src/flask/_extracted_request.py -> src/flask/__init__.py -> src/flask/wrappers.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/wrappers.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 114.5
+    },
+    {
+      "repo": "flask",
+      "from_file": "src/flask/wrappers.py",
+      "to_file": "src/flask/_extracted_response.py",
+      "symbol": "Response",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Response",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/flask/wrappers.py -> src/flask/_extracted_response.py -> src/flask/__init__.py -> src/flask/wrappers.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/flask/wrappers.py' imports 'src/flask/_extracted_response.py', but 'src/flask/_extracted_response.py' transitively reaches 'src/flask/wrappers.py' via src/flask/_extracted_response.py -> src/flask/__init__.py -> src/flask/wrappers.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/flask/wrappers.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 110.93
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_cygwin.py",
+      "symbol": "CYGWIN",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 234.17
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_get_binary_stdout.py",
+      "symbol": "get_binary_stdout",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_find_binary_writer",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_find_binary_writer'",
+          "recommendation": "Also extract '_find_binary_writer' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 196.05
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_compat.py",
+      "to_file": "src/click/_extracted_open_stream.py",
+      "symbol": "open_stream",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Mutable shared module state desynchronization hazard detected.",
+      "hazards_count": 10,
+      "hazards": [
+        {
+          "symbol": "get_text_stdin",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_text_stdin'",
+          "recommendation": "Also extract 'get_text_stdin' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_binary_stdout",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_binary_stdout'",
+          "recommendation": "Also extract 'get_binary_stdout' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_binary_stdin",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_binary_stdin'",
+          "recommendation": "Also extract 'get_binary_stdin' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_AtomicFile",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_AtomicFile'",
+          "recommendation": "Also extract '_AtomicFile' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_text_stdout",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_text_stdout'",
+          "recommendation": "Also extract 'get_text_stdout' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_wrap_io_open",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_wrap_io_open'",
+          "recommendation": "Also extract '_wrap_io_open' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_binary_stdin",
+          "type": "global_stream_entanglement",
+          "hazard": "Global stream entanglement hazard: extracted code depends on module-level process stream wrapper 'get_binary_stdin'.",
+          "recommendation": "Stream function 'get_binary_stdin' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+        },
+        {
+          "symbol": "get_binary_stdout",
+          "type": "global_stream_entanglement",
+          "hazard": "Global stream entanglement hazard: extracted code depends on module-level process stream wrapper 'get_binary_stdout'.",
+          "recommendation": "Stream function 'get_binary_stdout' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+        },
+        {
+          "symbol": "get_text_stdin",
+          "type": "global_stream_entanglement",
+          "hazard": "Global stream entanglement hazard: extracted code depends on module-level process stream wrapper 'get_text_stdin'.",
+          "recommendation": "Stream function 'get_text_stdin' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+        },
+        {
+          "symbol": "get_text_stdout",
+          "type": "global_stream_entanglement",
+          "hazard": "Global stream entanglement hazard: extracted code depends on module-level process stream wrapper 'get_text_stdout'.",
+          "recommendation": "Stream function 'get_text_stdout' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+        }
+      ],
+      "preflight_duration_ms": 204.65
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_termui_impl.py",
+      "to_file": "src/click/_extracted_get_pager_file.py",
+      "symbol": "get_pager_file",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "_PagerWriter",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_PagerWriter'",
+          "recommendation": "Also extract '_PagerWriter' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_pager_contextmanager",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_pager_contextmanager'",
+          "recommendation": "Also extract '_pager_contextmanager' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 211.43
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_utils.py",
+      "to_file": "src/click/_extracted_unset.py",
+      "symbol": "UNSET",
+      "symbol_type": "Constant",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Sentinel",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Sentinel'",
+          "recommendation": "Also extract 'Sentinel' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 188.82
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_winconsole.py",
+      "to_file": "src/click/_extracted_stderr_handle.py",
+      "symbol": "STDERR_HANDLE",
+      "symbol_type": "Constant",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "GetStdHandle",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'GetStdHandle'",
+          "recommendation": "Pass 'GetStdHandle' as a parameter or extract 'GetStdHandle' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 191.92
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/_winconsole.py",
+      "to_file": "src/click/_extracted_max_bytes_written.py",
+      "symbol": "MAX_BYTES_WRITTEN",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 213.89
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/core.py",
+      "to_file": "src/click/_extracted_iter_params_for_processing.py",
+      "symbol": "iter_params_for_processing",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Parameter",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Parameter'",
+          "recommendation": "Also extract 'Parameter' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 262.77
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/core.py",
+      "to_file": "src/click/_extracted_parameter.py",
+      "symbol": "Parameter",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 8,
+      "hazards": [
+        {
+          "symbol": "_outside_click_stacklevel",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_outside_click_stacklevel'",
+          "recommendation": "Also extract '_outside_click_stacklevel' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "augment_usage_errors",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'augment_usage_errors'",
+          "recommendation": "Also extract 'augment_usage_errors' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Context",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Context'",
+          "recommendation": "Also extract 'Context' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_check_iter",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_check_iter'",
+          "recommendation": "Also extract '_check_iter' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_format_deprecated_label",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_format_deprecated_label'",
+          "recommendation": "Also extract '_format_deprecated_label' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "ParameterSource",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ParameterSource'",
+          "recommendation": "Also extract 'ParameterSource' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_format_deprecated_suffix",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_format_deprecated_suffix'",
+          "recommendation": "Also extract '_format_deprecated_suffix' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "Parameter",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/click/core.py -> src/click/_extracted_parameter.py -> src/click/__init__.py -> src/click/core.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/click/core.py' imports 'src/click/_extracted_parameter.py', but 'src/click/_extracted_parameter.py' transitively reaches 'src/click/core.py' via src/click/_extracted_parameter.py -> src/click/__init__.py -> src/click/core.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/click/core.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 283.36
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_pass_context.py",
+      "symbol": "pass_context",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 255.13
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_command.py",
+      "symbol": "command",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_AnyCallable",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_AnyCallable'",
+          "recommendation": "Pass '_AnyCallable' as a parameter or extract '_AnyCallable' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 212.04
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_group.py",
+      "symbol": "group",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "command",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'command'",
+          "recommendation": "Also extract 'command' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_AnyCallable",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_AnyCallable'",
+          "recommendation": "Pass '_AnyCallable' as a parameter or extract '_AnyCallable' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 203.11
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/decorators.py",
+      "to_file": "src/click/_extracted_confirmation_option.py",
+      "symbol": "confirmation_option",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "option",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'option'",
+          "recommendation": "Also extract 'option' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 197.18
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/exceptions.py",
+      "to_file": "src/click/_extracted_usageerror.py",
+      "symbol": "UsageError",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Mutable shared module state desynchronization hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "ClickException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ClickException'",
+          "recommendation": "Also extract 'ClickException' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "get_text_stderr",
+          "type": "global_stream_entanglement",
+          "hazard": "Global stream entanglement hazard: extracted code depends on module-level process stream wrapper 'get_text_stderr'.",
+          "recommendation": "Stream function 'get_text_stderr' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+        }
+      ],
+      "preflight_duration_ms": 197.29
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/exceptions.py",
+      "to_file": "src/click/_extracted_badoptionusage.py",
+      "symbol": "BadOptionUsage",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "UsageError",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'UsageError'",
+          "recommendation": "Also extract 'UsageError' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 198.95
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/formatting.py",
+      "to_file": "src/click/_extracted_forced_width.py",
+      "symbol": "FORCED_WIDTH",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 212.33
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/globals.py",
+      "to_file": "src/click/_extracted_push_context.py",
+      "symbol": "push_context",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Unbound module global state / constant detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_local",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_local'",
+          "recommendation": "Pass '_local' as a parameter or extract '_local' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 189.18
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_completionitem.py",
+      "symbol": "CompletionItem",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 219.51
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_get_completion_class.py",
+      "symbol": "get_completion_class",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 5,
+      "hazards": [
+        {
+          "symbol": "ShellComplete",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ShellComplete'",
+          "recommendation": "Also extract 'ShellComplete' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "BashComplete",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'BashComplete'",
+          "recommendation": "Also extract 'BashComplete' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "FishComplete",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'FishComplete'",
+          "recommendation": "Also extract 'FishComplete' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "ZshComplete",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ZshComplete'",
+          "recommendation": "Also extract 'ZshComplete' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_available_shells",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant '_available_shells'",
+          "recommendation": "Pass '_available_shells' as a parameter or extract '_available_shells' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 202.4
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/shell_completion.py",
+      "to_file": "src/click/_extracted_split_arg_string.py",
+      "symbol": "split_arg_string",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 223.19
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_confirm.py",
+      "symbol": "confirm",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 3,
+      "hazards": [
+        {
+          "symbol": "_build_prompt",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_build_prompt'",
+          "recommendation": "Also extract '_build_prompt' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_readline_prompt",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_readline_prompt'",
+          "recommendation": "Also extract '_readline_prompt' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "visible_prompt_func",
+          "type": "constant",
+          "hazard": "Unbound module global: extracted code references local module constant 'visible_prompt_func'",
+          "recommendation": "Pass 'visible_prompt_func' as a parameter or extract 'visible_prompt_func' to a shared config module."
+        }
+      ],
+      "preflight_duration_ms": 196.75
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_progressbar.py",
+      "symbol": "progressbar",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 222.55
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_edit.py",
+      "symbol": "edit",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 229.56
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/termui.py",
+      "to_file": "src/click/_extracted_raw_terminal.py",
+      "symbol": "raw_terminal",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 226.16
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_unprocessedparamtype.py",
+      "symbol": "UnprocessedParamType",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "ParamType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ParamType'",
+          "recommendation": "Also extract 'ParamType' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 203.85
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_intparamtype.py",
+      "symbol": "IntParamType",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "_NumberParamTypeBase",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_NumberParamTypeBase'",
+          "recommendation": "Also extract '_NumberParamTypeBase' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 209.05
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_fileinfodict.py",
+      "symbol": "FileInfoDict",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "ParamTypeInfoDict",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ParamTypeInfoDict'",
+          "recommendation": "Also extract 'ParamTypeInfoDict' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 201.34
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_tuple.py",
+      "symbol": "Tuple",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 4,
+      "hazards": [
+        {
+          "symbol": "ParamType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'ParamType'",
+          "recommendation": "Also extract 'ParamType' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "CompositeParamType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'CompositeParamType'",
+          "recommendation": "Also extract 'CompositeParamType' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "TupleInfoDict",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'TupleInfoDict'",
+          "recommendation": "Also extract 'TupleInfoDict' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "convert_type",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'convert_type'",
+          "recommendation": "Also extract 'convert_type' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 217.59
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_string.py",
+      "symbol": "STRING",
+      "symbol_type": "Constant",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "StringParamType",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'StringParamType'",
+          "recommendation": "Also extract 'StringParamType' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 205.0
+    },
+    {
+      "repo": "click",
+      "from_file": "src/click/types.py",
+      "to_file": "src/click/_extracted_optionhelpextra.py",
+      "symbol": "OptionHelpExtra",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 236.18
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/__init__.py",
+      "to_file": "src/requests/_extracted_check_compatibility.py",
+      "symbol": "check_compatibility",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 106.28
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/_types.py",
+      "to_file": "src/requests/_extracted_supportsread.py",
+      "symbol": "SupportsRead",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 99.81
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/adapters.py",
+      "to_file": "src/requests/_extracted_default_poolblock.py",
+      "symbol": "DEFAULT_POOLBLOCK",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 105.75
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/adapters.py",
+      "to_file": "src/requests/_extracted_baseadapter.py",
+      "symbol": "BaseAdapter",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 106.35
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/api.py",
+      "to_file": "src/requests/_extracted_options.py",
+      "symbol": "options",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "request",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'request'",
+          "recommendation": "Also extract 'request' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 75.69
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/api.py",
+      "to_file": "src/requests/_extracted_delete.py",
+      "symbol": "delete",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "request",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'request'",
+          "recommendation": "Also extract 'request' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 78.42
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/auth.py",
+      "to_file": "src/requests/_extracted_httpbasicauth.py",
+      "symbol": "HTTPBasicAuth",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "AuthBase",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'AuthBase'",
+          "recommendation": "Also extract 'AuthBase' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "_basic_auth_str",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol '_basic_auth_str'",
+          "recommendation": "Also extract '_basic_auth_str' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 80.77
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_mockresponse.py",
+      "symbol": "MockResponse",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 110.2
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_cookieconflicterror.py",
+      "symbol": "CookieConflictError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 113.11
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/cookies.py",
+      "to_file": "src/requests/_extracted_cookiejar_from_dict.py",
+      "symbol": "cookiejar_from_dict",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 2,
+      "hazards": [
+        {
+          "symbol": "RequestsCookieJar",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'RequestsCookieJar'",
+          "recommendation": "Also extract 'RequestsCookieJar' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "create_cookie",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'create_cookie'",
+          "recommendation": "Also extract 'create_cookie' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 85.39
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_invalidjsonerror.py",
+      "symbol": "InvalidJSONError",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "RequestException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'RequestException'",
+          "recommendation": "Also extract 'RequestException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 74.36
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_proxyerror.py",
+      "symbol": "ProxyError",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 97.21
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_readtimeout.py",
+      "symbol": "ReadTimeout",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "Timeout",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'Timeout'",
+          "recommendation": "Also extract 'Timeout' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 81.61
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_invalidurl.py",
+      "symbol": "InvalidURL",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "RequestException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'RequestException'",
+          "recommendation": "Also extract 'RequestException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 125.47
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_contentdecodingerror.py",
+      "symbol": "ContentDecodingError",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "RequestException",
+          "type": "class",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'RequestException'",
+          "recommendation": "Also extract 'RequestException' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 96.77
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/exceptions.py",
+      "to_file": "src/requests/_extracted_requestswarning.py",
+      "symbol": "RequestsWarning",
+      "symbol_type": "Class",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 102.19
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/help.py",
+      "to_file": "src/requests/_extracted_main.py",
+      "symbol": "main",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "info",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'info'",
+          "recommendation": "Also extract 'info' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 86.66
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/models.py",
+      "to_file": "src/requests/_extracted_redirect_stati.py",
+      "symbol": "REDIRECT_STATI",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 126.88
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/models.py",
+      "to_file": "src/requests/_extracted_requesthooksmixin.py",
+      "symbol": "RequestHooksMixin",
+      "symbol_type": "Class",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "RequestHooksMixin",
+          "type": "alias_cycle_hazard",
+          "cycle": "src/requests/models.py -> src/requests/_extracted_requesthooksmixin.py -> src/requests/__init__.py -> src/requests/models.py",
+          "hazard": "Alias-induced circular import cycle: backward-compatibility alias in 'src/requests/models.py' imports 'src/requests/_extracted_requesthooksmixin.py', but 'src/requests/_extracted_requesthooksmixin.py' transitively reaches 'src/requests/models.py' via src/requests/_extracted_requesthooksmixin.py -> src/requests/__init__.py -> src/requests/models.py.",
+          "recommendation": "Do not insert a backward-compatibility alias in 'src/requests/models.py' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+      ],
+      "preflight_duration_ms": 89.2
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/sessions.py",
+      "to_file": "src/requests/_extracted_merge_hooks.py",
+      "symbol": "merge_hooks",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "merge_setting",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'merge_setting'",
+          "recommendation": "Also extract 'merge_setting' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 84.41
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_netrc_files.py",
+      "symbol": "NETRC_FILES",
+      "symbol_type": "Constant",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 126.29
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dict_to_sequence.py",
+      "symbol": "dict_to_sequence",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 119.68
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_from_key_val_list.py",
+      "symbol": "from_key_val_list",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 119.64
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dict_from_cookiejar.py",
+      "symbol": "dict_from_cookiejar",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 120.47
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_stream_decode_response_unicode.py",
+      "symbol": "stream_decode_response_unicode",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 121.42
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_get_unicode_from_response.py",
+      "symbol": "get_unicode_from_response",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 1,
+      "hazards": [
+        {
+          "symbol": "get_encoding_from_headers",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'get_encoding_from_headers'",
+          "recommendation": "Also extract 'get_encoding_from_headers' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 88.36
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_dotted_netmask.py",
+      "symbol": "dotted_netmask",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 119.83
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_should_bypass_proxies.py",
+      "symbol": "should_bypass_proxies",
+      "symbol_type": "Function",
+      "predicted_label": "REJECT",
+      "prediction_reason": "Refactoring blocked: Circular import hazard detected.",
+      "hazards_count": 4,
+      "hazards": [
+        {
+          "symbol": "is_valid_cidr",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'is_valid_cidr'",
+          "recommendation": "Also extract 'is_valid_cidr' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "is_ipv4_address",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'is_ipv4_address'",
+          "recommendation": "Also extract 'is_ipv4_address' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "address_in_network",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'address_in_network'",
+          "recommendation": "Also extract 'address_in_network' into the target module, or move it to a shared intermediate utility."
+        },
+        {
+          "symbol": "set_environ",
+          "type": "function",
+          "hazard": "Circular import hazard: extracted code calls remaining local symbol 'set_environ'",
+          "recommendation": "Also extract 'set_environ' into the target module, or move it to a shared intermediate utility."
+        }
+      ],
+      "preflight_duration_ms": 87.76
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_default_user_agent.py",
+      "symbol": "default_user_agent",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 120.61
+    },
+    {
+      "repo": "requests",
+      "from_file": "src/requests/utils.py",
+      "to_file": "src/requests/_extracted_prepend_scheme_if_needed.py",
+      "symbol": "prepend_scheme_if_needed",
+      "symbol_type": "Function",
+      "predicted_label": "ACCEPT",
+      "prediction_reason": "Safe DAG extraction closure verified",
+      "hazards_count": 0,
+      "hazards": [],
+      "preflight_duration_ms": 121.72
+    }
+  ]
+}

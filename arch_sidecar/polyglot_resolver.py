@@ -269,7 +269,14 @@ TS_BUILTIN_GLOBALS: Set[str] = {
     "IntersectionObserver", "MutationObserver", "Headers", "Request", "Response",
     "URL", "URLSearchParams", "Blob", "File", "FormData", "Node", "Element",
     "Record", "Partial", "Required", "Readonly", "Pick", "Omit", "Exclude", "Extract",
-    "NonNullable", "Parameters", "ReturnType", "InstanceType", "Flip", "gsap"
+    "NonNullable", "Parameters", "ReturnType", "InstanceType", "Flip", "gsap", "React",
+    # JSX intrinsic tags & common props
+    "div", "span", "p", "a", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "li",
+    "button", "input", "form", "label", "table", "tr", "td", "th", "tbody", "thead",
+    "img", "svg", "path", "header", "footer", "nav", "section", "main", "article",
+    "aside", "canvas", "select", "option", "textarea", "strong", "em", "code", "pre",
+    "hr", "br", "i", "b", "className", "style", "onClick", "onChange", "onSubmit",
+    "children", "key", "id", "name", "type", "value", "placeholder", "disabled"
 }
 
 GO_BUILTIN_UNIVERSE: Set[str] = {
@@ -341,6 +348,9 @@ def check_ts_lexical_scope(source_text: str, filename: str = "") -> List[str]:
         # Strip string literals so path segments or messages are not treated as identifiers
         line_clean = re.sub(r'["\'][^"\']*["\']', '""', stripped)
         line_clean = re.sub(r'`[^`]*`', '""', line_clean)
+        # Strip JSX raw text between tags and JSX tag brackets
+        line_clean = re.sub(r'>[^<]+<', '><', line_clean)
+        line_clean = re.sub(r'</?[a-zA-Z0-9_$]+', ' ', line_clean)
 
         # Extract identifiers
         matches = ident_pat.findall(line_clean)

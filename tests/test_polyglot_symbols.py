@@ -81,7 +81,7 @@ impl<T: Clone + Send> MyTrait<T> for Container<T> {
     assert decls["Container"]["kind"] == "impl"
 
 
-def test_ts_ast_methods_and_local_var_pruning():
+def test_ts_ast_methods_getters_and_local_var_pruning():
     ts_code = """
 export class ServiceManager {
     public constructor() {}
@@ -90,6 +90,14 @@ export class ServiceManager {
         const localFlag = true;
         let counter = 0;
         return localFlag;
+    }
+
+    public get active(): boolean {
+        return true;
+    }
+
+    public set active(v: boolean) {
+        // setter
     }
 
     private helper(): void {}
@@ -106,7 +114,30 @@ export const API_URL = "https://api.example.com";
 
     # Class methods must be present
     assert "ServiceManager.executeTask" in decls
+    assert "ServiceManager.active" in decls
     assert "ServiceManager.helper" in decls
+
+    # Local variables inside executeTask MUST NOT be extracted
+    assert "localFlag" not in decls
+    assert "counter" not in decls
+
+
+def test_rust_ast_preserves_attributes_in_start_line():
+    rust_code = """
+#[derive(Debug, Clone)]
+#[serde(rename_all = "snake_case")]
+pub struct Account {
+    pub id: u64,
+}
+"""
+    parsed = parse_rust_ast(rust_code, "test.rs")
+    decls = {d["name"]: d for d in parsed["declarations"]}
+
+    assert "Account" in decls
+    acc = decls["Account"]
+    # Start line must include the #[derive] attribute
+    assert "#[derive(Debug, Clone)]" in acc["code"]
+    assert acc["start_line"] == 2
 
     # Local variables inside executeTask MUST NOT be extracted
     assert "localFlag" not in decls

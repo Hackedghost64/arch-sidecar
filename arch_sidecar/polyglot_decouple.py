@@ -16,6 +16,7 @@ Features:
 """
 
 import os
+import re
 import shutil
 import subprocess
 import time
@@ -129,6 +130,20 @@ def decouple_polyglot_symbol(
                 new_from_lines.append(f'export {{ {symbol} }} from "{rel_import_clean}";\n')
             new_from_lines.extend(from_lines[symbol_end:])
 
+            # Migrate dependent imports referenced in symbol_code
+            needed_imports: List[str] = []
+            for imp in parsed.get("imports", []):
+                used_names = [n for n in imp.get("names", []) if re.search(rf"\b{re.escape(n)}\b", symbol_code)]
+                if used_names:
+                    mod_p = imp["module"]
+                    if mod_p.startswith("."):
+                        orig_abs = os.path.normpath(os.path.join(os.path.dirname(from_path), mod_p))
+                        new_rel = os.path.relpath(orig_abs, os.path.dirname(to_path)).replace("\\", "/")
+                        if not new_rel.startswith("."):
+                            new_rel = "./" + new_rel
+                        mod_p = new_rel
+                    needed_imports.append(f'import {{ {", ".join(used_names)} }} from "{mod_p}";\n')
+
             # Prepare to_file content
             to_content = ""
             if os.path.exists(to_path):
@@ -139,10 +154,11 @@ def decouple_polyglot_symbol(
             if not symbol_code.strip().startswith("export "):
                 symbol_code = "export " + symbol_code.lstrip()
 
+            import_header = "".join(needed_imports)
             if to_content:
-                new_to_content = to_content.rstrip() + "\n\n" + symbol_code.strip() + "\n"
+                new_to_content = to_content.rstrip() + "\n\n" + import_header + symbol_code.strip() + "\n"
             else:
-                new_to_content = symbol_code.strip() + "\n"
+                new_to_content = import_header + ("\n" if import_header else "") + symbol_code.strip() + "\n"
 
             if not dry_run:
                 with open(from_path, "w", encoding="utf-8") as f:
@@ -167,15 +183,22 @@ def decouple_polyglot_symbol(
             new_from_lines = from_lines[:symbol_start] + from_lines[symbol_end:]
 
             pkg_name = parsed.get("package") or "main"
+            needed_go_imports: List[str] = []
+            for imp in parsed.get("imports", []):
+                pkg_alias = imp["module"].split("/")[-1]
+                if re.search(rf"\b{re.escape(pkg_alias)}\.", symbol_code):
+                    needed_go_imports.append(f'import "{imp["module"]}"\n')
+
             to_content = ""
             if os.path.exists(to_path):
                 with open(to_path, "r", encoding="utf-8") as f:
                     to_content = f.read()
 
+            import_header = "".join(needed_go_imports)
             if to_content:
-                new_to_content = to_content.rstrip() + "\n\n" + symbol_code.strip() + "\n"
+                new_to_content = to_content.rstrip() + "\n\n" + import_header + symbol_code.strip() + "\n"
             else:
-                new_to_content = f"package {pkg_name}\n\n" + symbol_code.strip() + "\n"
+                new_to_content = f"package {pkg_name}\n\n" + import_header + ("\n" if import_header else "") + symbol_code.strip() + "\n"
 
             if not dry_run:
                 with open(from_path, "w", encoding="utf-8") as f:
@@ -208,15 +231,22 @@ def decouple_polyglot_symbol(
             if not symbol_code.strip().startswith("pub "):
                 symbol_code = "pub " + symbol_code.lstrip()
 
+            needed_rs_imports: List[str] = []
+            for imp in parsed.get("imports", []):
+                item_name = imp["module"].split("::")[-1].strip().rstrip(";")
+                if re.search(rf"\b{re.escape(item_name)}\b", symbol_code):
+                    needed_rs_imports.append(f'use {imp["module"]};\n')
+
             to_content = ""
             if os.path.exists(to_path):
                 with open(to_path, "r", encoding="utf-8") as f:
                     to_content = f.read()
 
+            import_header = "".join(needed_rs_imports)
             if to_content:
-                new_to_content = to_content.rstrip() + "\n\n" + symbol_code.strip() + "\n"
+                new_to_content = to_content.rstrip() + "\n\n" + import_header + symbol_code.strip() + "\n"
             else:
-                new_to_content = symbol_code.strip() + "\n"
+                new_to_content = import_header + ("\n" if import_header else "") + symbol_code.strip() + "\n"
 
             if not dry_run:
                 with open(from_path, "w", encoding="utf-8") as f:

@@ -214,6 +214,7 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     ]
 
     method_pat = re.compile(r"^(?:public|private|protected|static|async|\s)*([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?::\s*([^{]+))?\s*\{")
+    getter_setter_pat = re.compile(r"^(?:public|private|protected|static|\s)*(get|set)\s+([a-zA-Z0-9_$]+)\s*(?:\([^)]*\))?\s*(?::\s*([^{]+))?\s*\{")
 
     current_brace_depth = 0
     current_class: Optional[str] = None
@@ -269,11 +270,19 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
 
         # Check class methods inside class body
         if not matched and current_class and current_brace_depth == class_brace_depth:
-            # Check for method definition
-            m_meth = method_pat.match(line_stripped)
-            if m_meth and not line_stripped.startswith(("if", "for", "while", "switch", "catch")):
-                meth_name = m_meth.group(1)
-                if meth_name not in ("constructor", "if", "for", "while", "return"):
+            # Check for getter/setter or method definition
+            m_gs = getter_setter_pat.match(line_stripped)
+            m_meth = method_pat.match(line_stripped) if not m_gs else None
+            
+            if m_gs or (m_meth and not line_stripped.startswith(("if", "for", "while", "switch", "catch"))):
+                if m_gs:
+                    kind = "getter" if m_gs.group(1) == "get" else "setter"
+                    raw_meth = m_gs.group(2)
+                else:
+                    kind = "method"
+                    raw_meth = m_meth.group(1)
+
+                if raw_meth not in ("constructor", "if", "for", "while", "return"):
                     sig = line_stripped.split("{")[0].strip()
                     brace_count = 0
                     found_brace = False
@@ -287,8 +296,8 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
                             end_idx = j
                             break
                     declarations.append({
-                        "kind": "method",
-                        "name": f"{current_class}.{meth_name}",
+                        "kind": kind,
+                        "name": f"{current_class}.{raw_meth}",
                         "is_exported": True,
                         "signature": sig,
                         "line": line_idx + 1,

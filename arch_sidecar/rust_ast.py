@@ -136,7 +136,18 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
                         end_idx = j
                         break
 
-                decl_code = "".join(lines[idx : end_idx + 1])
+                # Walk backwards to include preceding doc comments (///) and attributes (#[...])
+                start_line_idx = idx
+                k = idx - 1
+                while k >= 0:
+                    prev_line = lines[k].strip()
+                    if prev_line.startswith("#[") or prev_line.startswith("///") or prev_line.startswith("//!") or prev_line == "]":
+                        start_line_idx = k
+                        k -= 1
+                    else:
+                        break
+
+                decl_code = "".join(lines[start_line_idx : end_idx + 1])
                 sig = stripped.split("{")[0].strip().rstrip(";")
                 declarations.append({
                     "kind": kind,
@@ -144,7 +155,7 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
                     "is_exported": is_exported,
                     "signature": sig,
                     "line": idx + 1,
-                    "start_line": idx + 1,
+                    "start_line": start_line_idx + 1,
                     "end_line": end_idx + 1,
                     "code": decl_code,
                 })

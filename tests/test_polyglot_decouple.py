@@ -127,3 +127,35 @@ pub fn run() {}
     assert dest.exists()
     assert "pub struct Config" in dest.read_text()
     assert "pub use crate::models::Config;" in src.read_text()
+
+
+def test_ts_decouple_migrates_dependent_imports(tmp_path: Path):
+    src = tmp_path / "controller.ts"
+    dest = tmp_path / "handler.ts"
+    models = tmp_path / "types.ts"
+
+    models.write_text("export interface ReqContext { user: string; }\n")
+    src.write_text("""
+import { ReqContext } from "./types";
+
+export function handleRequest(ctx: ReqContext): string {
+    return ctx.user;
+}
+
+export function other(): void {}
+""")
+
+    res = decouple_polyglot_symbol(
+        symbol="handleRequest",
+        from_file=str(src),
+        to_file=str(dest),
+        project_root=str(tmp_path),
+        add_backward_compat_alias=True,
+    )
+
+    assert res["success"] is True
+    assert dest.exists()
+    dest_content = dest.read_text()
+    # ReqContext import MUST have been migrated to dest.ts!
+    assert 'import { ReqContext } from "./types";' in dest_content
+    assert "export function handleRequest" in dest_content

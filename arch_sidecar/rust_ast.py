@@ -82,12 +82,15 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     declarations: List[Dict[str, Any]] = []
 
     use_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?use\s+([^;]+);")
-    fn_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:async\s+)?fn\s+([A-Za-z0-9_]+)")
+    fn_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:(?:async|const|unsafe|extern(?:\s+\"[^\"]+\")?)\s+)*fn\s+([A-Za-z0-9_]+)")
     struct_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?struct\s+([A-Za-z0-9_]+)")
     enum_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?enum\s+([A-Za-z0-9_]+)")
     trait_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?trait\s+([A-Za-z0-9_]+)")
-    impl_pat = re.compile(r"^impl(?:<[^>]+>)?\s+(?:[A-Za-z0-9_:]+\s+for\s+)?([A-Za-z0-9_]+)")
+    impl_pat = re.compile(r"^impl(?:<.*?>)?\s+(?:.*?\s+for\s+)?([A-Za-z0-9_]+)")
     type_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?type\s+([A-Za-z0-9_]+)")
+    macro_pat = re.compile(r"^macro_rules!\s+([A-Za-z0-9_]+)")
+    mod_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?mod\s+([A-Za-z0-9_]+)\s*;")
+    const_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:const|static)\s+([A-Za-z0-9_]+)")
 
     current_brace_depth = 0
 
@@ -109,6 +112,9 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
             ("impl", impl_pat),
             ("function", fn_pat),
             ("type", type_pat),
+            ("macro", macro_pat),
+            ("module", mod_pat),
+            ("const", const_pat),
         ]:
             m = pat.match(stripped)
             if m:

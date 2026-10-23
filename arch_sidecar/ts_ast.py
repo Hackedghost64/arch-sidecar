@@ -203,7 +203,7 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
         })
 
     # Declarations: Interfaces, Types, Classes, Functions, Enums, Constants
-    # export? (interface|type|class|enum|function|const) ...
+    # Only match module-level declarations (brace_depth == 0) or explicitly exported items.
     decl_patterns = [
         ("interface", re.compile(r"^(export\s+)?(?:default\s+)?interface\s+([a-zA-Z0-9_$]+)(?:<[^>]+>)?(?:\s+extends\s+[^{]+)?")),
         ("type", re.compile(r"^(export\s+)?type\s+([a-zA-Z0-9_$]+)(?:<[^>]+>)?\s*=")),
@@ -213,44 +213,96 @@ def parse_ts_js_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
         ("const", re.compile(r"^(export\s+)?(?:const|let|var)\s+([a-zA-Z0-9_$]+)(?:\s*:\s*([^=;]+))?\s*=")),
     ]
 
+    method_pat = re.compile(r"^(?:public|private|protected|static|async|\s)*([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?::\s*([^{]+))?\s*\{")
+
+    current_brace_depth = 0
+    current_class: Optional[str] = None
+    class_brace_depth = 0
+
     for line_idx, line in enumerate(lines):
         line_stripped = line.strip()
         if not line_stripped:
             continue
-        for kind, pat in decl_patterns:
-            m = pat.match(line_stripped)
-            if m:
-                is_exported = bool(m.group(1)) or "export default" in line_stripped
-                name = m.group(2)
-                # Signature slice
-                sig = line_stripped.split("{")[0].strip().rstrip(";")
-                # Extract declaration block range
-                brace_count = 0
-                found_brace = False
-                end_idx = line_idx
-                for j in range(line_idx, len(lines)):
-                    l = lines[j]
-                    brace_count += l.count("{") - l.count("}")
-                    if "{" in l:
-                        found_brace = True
-                    if found_brace and brace_count <= 0:
-                        end_idx = j
-                        break
-                    if not found_brace and ";" in l:
-                        end_idx = j
-                        break
-                decl_code = "\n".join(lines[line_idx : end_idx + 1])
-                declarations.append({
-                    "kind": kind,
-                    "name": name,
-                    "is_exported": is_exported,
-                    "signature": sig,
-                    "line": line_idx + 1,
-                    "start_line": line_idx + 1,
-                    "end_line": end_idx + 1,
-                    "code": decl_code,
-                })
-                break
+
+        # Check top-level or exported declarations
+        is_at_module_level = (current_brace_depth == 0)
+        has_export = line_stripped.startswith("export ") or line_stripped.startswith("export default ")
+
+        matched = False
+        if is_at_module_level or has_export:
+            for kind, pat in decl_patterns:
+                m = pat.match(line_stripped)
+                if m:
+                    is_exported = bool(m.group(1)) or "export default" in line_stripped
+                    name = m.group(2)
+                    sig = line_stripped.split("{")[0].strip().rstrip(";")
+                    brace_count = 0
+                    found_brace = False
+                    end_idx = line_idx
+                    for j in range(line_idx, len(lines)):
+                        l = lines[j]
+                        brace_count += l.count("{") - l.count("}")
+                        if "{" in l:
+                            found_brace = True
+                        if found_brace and brace_count <= 0:
+                            end_idx = j
+                            break
+                        if not found_brace and ";" in l:
+                            end_idx = j
+                            break
+                    decl_code = "\n".join(lines[line_idx : end_idx + 1])
+                    declarations.append({
+                        "kind": kind,
+                        "name": name,
+                        "is_exported": is_exported,
+                        "signature": sig,
+                        "line": line_idx + 1,
+                        "start_line": line_idx + 1,
+                        "end_line": end_idx + 1,
+                        "code": decl_code,
+                    })
+                    if kind == "class":
+                        current_class = name
+                        class_brace_depth = current_brace_depth + 1
+                    matched = True
+                    break
+
+        # Check class methods inside class body
+        if not matched and current_class and current_brace_depth == class_brace_depth:
+            # Check for method definition
+            m_meth = method_pat.match(line_stripped)
+            if m_meth and not line_stripped.startswith(("if", "for", "while", "switch", "catch")):
+                meth_name = m_meth.group(1)
+                if meth_name not in ("constructor", "if", "for", "while", "return"):
+                    sig = line_stripped.split("{")[0].strip()
+                    brace_count = 0
+                    found_brace = False
+                    end_idx = line_idx
+                    for j in range(line_idx, len(lines)):
+                        l = lines[j]
+                        brace_count += l.count("{") - l.count("}")
+                        if "{" in l:
+                            found_brace = True
+                        if found_brace and brace_count <= 0:
+                            end_idx = j
+                            break
+                    declarations.append({
+                        "kind": "method",
+                        "name": f"{current_class}.{meth_name}",
+                        "is_exported": True,
+                        "signature": sig,
+                        "line": line_idx + 1,
+                        "start_line": line_idx + 1,
+                        "end_line": end_idx + 1,
+                        "code": "\n".join(lines[line_idx : end_idx + 1]),
+                    })
+
+        # Update brace depth
+        open_b = line.count("{")
+        close_b = line.count("}")
+        current_brace_depth += (open_b - close_b)
+        if current_class and current_brace_depth < class_brace_depth:
+            current_class = None
 
     return {
         "filename": filename,

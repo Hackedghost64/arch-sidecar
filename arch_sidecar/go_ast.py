@@ -121,17 +121,51 @@ def parse_go_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
             if imp_match:
                 imports.append({"module": imp_match.group(1), "line": idx + 1})
 
-    # 3. Declarations (Functions, Methods, Types, Structs, Interfaces)
-    func_pat = re.compile(r"^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)\s*\(")
-    type_pat = re.compile(r"^type\s+([A-Za-z0-9_]+)\s+(struct|interface|[A-Za-z0-9_]+)")
+    # 3. Declarations (Functions, Methods, Types, Structs, Interfaces, Constants, Vars)
+    func_pat = re.compile(r"^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s*\(")
+    type_pat = re.compile(r"^type\s+([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s+(struct|interface|[A-Za-z0-9_]+)")
     const_pat = re.compile(r"^(?:const|var)\s+([A-Za-z0-9_]+)\s*=")
+    grouped_block_start = re.compile(r"^(const|var)\s*\(")
+
+    in_grouped_block = False
+    grouped_kind = ""
 
     for idx, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
             continue
 
-        # Function or Method
+        # Check grouped const/var block
+        m_group = grouped_block_start.match(stripped)
+        if m_group:
+            in_grouped_block = True
+            grouped_kind = m_group.group(1)
+            continue
+
+        if in_grouped_block:
+            if stripped == ")":
+                in_grouped_block = False
+                grouped_kind = ""
+                continue
+            # Extract identifier from line in grouped block
+            # e.g.: "Reset Attribute = iota", "Bold", "Status = 200", "mapReset map[...]"
+            m_id = re.match(r"^([A-Za-z0-9_]+)", stripped)
+            if m_id:
+                name = m_id.group(1)
+                if name != "_":
+                    declarations.append({
+                        "kind": grouped_kind,
+                        "name": name,
+                        "is_exported": name[0].isupper() if name else False,
+                        "signature": stripped,
+                        "line": idx + 1,
+                        "start_line": idx + 1,
+                        "end_line": idx + 1,
+                        "code": stripped,
+                    })
+            continue
+
+        # Function or Method (including generic functions func Foo[T any](...))
         m_func = func_pat.match(stripped)
         if m_func:
             name = m_func.group(1)

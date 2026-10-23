@@ -15,7 +15,8 @@
 | **Arm B: Serena** | 20 / 20 | 625 tokens | 12,500 tokens | 1,391.0 ms | **0% (0 / 5)** | Partial (LSP rename only) |
 | **Arm C: Repowise** | 5 / 20 | 1,063 tokens | 21,250 tokens | 143.8 ms | **N/A (Read-only)** | **Unsupported (0 / 15)** |
 | **Arm D: Devrith** | 20 / 20 | **409 tokens** | **8,175 tokens** | **294.4 ms** | **80% (4 / 5)** | **Full Deterministic AST** |
-| **Arm E: Composite** | 20 / 20 | **409 tokens** | **8,175 tokens** | 300.3 ms | **80% (4 / 5)** | **Full Deterministic AST** |
+
+*(Note: Prior draft included an unwired "Arm E: Composite" row that merely re-ran Devrith without active Serena ingestion. That placeholder has been dropped until a real cross-tool piping harness is implemented.)*
 
 ---
 
@@ -49,9 +50,18 @@ We tested 5 distinct unsafe refactoring attempts where extracting code naively c
 - Baseline and Serena allowed **100% of architectural hazards to pass undetected**, meaning an autonomous agent relying on them would have committed broken cycles and split-brain runtime bugs to disk.
 - Devrith intercepted **80% (4 out of 5) of the hazards in sub-100ms** before tests ran.
 
-### Honest Failure Mode Disclosure (TASK-07):
-Devrith failed to block `TASK-07` (`click.utils.echo`).  
-**Root Cause:** In Click, `_default_text_stdout` is a module-level helper function returning `sys.stdout` wrapped in a text writer, rather than a raw mutable global variable (`global x`). Devrith's `detect_coupling_hazards` currently flags writes to declared globals and direct cross-file circular imports, but does not track cross-module delegated function streams. This provides a clear, high-value roadmap enhancement for v0.4.
+### Ground Truth Analysis of TASK-07 Failure:
+When `TASK-07` (`click.utils.echo` decoupled to `click.terminal_out.py`) was force-applied on Click checkout (`rev 2247b35e`), `python -c "import click"` succeeded, but **3 Click unit tests failed**:
+1. `tests/test_shell_completion.py::test_source_uses_lf_line_endings`
+2. `tests/test_testing.py::test_with_color`
+3. `tests/test_testing.py::test_with_color_errors`
+
+**Root Cause:** Click tests and `CliRunner.isolation()` monkeypatch stream utilities in the `click.utils` namespace (`click.utils._default_text_stdout` and `click.utils.should_strip_ansi`). Moving `echo` to `terminal_out.py` caused `terminal_out` to bind directly to `click._compat` at import time, completely severing `echo()` from the monkeypatch hooks in `click.utils`.
+
+**Resolution & Retirement:** Devrith now implements a `global_stream_entanglement` sentry in `detect_coupling_hazards`. Because `TASK-07` is now fixed and verified via automated regression test (`tests/test_decouple.py::test_task_07_stream_entanglement_hazard_blocked`), it is retired from held-out evaluation status and tracked as an active regression gate.
+
+### Projected-Graph Alias Cycle Check:
+Devrith now also simulates the synthetic backward-compatibility alias edge (`from_file -> to_file`) against the whole-repo dependency graph using BFS traversal. If `to_file` transitively reaches `from_file`, the refactoring is blocked as an `alias_cycle_hazard` before any file on disk is modified. Verified via `tests/test_decouple.py::test_alias_induced_circular_import_cycle_blocked`.
 
 ---
 

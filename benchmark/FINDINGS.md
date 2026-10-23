@@ -19,15 +19,20 @@ Following direct code verification, we resolved open architectural and methodolo
 6. **False-Rejection Hardening:** Filtered `TYPE_CHECKING` guards, guarded against `sys.stdlib_module_names` collisions, ignored function-local deferred imports, and fixed sibling `from . import mod` resolution.
 7. **TypeScript Preflight Wired:** Integrated `.ts`/`.tsx`/`.js`/`.jsx` into `arch-sidecar check` with 3-color DFS distinguishing TDZ runtime hazards (`ERROR`) from compile-time type-only cycles (`WARNING`).
 
-### Benchmark Aggregate Scorecard ($n=5$ per arm, 400 total trials):
+### Benchmark Aggregate Scorecard (20 Tasks: 15 Safe, 5 Hazard):
 
-| Benchmark Arm | Safe Tasks Completed | Category 2 Hazards Blocked | Total Preflight Catches | Mean Tokens / Trial | Total Tokens (100 trials) | Mean Tool Latency | Shared External Acceptance Pass Rate |
-| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
-| **Arm A: Baseline (Grep/Read)** | 75 / 75 (100%) | **0% (0 / 25)** | 0 | 8,872.0 | 887,205 | 1.0 ms | 75.0% (Fails all 25 hazard trials) |
-| **Arm B: Serena (LSP)** | 75 / 75 (100%)* | **0% (0 / 25)** | 0 | 625.0 | 62,500 | 1,372.4 ms | 75.0% (Fails all 25 hazard trials) |
-| **Arm C: Repowise (Vector/AST)** | 25 / 75 (33.3%) | **0% (0 / 25)** | 0 | 1,062.5 | 106,250 | 147.7 ms | 25.0% (Refactorings unsupported) |
-| **Arm D: Devrith Engine** | **75 / 75 (100%)** | **100% (25 / 25)** | **120** | **408.8** | **40,875** | **1,340.7 ms** | **100.0% (0 test regressions)** |
+> [!NOTE]
+> **Methodology Clarification on Deterministic Tools:**
+> Running a deterministic AST tool multiple times on identical inputs yields zero variance ($n=5$ repetitions verify execution stability, but the true sample size is $N=20$ distinct tasks). On the 20-task development corpus (Click, Requests, Django), Devrith blocked 5/5 hazards (Wilson 95% CI Lower Bound: 56.6%) with 0 false rejections in 15 safe tasks (Wilson 95% CI Upper Bound: 20.0%).
+> 
+> For **unbiased held-out evaluation on fresh codebases**, see the headline benchmark on `pallets/werkzeug` ($N=73$) in `benchmark/ground_truth_werkzeug.json` and the [Empirical Statistical Report](../EMPIRICAL_BENCHMARK_AND_STATISTICAL_REPORT.md).
 
+| Benchmark Arm | Safe Tasks Completed | Category 2 Hazards Blocked | Mean Tokens / Trial | Mean Tool Latency | External Acceptance Pass Rate |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Arm A: Baseline (Grep/Read)** | 15 / 15 (100%) | **0% (0 / 5)** | 8,872.0 | 1.0 ms | 75.0% (Fails all 5 hazard tasks) |
+| **Arm B: Serena (LSP)** | 15 / 15 (100%)* | **0% (0 / 5)** | 625.0 | 1,372.4 ms | 75.0% (Fails all 5 hazard tasks) |
+| **Arm C: Repowise (Vector/AST)** | 5 / 15 (33.3%) | **0% (0 / 5)** | 1,062.5 | 147.7 ms | 25.0% (Refactorings unsupported) |
+| **Arm D: Devrith Engine** | **15 / 15 (100%)** | **100% (5 / 5)** [56.6%, 100%] | **408.8** | **1,340.7 ms** | **100.0% (Corpus result)** |
 *\* Note on Serena: Serena achieved 100% on navigation and symbol retrieval, but operates in `PARTIAL_SUPPORT` for code extraction as it lacks AST extraction and dependency projection.*
 
 ---

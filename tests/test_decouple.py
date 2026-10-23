@@ -555,5 +555,94 @@ def to_key_val_list(value: Iterable[tuple[_KT, _VT]]) -> list[tuple[_KT, _VT]]:
         assert res.get("global_state_hazards") is None or len(res.get("global_state_hazards", [])) == 0
 
 
+def test_task_07_stream_entanglement_hazard_blocked():
+    """TASK-07 regression test: functions calling module-level stream delegates must be blocked."""
+    source_code = """
+import sys
+
+def _default_text_stdout():
+    return sys.stdout
+
+def echo(msg):
+    out = _default_text_stdout()
+    out.write(str(msg) + "\\n")
+"""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        from_file = os.path.join(tmpdir, "utils.py")
+        to_file = os.path.join(tmpdir, "terminal_out.py")
+        with open(from_file, "w") as f:
+            f.write(source_code)
+
+        res = prefactor_decouple(
+            symbol="echo",
+            from_file=from_file,
+            to_file=to_file,
+            project_root=tmpdir
+        )
+        assert res["success"] is False
+        assert "Mutable shared module state desynchronization hazard" in res.get("error", "")
+        desync_hazards = res.get("state_desync_hazards", [])
+        assert any(h.get("type") == "global_stream_entanglement" for h in desync_hazards)
+        assert any(h.get("symbol") == "_default_text_stdout" for h in desync_hazards)
+
+
+def test_alias_induced_circular_import_cycle_blocked():
+    """Tests that projected-graph cycle detection intercepts multi-hop alias cycles."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pkg = os.path.join(tmpdir, "pkg")
+        os.makedirs(pkg)
+        with open(os.path.join(pkg, "__init__.py"), "w") as f:
+            f.write("")
+
+        with open(os.path.join(pkg, "a.py"), "w") as f:
+            f.write("from .b import get_val\n\ndef other():\n    return 1\n\ndef extract_me():\n    return get_val()\n")
+
+        with open(os.path.join(pkg, "b.py"), "w") as f:
+            f.write("from .c import compute\n\ndef get_val():\n    return compute()\n")
+
+        with open(os.path.join(pkg, "c.py"), "w") as f:
+            f.write("from .a import other\n\ndef compute():\n    return other()\n")
+
+        res = prefactor_decouple(
+            symbol="extract_me",
+            from_file=os.path.join(pkg, "a.py"),
+            to_file=os.path.join(pkg, "d.py"),
+            project_root=tmpdir,
+            add_backward_compat_alias=True
+        )
+        assert res["success"] is False
+        assert "Circular import hazard detected" in res.get("error", "")
+        circ_hazards = res.get("circular_hazards", [])
+        assert any(h.get("type") == "alias_cycle_hazard" for h in circ_hazards)
+        cycle_str = next(h["cycle"] for h in circ_hazards if h.get("type") == "alias_cycle_hazard")
+        assert "pkg/a.py -> pkg/d.py -> pkg/b.py -> pkg/c.py -> pkg/a.py" in cycle_str
+
+
+def test_safe_extraction_control_no_false_rejection():
+    """Control test: extracting a clean utility with no backward cycle succeeds."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pkg = os.path.join(tmpdir, "pkg")
+        os.makedirs(pkg)
+        with open(os.path.join(pkg, "__init__.py"), "w") as f:
+            f.write("")
+
+        with open(os.path.join(pkg, "a.py"), "w") as f:
+            f.write("from .b import get_val\n\ndef other():\n    return 1\n\ndef extract_me():\n    return get_val()\n")
+
+        with open(os.path.join(pkg, "b.py"), "w") as f:
+            f.write("def get_val():\n    return 42\n")
+
+        res = prefactor_decouple(
+            symbol="extract_me",
+            from_file=os.path.join(pkg, "a.py"),
+            to_file=os.path.join(pkg, "d.py"),
+            project_root=tmpdir,
+            add_backward_compat_alias=True
+        )
+        assert res["success"] is True
+        assert res.get("error") is None
+        assert os.path.exists(os.path.join(pkg, "d.py"))
+
+
 
 

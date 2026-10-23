@@ -343,6 +343,21 @@ def detect_coupling_hazards(
                 "recommendation": f"Encapsulate '{g_name}' into a shared state class, singleton, or accessor functions (e.g. get_{g_name}(), set_{g_name}()) in a shared module rather than splitting global state across module namespaces."
             })
 
+    # Direction 3: Module-level process stream and runtime monkeypatch state entanglement (TASK-07)
+    STREAM_WRAPPER_PATTERNS = re.compile(
+        r"^(_default_text_stdout|_default_text_stderr|_default_text_stdin|get_text_stdout|get_text_stderr|get_text_stdin)$"
+    )
+    for name in sorted(non_builtin_used):
+        if STREAM_WRAPPER_PATTERNS.match(name) or name in {"_default_text_stdout", "_default_text_stderr", "_default_text_stdin"}:
+            if name not in seen_desync_symbols:
+                seen_desync_symbols.add(name)
+                state_desync_hazards.append({
+                    "symbol": name,
+                    "type": "global_stream_entanglement",
+                    "hazard": f"Global stream entanglement hazard: extracted code depends on module-level process stream wrapper '{name}'.",
+                    "recommendation": f"Stream function '{name}' binds to mutable process streams (sys.stdout/stderr). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+                })
+
     # Detect framework route decorators and application instances
     if extracted_nodes:
         for node in extracted_nodes:
@@ -723,6 +738,104 @@ def _upsert_dunder_all_in_source(source_text: str, new_symbols: List[str]) -> Tu
     return source_text, False
 
 
+def check_projected_alias_cycle(
+    from_path: str,
+    to_path: str,
+    project_root: str,
+    needed_import_lines: List[str],
+    to_file_existed: bool,
+    add_backward_compat_alias: bool,
+    shared_host_symbols: Optional[Set[str]] = None,
+) -> Optional[List[str]]:
+    """
+    Simulates the backward-compatibility alias edge (from_path -> to_path)
+    on the repository dependency graph and verifies whether to_path transitively
+    reaches from_path, which would form an alias-induced circular import cycle.
+
+    Returns the cycle path [from_rel, to_rel, ..., from_rel] if a cycle is formed,
+    or None if the projected graph remains a DAG.
+    """
+    if not add_backward_compat_alias:
+        return None
+
+    from .cluster import build_repository_dependency_graph
+    from .guard import get_module_imported_files, resolve_local_module_path
+
+    root_abs = os.path.abspath(project_root)
+    from_abs = os.path.abspath(from_path)
+    to_abs = os.path.abspath(to_path)
+
+    rel_from = os.path.relpath(from_abs, root_abs)
+    rel_to = os.path.relpath(to_abs, root_abs)
+
+    try:
+        graph = build_repository_dependency_graph(root_abs)
+    except Exception:
+        return None
+
+    projected_to_deps: Set[str] = set()
+
+    # A. Existing imports if to_file already existed on disk
+    if to_file_existed and os.path.isfile(to_abs):
+        for _, _, resolved_path in get_module_imported_files(to_abs, root_abs):
+            rel_dep = os.path.relpath(os.path.abspath(resolved_path), root_abs)
+            if rel_dep != rel_to:
+                projected_to_deps.add(rel_dep)
+
+    # B. Dependencies introduced by needed_imports
+    if needed_import_lines:
+        try:
+            dummy_tree = ast.parse("\n".join(needed_import_lines))
+            for node in ast.walk(dummy_tree):
+                if isinstance(node, ast.Import):
+                    for alias in node.names:
+                        res = resolve_local_module_path(to_abs, alias.name, root_abs)
+                        if res:
+                            rel_dep = os.path.relpath(os.path.abspath(res), root_abs)
+                            if rel_dep != rel_to:
+                                projected_to_deps.add(rel_dep)
+                elif isinstance(node, ast.ImportFrom):
+                    level = getattr(node, "level", 0)
+                    mod_name = ("." * level) + (node.module or "")
+                    res = resolve_local_module_path(to_abs, mod_name, root_abs)
+                    if res:
+                        rel_dep = os.path.relpath(os.path.abspath(res), root_abs)
+                        if rel_dep != rel_to:
+                            projected_to_deps.add(rel_dep)
+        except Exception:
+            pass
+
+    # C. If shared_host_symbols are bound, to_file imports from_file
+    if shared_host_symbols:
+        projected_to_deps.add(rel_from)
+
+    # Check for cycles via BFS from rel_to
+    queue: List[Tuple[str, List[str]]] = []
+    visited: Set[str] = set()
+
+    for dep in sorted(projected_to_deps):
+        if dep == rel_from:
+            return [rel_from, rel_to, rel_from]
+        queue.append((dep, [rel_from, rel_to, dep]))
+        visited.add(dep)
+
+    while queue:
+        curr, path = queue.pop(0)
+        if curr == rel_from:
+            return path
+        if len(path) > 12:
+            continue
+
+        for next_dep in sorted(graph.edges.get(curr, set())):
+            if next_dep == rel_from:
+                return path + [rel_from]
+            if next_dep not in visited:
+                visited.add(next_dep)
+                queue.append((next_dep, path + [next_dep]))
+
+    return None
+
+
 def prefactor_decouple(
     symbol: str | List[str],
     from_file: str,
@@ -751,6 +864,9 @@ def prefactor_decouple(
 
     from_path = from_file if os.path.isabs(from_file) else os.path.join(root_abs, from_file)
     to_path = to_file if os.path.isabs(to_file) else os.path.join(root_abs, to_file)
+    rel_from = os.path.relpath(from_path, root_abs)
+    rel_to = os.path.relpath(to_path, root_abs)
+    to_file_existed = os.path.exists(to_path)
 
     if not os.path.exists(from_path):
         return {
@@ -818,6 +934,46 @@ def prefactor_decouple(
     safe_closure = compute_minimal_safe_closure(from_tree, symbols)
     share_state_hint = "Re-run with --share-state (or share_state=True) to automatically bind shared mutable globals and remaining host symbols across modules."
 
+    desync_syms = {h["symbol"] for h in state_desync_hazards}
+    shared_host_symbols: Set[str] = set()
+    if share_state:
+        shared_host_symbols = (
+            desync_syms
+            | {h["symbol"] for h in circular_hazards}
+            | {h["symbol"] for h in global_hazards}
+        )
+
+    # Identify relevant imports from from_file (excluding extracted symbols and shared host symbols)
+    needed_imports = find_relevant_imports(
+        from_tree,
+        from_lines,
+        used_names - shared_host_symbols,
+        source_path=from_path,
+        project_root=root_abs,
+        excluded_names=extracted_names_set | shared_host_symbols,
+    )
+
+    # Projected graph cycle check for backward-compatibility alias edge
+    alias_cycle_path = check_projected_alias_cycle(
+        from_path=from_path,
+        to_path=to_path,
+        project_root=root_abs,
+        needed_import_lines=needed_imports,
+        to_file_existed=to_file_existed,
+        add_backward_compat_alias=add_backward_compat_alias,
+        shared_host_symbols=shared_host_symbols if share_state else None,
+    )
+    if alias_cycle_path:
+        cycle_str = " -> ".join(alias_cycle_path)
+        alias_hazard = {
+            "symbol": ", ".join(symbols),
+            "type": "alias_cycle_hazard",
+            "cycle": cycle_str,
+            "hazard": f"Alias-induced circular import cycle: backward-compatibility alias in '{rel_from}' imports '{rel_to}', but '{rel_to}' transitively reaches '{rel_from}' via {' -> '.join(alias_cycle_path[1:])}.",
+            "recommendation": f"Do not insert a backward-compatibility alias in '{rel_from}' (re-run with add_backward_compat_alias=False), or extract intermediate dependencies into a separate leaf module."
+        }
+        circular_hazards.append(alias_hazard)
+
     if framework_hazards:
         return {
             "success": False,
@@ -875,25 +1031,6 @@ def prefactor_decouple(
                 share_state_hint,
             ]
         }
-
-    desync_syms = {h["symbol"] for h in state_desync_hazards}
-    shared_host_symbols: Set[str] = set()
-    if share_state:
-        shared_host_symbols = (
-            desync_syms
-            | {h["symbol"] for h in circular_hazards}
-            | {h["symbol"] for h in global_hazards}
-        )
-
-    # Identify relevant imports from from_file (excluding extracted symbols and shared host symbols)
-    needed_imports = find_relevant_imports(
-        from_tree,
-        from_lines,
-        used_names - shared_host_symbols,
-        source_path=from_path,
-        project_root=root_abs,
-        excluded_names=extracted_names_set | shared_host_symbols,
-    )
 
     # Extract exact source lines (or AST-transformed blocks when share_state binds host symbols)
     extracted_code_blocks = []

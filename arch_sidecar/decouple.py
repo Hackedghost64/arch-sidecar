@@ -343,20 +343,22 @@ def detect_coupling_hazards(
                 "recommendation": f"Encapsulate '{g_name}' into a shared state class, singleton, or accessor functions (e.g. get_{g_name}(), set_{g_name}()) in a shared module rather than splitting global state across module namespaces."
             })
 
-    # Direction 3: Module-level process stream and runtime monkeypatch state entanglement (TASK-07)
-    STREAM_WRAPPER_PATTERNS = re.compile(
-        r"^(_default_text_stdout|_default_text_stderr|_default_text_stdin|get_text_stdout|get_text_stderr|get_text_stdin)$"
-    )
+    # Direction 3: Module-level process stream and runtime monkeypatch state entanglement
+    # Detects dependencies on module-level attributes wrapping mutable process streams (stdout/stderr/stdin)
     for name in sorted(non_builtin_used):
-        if STREAM_WRAPPER_PATTERNS.match(name) or name in {"_default_text_stdout", "_default_text_stderr", "_default_text_stdin"}:
-            if name not in seen_desync_symbols:
-                seen_desync_symbols.add(name)
-                state_desync_hazards.append({
-                    "symbol": name,
-                    "type": "global_stream_entanglement",
-                    "hazard": f"Global stream entanglement hazard: extracted code depends on module-level process stream wrapper '{name}'.",
-                    "recommendation": f"Stream function '{name}' binds to mutable process streams (sys.stdout/stderr). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
-                })
+        name_lower = name.lower()
+        is_stream_wrapper = any(
+            name_lower == s or name_lower.endswith(f"_{s}") or name_lower.startswith(f"{s}_")
+            for s in ("stdout", "stderr", "stdin")
+        )
+        if is_stream_wrapper and name not in seen_desync_symbols:
+            seen_desync_symbols.add(name)
+            state_desync_hazards.append({
+                "symbol": name,
+                "type": "global_stream_entanglement",
+                "hazard": f"Global stream entanglement hazard: extracted code depends on module-level process stream wrapper '{name}'.",
+                "recommendation": f"Stream function '{name}' binds to mutable process streams (sys.stdout/stderr/stdin). Pass the stream explicitly as a parameter or re-run with --share-state to preserve stream monkeypatching and redirection."
+            })
 
     # Detect framework route decorators and application instances
     if extracted_nodes:

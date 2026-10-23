@@ -218,6 +218,63 @@ def find_relevant_imports(
                         extracted_imports.append(stmt)
                         seen.add(stmt)
 
+    # Handle imports inside `if TYPE_CHECKING:` blocks for type annotations
+    type_checking_imports: List[str] = []
+    for node in source_tree.body:
+        if isinstance(node, ast.If):
+            test_str = ast.unparse(node.test)
+            if "TYPE_CHECKING" in test_str:
+                for sub in node.body:
+                    if isinstance(sub, ast.Import):
+                        for alias in sub.names:
+                            name_in_scope = alias.asname or alias.name.split(".")[0]
+                            if name_in_scope in used_names:
+                                alias_str = f"{alias.name} as {alias.asname}" if alias.asname else alias.name
+                                stmt = f"import {alias_str}"
+                                if stmt not in seen:
+                                    type_checking_imports.append(stmt)
+                                    seen.add(stmt)
+                    elif isinstance(sub, ast.ImportFrom):
+                        needed_aliases = [
+                            alias for alias in sub.names
+                            if (alias.asname or alias.name) in used_names
+                        ]
+                        if needed_aliases:
+                            dots = "." * (sub.level or 0)
+                            mod_str = sub.module or ""
+                            names_str = ", ".join(
+                                f"{a.name} as {a.asname}" if a.asname else a.name
+                                for a in needed_aliases
+                            )
+                            stmt = f"from {dots}{mod_str} import {names_str}"
+                            if stmt not in seen:
+                                type_checking_imports.append(stmt)
+                                seen.add(stmt)
+
+    # Handle module-level TypeVar and ParamSpec definitions used in type annotations
+    typevar_stmts: List[str] = []
+    for node in source_tree.body:
+        if isinstance(node, ast.Assign) and isinstance(node.value, ast.Call):
+            func_name = ast.unparse(node.value.func)
+            if any(tv in func_name for tv in ("TypeVar", "ParamSpec", "TypeVarTuple")):
+                for target in node.targets:
+                    if isinstance(target, ast.Name) and target.id in used_names:
+                        stmt = ast.unparse(node)
+                        if stmt not in seen:
+                            typevar_stmts.append(stmt)
+                            seen.add(stmt)
+
+    if type_checking_imports:
+        # Ensure typing is imported as t
+        has_typing = any("import typing as t" in imp or "from typing import" in imp for imp in extracted_imports)
+        if not has_typing:
+            extracted_imports.append("import typing as t")
+        tc_block = "if t.TYPE_CHECKING:\n    " + "\n    ".join(type_checking_imports)
+        extracted_imports.append(tc_block)
+
+    if typevar_stmts:
+        extracted_imports.extend(typevar_stmts)
+
     return extracted_imports
 
 import builtins

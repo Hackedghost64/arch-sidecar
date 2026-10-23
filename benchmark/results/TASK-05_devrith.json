@@ -3,26 +3,77 @@
   "arm": "devrith",
   "repo": "django",
   "category": "safe_extraction",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 28.0,
-    "min_tool_duration_ms": 28,
-    "max_tool_duration_ms": 28,
+    "mean_tool_duration_ms": 4152.2,
+    "min_tool_duration_ms": 4133,
+    "max_tool_duration_ms": 4186,
     "mean_tokens": 220.0,
     "total_preflight_catches": 0,
-    "primary_status": "PREFLIGHT_WARNING"
+    "total_regressions": 0,
+    "external_test_pass_rate": 1.0,
+    "primary_status": "PASSED"
   },
   "runs": [
     {
-      "status": "PREFLIGHT_WARNING",
+      "status": "PASSED",
       "preflight_catches": 0,
-      "regressions": 1,
+      "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 220,
-      "tool_duration_ms": 28,
-      "wall_clock_ms": 28,
-      "details": "Deterministic AST extraction completed in 28ms; health: None.",
+      "tool_duration_ms": 4134,
+      "wall_clock_ms": 4134,
+      "external_test_passed": true,
+      "details": "Deterministic AST extraction completed in 4134ms; health: 1.0; test_passed: True.",
       "run_index": 1
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 4152,
+      "wall_clock_ms": 4152,
+      "external_test_passed": true,
+      "details": "Deterministic AST extraction completed in 4152ms; health: 1.0; test_passed: True.",
+      "run_index": 2
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 4186,
+      "wall_clock_ms": 4186,
+      "external_test_passed": true,
+      "details": "Deterministic AST extraction completed in 4186ms; health: 1.0; test_passed: True.",
+      "run_index": 3
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 4133,
+      "wall_clock_ms": 4133,
+      "external_test_passed": true,
+      "details": "Deterministic AST extraction completed in 4133ms; health: 1.0; test_passed: True.",
+      "run_index": 4
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 220,
+      "tool_duration_ms": 4156,
+      "wall_clock_ms": 4156,
+      "external_test_passed": true,
+      "details": "Deterministic AST extraction completed in 4156ms; health: 1.0; test_passed: True.",
+      "run_index": 5
     }
   ]
 }

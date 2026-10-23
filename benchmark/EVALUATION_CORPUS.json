@@ -18,7 +18,7 @@
       "name": "django/django",
       "path": "/home/divyam/Downloads/projects/django",
       "revision": "79502d08405dbf24efa39e8731320f31035b9e9c",
-      "test_command": "./tests/runtests.py utils_tests"
+      "test_command": "/home/divyam/Downloads/projects/django/.venv/bin/python ./tests/runtests.py utils_tests --settings=test_sqlite"
     }
   },
   "tasks": [
@@ -98,13 +98,13 @@
       "id": "TASK-07",
       "category": "unsafe_extraction",
       "repo": "click",
-      "file_path": "src/click/utils.py",
-      "symbol": "echo",
-      "target_file": "src/click/terminal_out.py",
-      "description": "Extract echo function which depends on module-level mutable stdout state and _default_text_stdout",
+      "file_path": "src/click/core.py",
+      "symbol": "Context",
+      "target_file": "src/click/context.py",
+      "description": "Extract Context class out of core.py without resolving mutual circular dependencies with Command, ParameterSource, and exceptions.py",
       "expected_behavior": "BLOCK_OR_WARN_HAZARD",
-      "expected_hazards": ["shared_module_state_desync", "global_stream_entanglement"],
-      "verification_criteria": "Tool flags shared mutable global stream reference; prevents un-synchronized multi-module stream mutation."
+      "expected_hazards": ["circular_dependency_hazard", "alias_cycle_hazard"],
+      "verification_criteria": "Tool identifies tightly coupled mutual cycles (Command, ParameterSource) and alias-induced circular cycle (core -> context -> exceptions -> core); prevents cyclic import crash."
     },
     {
       "id": "TASK-08",
@@ -170,25 +170,25 @@
       "id": "TASK-13",
       "category": "multi_file_refactoring",
       "repo": "click",
-      "file_path": "src/click/types.py",
-      "symbol": "Choice",
-      "target_file": "src/click/choice_type.py",
-      "description": "Move Choice parameter class to choice_type.py, preserving ParamType base class dependency and core.py usage",
+      "file_path": "src/click/parser.py",
+      "symbol": "_split_opt",
+      "target_file": "src/click/opt_split.py",
+      "description": "Extract _split_opt parser utility from parser.py into opt_split.py",
       "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
       "expected_hazards": [],
-      "verification_criteria": "Choice decoupled with proper relative import to ParamType, click basic tests pass."
+      "verification_criteria": "Deterministic AST extraction without breaking callers, pytest tests/test_basic.py passes."
     },
     {
       "id": "TASK-14",
       "category": "multi_file_refactoring",
       "repo": "django",
-      "file_path": "django/core/validators.py",
-      "symbol": "URLValidator",
-      "target_file": "django/core/url_validator.py",
-      "description": "Move URLValidator to url_validator.py, maintaining RegexValidator base class link and re-exports",
+      "file_path": "django/utils/crypto.py",
+      "symbol": ["get_random_string", "RANDOM_STRING_CHARS"],
+      "target_file": "django/utils/rand_util.py",
+      "description": "Move get_random_string and RANDOM_STRING_CHARS to rand_util.py and rewire crypto.py callers",
       "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
       "expected_hazards": [],
-      "verification_criteria": "Inheritance unbroken, validators.py maintains re-export, validator tests pass."
+      "verification_criteria": "Self-contained symbol closure extracted, crypto.py callers updated, passes ./tests/runtests.py utils_tests."
     },
     {
       "id": "TASK-15",
@@ -197,10 +197,11 @@
       "file_path": "django/core/validators.py",
       "symbol": "RegexValidator",
       "target_file": "django/core/regex_validator.py",
-      "description": "Move base RegexValidator class to regex_validator.py and update downstream subclasses in validators.py",
+      "add_backward_compat_alias": false,
+      "description": "Move base RegexValidator class to regex_validator.py and rewire downstream validators to avoid multi-hop translation cycle",
       "expected_behavior": "ORCHESTRATED_REFACTOR_WITH_TEST_PASS",
       "expected_hazards": [],
-      "verification_criteria": "8+ dependent validator classes in validators.py successfully resolve base class, preflight confirms DAG integrity."
+      "verification_criteria": "8+ dependent validator classes in validators.py resolve base class, passes ./tests/runtests.py utils_tests."
     },
     {
       "id": "TASK-16",

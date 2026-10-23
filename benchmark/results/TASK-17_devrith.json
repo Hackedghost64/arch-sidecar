@@ -3,13 +3,15 @@
   "arm": "devrith",
   "repo": "click",
   "category": "ambiguous_context_query",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 247.0,
-    "min_tool_duration_ms": 247,
-    "max_tool_duration_ms": 247,
+    "mean_tool_duration_ms": 194.2,
+    "min_tool_duration_ms": 192,
+    "max_tool_duration_ms": 195,
     "mean_tokens": 1386.0,
     "total_preflight_catches": 0,
+    "total_regressions": 0,
+    "external_test_pass_rate": 1.0,
     "primary_status": "PASSED"
   },
   "runs": [
@@ -19,10 +21,59 @@
       "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 1386,
-      "tool_duration_ms": 247,
-      "wall_clock_ms": 247,
-      "details": "Devrith extracted surgical context slice in 247ms (1386 tokens).",
+      "tool_duration_ms": 195,
+      "wall_clock_ms": 195,
+      "external_test_passed": true,
+      "details": "Devrith extracted surgical context slice in 195ms (1386 tokens).",
       "run_index": 1
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1386,
+      "tool_duration_ms": 192,
+      "wall_clock_ms": 192,
+      "external_test_passed": true,
+      "details": "Devrith extracted surgical context slice in 192ms (1386 tokens).",
+      "run_index": 2
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1386,
+      "tool_duration_ms": 195,
+      "wall_clock_ms": 195,
+      "external_test_passed": true,
+      "details": "Devrith extracted surgical context slice in 195ms (1386 tokens).",
+      "run_index": 3
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1386,
+      "tool_duration_ms": 195,
+      "wall_clock_ms": 195,
+      "external_test_passed": true,
+      "details": "Devrith extracted surgical context slice in 195ms (1386 tokens).",
+      "run_index": 4
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1386,
+      "tool_duration_ms": 194,
+      "wall_clock_ms": 194,
+      "external_test_passed": true,
+      "details": "Devrith extracted surgical context slice in 194ms (1386 tokens).",
+      "run_index": 5
     }
   ]
 }

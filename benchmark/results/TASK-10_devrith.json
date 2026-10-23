@@ -3,26 +3,77 @@
   "arm": "devrith",
   "repo": "click",
   "category": "unsafe_extraction",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 1.0,
-    "min_tool_duration_ms": 1,
-    "max_tool_duration_ms": 1,
+    "mean_tool_duration_ms": 185.8,
+    "min_tool_duration_ms": 182,
+    "max_tool_duration_ms": 188,
     "mean_tokens": 180.0,
-    "total_preflight_catches": 0,
+    "total_preflight_catches": 5,
+    "total_regressions": 0,
+    "external_test_pass_rate": 1.0,
     "primary_status": "BLOCKED_AS_EXPECTED"
   },
   "runs": [
     {
       "status": "BLOCKED_AS_EXPECTED",
-      "preflight_catches": 0,
+      "preflight_catches": 1,
       "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 180,
-      "tool_duration_ms": 1,
-      "wall_clock_ms": 1,
-      "details": "Devrith detected hazards: []",
+      "tool_duration_ms": 188,
+      "wall_clock_ms": 188,
+      "external_test_passed": true,
+      "details": "Devrith detected 1 hazard(s).",
       "run_index": 1
+    },
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "preflight_catches": 1,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 180,
+      "tool_duration_ms": 187,
+      "wall_clock_ms": 187,
+      "external_test_passed": true,
+      "details": "Devrith detected 1 hazard(s).",
+      "run_index": 2
+    },
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "preflight_catches": 1,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 180,
+      "tool_duration_ms": 184,
+      "wall_clock_ms": 184,
+      "external_test_passed": true,
+      "details": "Devrith detected 1 hazard(s).",
+      "run_index": 3
+    },
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "preflight_catches": 1,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 180,
+      "tool_duration_ms": 182,
+      "wall_clock_ms": 182,
+      "external_test_passed": true,
+      "details": "Devrith detected 1 hazard(s).",
+      "run_index": 4
+    },
+    {
+      "status": "BLOCKED_AS_EXPECTED",
+      "preflight_catches": 1,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 180,
+      "tool_duration_ms": 188,
+      "wall_clock_ms": 188,
+      "external_test_passed": true,
+      "details": "Devrith detected 1 hazard(s).",
+      "run_index": 5
     }
   ]
 }

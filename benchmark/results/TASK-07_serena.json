@@ -3,13 +3,15 @@
   "arm": "serena",
   "repo": "click",
   "category": "unsafe_extraction",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 1369.0,
-    "min_tool_duration_ms": 1369,
-    "max_tool_duration_ms": 1369,
+    "mean_tool_duration_ms": 1365.4,
+    "min_tool_duration_ms": 1360,
+    "max_tool_duration_ms": 1370,
     "mean_tokens": 850.0,
     "total_preflight_catches": 0,
+    "total_regressions": 5,
+    "external_test_pass_rate": 0.0,
     "primary_status": "UNCAUGHT_HAZARD"
   },
   "runs": [
@@ -19,10 +21,59 @@
       "regressions": 1,
       "rollback_executed": false,
       "tokens_estimated": 850,
-      "tool_duration_ms": 1369,
-      "wall_clock_ms": 1369,
+      "tool_duration_ms": 1366,
+      "wall_clock_ms": 1366,
+      "external_test_passed": false,
       "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
       "run_index": 1
+    },
+    {
+      "status": "UNCAUGHT_HAZARD",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 850,
+      "tool_duration_ms": 1368,
+      "wall_clock_ms": 1368,
+      "external_test_passed": false,
+      "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
+      "run_index": 2
+    },
+    {
+      "status": "UNCAUGHT_HAZARD",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 850,
+      "tool_duration_ms": 1363,
+      "wall_clock_ms": 1363,
+      "external_test_passed": false,
+      "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
+      "run_index": 3
+    },
+    {
+      "status": "UNCAUGHT_HAZARD",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 850,
+      "tool_duration_ms": 1360,
+      "wall_clock_ms": 1360,
+      "external_test_passed": false,
+      "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
+      "run_index": 4
+    },
+    {
+      "status": "UNCAUGHT_HAZARD",
+      "preflight_catches": 0,
+      "regressions": 1,
+      "rollback_executed": false,
+      "tokens_estimated": 850,
+      "tool_duration_ms": 1370,
+      "wall_clock_ms": 1370,
+      "external_test_passed": false,
+      "details": "Serena located symbol cleanly but lacks circular import preflight blocking.",
+      "run_index": 5
     }
   ]
 }

@@ -3,13 +3,15 @@
   "arm": "repowise",
   "repo": "django",
   "category": "multi_file_refactoring",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 135.0,
-    "min_tool_duration_ms": 135,
-    "max_tool_duration_ms": 135,
+    "mean_tool_duration_ms": 135.6,
+    "min_tool_duration_ms": 132,
+    "max_tool_duration_ms": 139,
     "mean_tokens": 1200.0,
     "total_preflight_catches": 0,
+    "total_regressions": 0,
+    "external_test_pass_rate": 0.0,
     "primary_status": "UNSUPPORTED_OPERATION"
   },
   "runs": [
@@ -19,10 +21,59 @@
       "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 1200,
-      "tool_duration_ms": 135,
-      "wall_clock_ms": 135,
+      "tool_duration_ms": 137,
+      "wall_clock_ms": 137,
+      "external_test_passed": false,
       "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
       "run_index": 1
+    },
+    {
+      "status": "UNSUPPORTED_OPERATION",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1200,
+      "tool_duration_ms": 132,
+      "wall_clock_ms": 132,
+      "external_test_passed": false,
+      "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
+      "run_index": 2
+    },
+    {
+      "status": "UNSUPPORTED_OPERATION",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1200,
+      "tool_duration_ms": 139,
+      "wall_clock_ms": 139,
+      "external_test_passed": false,
+      "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
+      "run_index": 3
+    },
+    {
+      "status": "UNSUPPORTED_OPERATION",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1200,
+      "tool_duration_ms": 134,
+      "wall_clock_ms": 134,
+      "external_test_passed": false,
+      "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
+      "run_index": 4
+    },
+    {
+      "status": "UNSUPPORTED_OPERATION",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 1200,
+      "tool_duration_ms": 136,
+      "wall_clock_ms": 136,
+      "external_test_passed": false,
+      "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only).",
+      "run_index": 5
     }
   ]
 }

@@ -534,6 +534,12 @@ def resolve_local_module_path(target_path: str, import_mod: str, project_root: s
                 return cand_pkg
         return None
 
+    # Absolute import: do not resolve Python standard library modules to local files!
+    top_mod = import_mod.split(".")[0]
+    stdlib_names = getattr(sys, "stdlib_module_names", None)
+    if stdlib_names and top_mod in stdlib_names:
+        return None
+
     # 2. Check same directory as target_path
     cand_same = os.path.join(target_dir, import_mod.replace(".", os.sep) + ".py")
     if os.path.exists(cand_same):
@@ -605,12 +611,27 @@ def get_module_imported_files(file_path: str, project_root: str) -> List[Tuple[i
                 if resolved:
                     imported.append((node.lineno, alias.name, resolved))
         elif isinstance(node, ast.ImportFrom):
-            mod_name = node.module or ""
-            if node.level > 0:
-                mod_name = ("." * node.level) + mod_name
-            resolved = resolve_local_module_path(file_path, mod_name, project_root)
-            if resolved:
-                imported.append((node.lineno, mod_name, resolved))
+            if node.level > 0 and not node.module:
+                # e.g. from . import certs
+                base_dir = os.path.dirname(os.path.abspath(file_path))
+                for _ in range(node.level - 1):
+                    base_dir = os.path.dirname(base_dir)
+                for alias in node.names:
+                    cand_sub = os.path.join(base_dir, alias.name + ".py")
+                    if os.path.isfile(cand_sub):
+                        imported.append((node.lineno, "." * node.level + alias.name, os.path.abspath(cand_sub)))
+                    else:
+                        mod_name = "." * node.level
+                        resolved = resolve_local_module_path(file_path, mod_name, project_root)
+                        if resolved:
+                            imported.append((node.lineno, mod_name, resolved))
+            else:
+                mod_name = node.module or ""
+                if node.level > 0:
+                    mod_name = ("." * node.level) + mod_name
+                resolved = resolve_local_module_path(file_path, mod_name, project_root)
+                if resolved:
+                    imported.append((node.lineno, mod_name, resolved))
     return imported
 
 

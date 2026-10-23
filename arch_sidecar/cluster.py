@@ -93,6 +93,34 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                     pass
 
     # 2. Second pass: extract imports and connect directed edges
+    class _RuntimePythonImportVisitor(ast.NodeVisitor):
+        def __init__(self):
+            self.runtime_imports = []
+
+        def visit_FunctionDef(self, node: ast.FunctionDef):
+            # Function-local deferred imports do not execute at module import time
+            return
+
+        def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef):
+            # Function-local deferred imports do not execute at module import time
+            return
+
+        def visit_If(self, node: ast.If):
+            test = node.test
+            # Skip `if TYPE_CHECKING:` type-only annotations
+            if (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or \
+               (isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"):
+                for stmt in node.orelse:
+                    self.visit(stmt)
+                return
+            self.generic_visit(node)
+
+        def visit_Import(self, node: ast.Import):
+            self.runtime_imports.append(node)
+
+        def visit_ImportFrom(self, node: ast.ImportFrom):
+            self.runtime_imports.append(node)
+
     for full_p, rel_src in file_map.items():
         lang = graph.module_languages.get(rel_src)
         
@@ -101,7 +129,10 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                 with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
                     tree = ast.parse(fh.read(), filename=full_p)
                 
-                for node in ast.walk(tree):
+                visitor = _RuntimePythonImportVisitor()
+                visitor.visit(tree)
+                
+                for node in visitor.runtime_imports:
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             resolved_abs = resolve_local_module_path(full_p, alias.name, root_abs)
@@ -109,11 +140,26 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                                 graph.add_dependency(rel_src, file_map[resolved_abs], [alias.name])
                     elif isinstance(node, ast.ImportFrom):
                         level = getattr(node, "level", 0)
-                        module_name = ("." * level) + (node.module or "")
-                        resolved_abs = resolve_local_module_path(full_p, module_name, root_abs)
-                        if resolved_abs and resolved_abs in file_map:
-                            syms = [n.name for n in node.names]
-                            graph.add_dependency(rel_src, file_map[resolved_abs], syms)
+                        if level > 0 and not node.module:
+                            # e.g. from . import _types as _t
+                            base_dir = os.path.dirname(full_p)
+                            for _ in range(level - 1):
+                                base_dir = os.path.dirname(base_dir)
+                            for alias in node.names:
+                                cand_sub = os.path.join(base_dir, alias.name + ".py")
+                                if cand_sub in file_map:
+                                    graph.add_dependency(rel_src, file_map[cand_sub], [alias.name])
+                                else:
+                                    module_name = "." * level
+                                    resolved_abs = resolve_local_module_path(full_p, module_name, root_abs)
+                                    if resolved_abs and resolved_abs in file_map:
+                                        graph.add_dependency(rel_src, file_map[resolved_abs], [alias.name])
+                        else:
+                            module_name = ("." * level) + (node.module or "")
+                            resolved_abs = resolve_local_module_path(full_p, module_name, root_abs)
+                            if resolved_abs and resolved_abs in file_map:
+                                syms = [n.name for n in node.names]
+                                graph.add_dependency(rel_src, file_map[resolved_abs], syms)
             except Exception:
                 pass
 
@@ -125,9 +171,11 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                 
                 all_imports = []
                 for imp in parsed.get("imports", []):
-                    all_imports.append((imp["module"], imp.get("names", [])))
+                    if not imp.get("is_type_only"):
+                        all_imports.append((imp["module"], imp.get("names", [])))
                 for re_exp in parsed.get("re_exports", []):
-                    all_imports.append((re_exp["module"], [re_exp.get("clause", "*")]))
+                    if not re_exp.get("is_type_only"):
+                        all_imports.append((re_exp["module"], [re_exp.get("clause", "*")]))
                     
                 for mod_spec, syms in all_imports:
                     resolved = resolve_ts_import_path(mod_spec, full_p, root_abs, tsconfig)

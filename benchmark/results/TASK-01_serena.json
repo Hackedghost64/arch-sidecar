@@ -3,13 +3,15 @@
   "arm": "serena",
   "repo": "requests",
   "category": "safe_extraction",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 1479.0,
-    "min_tool_duration_ms": 1479,
-    "max_tool_duration_ms": 1479,
+    "mean_tool_duration_ms": 1370.8,
+    "min_tool_duration_ms": 1360,
+    "max_tool_duration_ms": 1391,
     "mean_tokens": 600.0,
     "total_preflight_catches": 0,
+    "total_regressions": 0,
+    "external_test_pass_rate": 1.0,
     "primary_status": "PARTIAL_SUPPORT"
   },
   "runs": [
@@ -19,10 +21,59 @@
       "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 600,
-      "tool_duration_ms": 1479,
-      "wall_clock_ms": 1479,
+      "tool_duration_ms": 1391,
+      "wall_clock_ms": 1391,
+      "external_test_passed": true,
       "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
       "run_index": 1
+    },
+    {
+      "status": "PARTIAL_SUPPORT",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 600,
+      "tool_duration_ms": 1372,
+      "wall_clock_ms": 1372,
+      "external_test_passed": true,
+      "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
+      "run_index": 2
+    },
+    {
+      "status": "PARTIAL_SUPPORT",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 600,
+      "tool_duration_ms": 1367,
+      "wall_clock_ms": 1367,
+      "external_test_passed": true,
+      "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
+      "run_index": 3
+    },
+    {
+      "status": "PARTIAL_SUPPORT",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 600,
+      "tool_duration_ms": 1360,
+      "wall_clock_ms": 1360,
+      "external_test_passed": true,
+      "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
+      "run_index": 4
+    },
+    {
+      "status": "PARTIAL_SUPPORT",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 600,
+      "tool_duration_ms": 1364,
+      "wall_clock_ms": 1364,
+      "external_test_passed": true,
+      "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis.",
+      "run_index": 5
     }
   ]
 }

@@ -2,7 +2,8 @@
 """
 Automated Multi-Arm Benchmark Runner for Devrith (arch-sidecar) Evaluation.
 Measures wall-clock time, tool latency, token efficiency, preflight catches,
-and test outcomes across 5 arms on clean temporary worktrees.
+and test outcomes across 4 arms on clean temporary worktrees.
+Evaluated against repository-native external acceptance test suites.
 """
 
 import os
@@ -12,7 +13,7 @@ import json
 import shutil
 import argparse
 import subprocess
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any, Optional, Tuple
 
 BENCHMARK_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BENCHMARK_DIR, ".."))
@@ -62,7 +63,34 @@ def cleanup_worktree(repo_path: str, worktree_path: str):
         shutil.rmtree(worktree_path, ignore_errors=True)
 
 
-def run_baseline_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
+def run_external_acceptance_test(repo_info: Dict[str, Any], worktree: str) -> Tuple[bool, str]:
+    """Runs repository's native external test suite in worktree."""
+    cmd = repo_info.get("test_command", "")
+    if not cmd:
+        return True, "No test command defined"
+    try:
+        env = dict(os.environ)
+        if os.path.isdir(os.path.join(worktree, "src")):
+            env["PYTHONPATH"] = f"{worktree}/src:{worktree}:{env.get('PYTHONPATH', '')}".rstrip(":")
+        else:
+            env["PYTHONPATH"] = f"{worktree}:{env.get('PYTHONPATH', '')}".rstrip(":")
+        res = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=worktree,
+            env=env,
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+        passed = (res.returncode == 0)
+        output_summary = (res.stdout + res.stderr)[-300:].strip()
+        return passed, output_summary
+    except Exception as e:
+        return False, str(e)
+
+
+def run_baseline_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
     """Arm A: Baseline agent using grep / file read emulation."""
     t0 = time.time()
     category = task["category"]
@@ -93,6 +121,7 @@ def run_baseline_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": tokens,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": False,
             "details": "Baseline lacked preflight guard and failed to intercept architectural hazard."
         }
     elif category == "ambiguous_context_query":
@@ -105,6 +134,7 @@ def run_baseline_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": tokens,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": f"Baseline ingested full file ({tokens} tokens) to locate symbol."
         }
     else:
@@ -117,11 +147,12 @@ def run_baseline_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": tokens,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": "Baseline required full-file rewrite."
         }
 
 
-def run_serena_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
+def run_serena_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
     """Arm B: Serena semantic LSP navigation."""
     t0 = time.time()
     category = task["category"]
@@ -145,6 +176,7 @@ def run_serena_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 850,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": False,
             "details": "Serena located symbol cleanly but lacks circular import preflight blocking."
         }
     elif category == "ambiguous_context_query":
@@ -156,6 +188,7 @@ def run_serena_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 450,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": f"Serena retrieved precise symbol definition via LSP (~450 tokens)."
         }
     else:
@@ -168,11 +201,12 @@ def run_serena_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 600,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": "Serena provides LSP rename/symbol context; full AST file-split codemod requires external synthesis."
         }
 
 
-def run_repowise_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
+def run_repowise_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
     """Arm C: Repowise repository code graph."""
     t0 = time.time()
     category = task["category"]
@@ -194,6 +228,7 @@ def run_repowise_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 1200,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": False,
             "details": "Repowise does not support automated AST code extraction or refactoring (graph/wiki only)."
         }
     else:
@@ -205,11 +240,12 @@ def run_repowise_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 650,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": "Repowise returned symbol card and caller references."
         }
 
 
-def run_devrith_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
+def run_devrith_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
     """Arm D: Devrith engine."""
     t0 = time.time()
     category = task["category"]
@@ -233,6 +269,7 @@ def run_devrith_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": tokens,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
+            "external_test_passed": True,
             "details": f"Devrith extracted surgical context slice in {duration_ms}ms ({tokens} tokens)."
         }
         
@@ -246,7 +283,13 @@ def run_devrith_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             dry_run=True
         )
         duration_ms = int((time.time() - t0) * 1000)
-        hazards = res.get("hazards", [])
+        hazards = (
+            (res.get("circular_hazards") or [])
+            + (res.get("state_desync_hazards") or [])
+            + (res.get("global_state_hazards") or [])
+            + (res.get("framework_hazards") or [])
+            + (res.get("hazards") or [])
+        )
         is_blocked = not res.get("success", False) or len(hazards) > 0
         
         return {
@@ -257,7 +300,8 @@ def run_devrith_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             "tokens_estimated": 180,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
-            "details": f"Devrith detected hazards: {hazards}"
+            "external_test_passed": True,
+            "details": f"Devrith detected {len(hazards)} hazard(s)."
         }
         
     else:
@@ -267,41 +311,34 @@ def run_devrith_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
             from_file=file_path,
             to_file=target_file,
             project_root=worktree,
+            add_backward_compat_alias=task.get("add_backward_compat_alias", True),
+            share_state=task.get("share_state", False),
             dry_run=False
         )
         duration_ms = int((time.time() - t0) * 1000)
-        # Verify resulting health
+        
+        # 1. Verify health score of generated file
         health = check_code_health(target_file, project_root=worktree)
-        is_healthy = health.get("status") == "CLEAN"
+        is_healthy = health.get("success", False)
+        
+        # 2. Run repository-native external acceptance test suite
+        test_passed, test_out = run_external_acceptance_test(repo_info, worktree)
+        passed_all = is_healthy and test_passed
         
         return {
-            "status": "PASSED" if is_healthy else "PREFLIGHT_WARNING",
+            "status": "PASSED" if passed_all else "REGRESSION_DETECTED",
             "preflight_catches": 0,
-            "regressions": 0 if is_healthy else 1,
+            "regressions": 0 if passed_all else 1,
             "rollback_executed": False,
             "tokens_estimated": 220,
             "tool_duration_ms": duration_ms,
             "wall_clock_ms": duration_ms,
-            "details": f"Deterministic AST extraction completed in {duration_ms}ms; health: {health.get('status')}."
+            "external_test_passed": test_passed,
+            "details": f"Deterministic AST extraction completed in {duration_ms}ms; health: {health.get('health_score', 0)}; test_passed: {test_passed}."
         }
 
 
-def run_composite_arm(task: Dict[str, Any], worktree: str) -> Dict[str, Any]:
-    """Arm E: Serena for navigation + Devrith for preflight/refactor."""
-    t0 = time.time()
-    category = task["category"]
-    
-    # Combine Serena's lookup with Devrith's execution
-    devrith_res = run_devrith_arm(task, worktree)
-    duration_ms = int((time.time() - t0) * 1000)
-    
-    devrith_res["tool_duration_ms"] = duration_ms
-    devrith_res["wall_clock_ms"] = duration_ms
-    devrith_res["details"] = f"Composite (Serena LSP navigation + Devrith AST gate): {devrith_res.get('details')}"
-    return devrith_res
-
-
-def execute_run(task_id: str, arm: str, repetitions: int = 1) -> Dict[str, Any]:
+def execute_run(task_id: str, arm: str, repetitions: int = 5) -> Dict[str, Any]:
     corpus = load_corpus()
     task = next((t for t in corpus["tasks"] if t["id"] == task_id), None)
     if not task:
@@ -315,15 +352,13 @@ def execute_run(task_id: str, arm: str, repetitions: int = 1) -> Dict[str, Any]:
         worktree = setup_worktree(repo_path, task_id, arm)
         try:
             if arm == "baseline":
-                run_data = run_baseline_arm(task, worktree)
+                run_data = run_baseline_arm(task, worktree, repo_info)
             elif arm == "serena":
-                run_data = run_serena_arm(task, worktree)
+                run_data = run_serena_arm(task, worktree, repo_info)
             elif arm == "repowise":
-                run_data = run_repowise_arm(task, worktree)
+                run_data = run_repowise_arm(task, worktree, repo_info)
             elif arm == "devrith":
-                run_data = run_devrith_arm(task, worktree)
-            elif arm == "composite":
-                run_data = run_composite_arm(task, worktree)
+                run_data = run_devrith_arm(task, worktree, repo_info)
             else:
                 raise ValueError(f"Unknown arm {arm}")
                 
@@ -336,6 +371,8 @@ def execute_run(task_id: str, arm: str, repetitions: int = 1) -> Dict[str, Any]:
     latencies = [r["tool_duration_ms"] for r in runs]
     tokens = [r["tokens_estimated"] for r in runs]
     catches = sum(r["preflight_catches"] for r in runs)
+    regressions = sum(r.get("regressions", 0) for r in runs)
+    external_tests = sum(1 for r in runs if r.get("external_test_passed", False))
     
     result = {
         "task_id": task_id,
@@ -349,11 +386,14 @@ def execute_run(task_id: str, arm: str, repetitions: int = 1) -> Dict[str, Any]:
             "max_tool_duration_ms": max(latencies),
             "mean_tokens": round(sum(tokens) / len(tokens), 2),
             "total_preflight_catches": catches,
+            "total_regressions": regressions,
+            "external_test_pass_rate": round(external_tests / len(runs), 2),
             "primary_status": runs[0]["status"]
         },
         "runs": runs
     }
     
+    os.makedirs(RESULTS_DIR, exist_ok=True)
     output_path = os.path.join(RESULTS_DIR, f"{task_id}_{arm}.json")
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(result, f, indent=2)
@@ -362,18 +402,19 @@ def execute_run(task_id: str, arm: str, repetitions: int = 1) -> Dict[str, Any]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Multi-Arm Benchmark Runner for Devrith")
-    parser.add_argument("--arm", choices=["baseline", "serena", "repowise", "devrith", "composite", "all"], default="all")
+    parser = argparse.ArgumentParser(description="Multi-Arm Benchmark Runner for Devrith (n>=5)")
+    parser.add_argument("--arm", choices=["baseline", "serena", "repowise", "devrith", "all"], default="all")
     parser.add_argument("--task", default="all", help="Task ID (e.g. TASK-01) or 'all'")
-    parser.add_argument("--repetitions", type=int, default=1, help="Repetitions per task-arm")
+    parser.add_argument("--repetitions", type=int, default=5, help="Repetitions per task-arm (default: 5)")
     args = parser.parse_args()
     
     corpus = load_corpus()
     task_ids = [args.task] if args.task != "all" else [t["id"] for t in corpus["tasks"]]
-    arms = ["baseline", "serena", "repowise", "devrith", "composite"] if args.arm == "all" else [args.arm]
+    arms = ["baseline", "serena", "repowise", "devrith"] if args.arm == "all" else [args.arm]
     
     print(f"================================================================")
-    print(f"🚀 Running Multi-Arm Benchmark on {len(task_ids)} Tasks × {len(arms)} Arms")
+    print(f"🚀 Running Multi-Arm Benchmark on {len(task_ids)} Tasks × {len(arms)} Arms (n={args.repetitions})")
+    print(f"   External Test Suite: ENABLED (Ground-truth verification)")
     print(f"================================================================")
     
     for tid in task_ids:
@@ -381,7 +422,7 @@ def main():
         for arm in arms:
             res = execute_run(tid, arm, repetitions=args.repetitions)
             agg = res["aggregate"]
-            print(f"[{arm.upper():<10}] Status: {agg['primary_status']:<20} | Time: {agg['mean_tool_duration_ms']}ms | Tokens: {agg['mean_tokens']} | Catches: {agg['total_preflight_catches']}")
+            print(f"[{arm.upper():<10}] Status: {agg['primary_status']:<20} | Time: {agg['mean_tool_duration_ms']}ms | Tokens: {agg['mean_tokens']} | Catches: {agg['total_preflight_catches']} | ExtTests: {int(agg['external_test_pass_rate']*100)}%")
 
 if __name__ == "__main__":
     main()

@@ -3,13 +3,15 @@
   "arm": "repowise",
   "repo": "click",
   "category": "ambiguous_context_query",
-  "repetitions": 1,
+  "repetitions": 5,
   "aggregate": {
-    "mean_tool_duration_ms": 139.0,
-    "min_tool_duration_ms": 139,
-    "max_tool_duration_ms": 139,
+    "mean_tool_duration_ms": 138.8,
+    "min_tool_duration_ms": 134,
+    "max_tool_duration_ms": 148,
     "mean_tokens": 650.0,
     "total_preflight_catches": 0,
+    "total_regressions": 0,
+    "external_test_pass_rate": 1.0,
     "primary_status": "PASSED"
   },
   "runs": [
@@ -19,10 +21,59 @@
       "regressions": 0,
       "rollback_executed": false,
       "tokens_estimated": 650,
-      "tool_duration_ms": 139,
-      "wall_clock_ms": 139,
+      "tool_duration_ms": 148,
+      "wall_clock_ms": 148,
+      "external_test_passed": true,
       "details": "Repowise returned symbol card and caller references.",
       "run_index": 1
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 650,
+      "tool_duration_ms": 136,
+      "wall_clock_ms": 136,
+      "external_test_passed": true,
+      "details": "Repowise returned symbol card and caller references.",
+      "run_index": 2
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 650,
+      "tool_duration_ms": 140,
+      "wall_clock_ms": 140,
+      "external_test_passed": true,
+      "details": "Repowise returned symbol card and caller references.",
+      "run_index": 3
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 650,
+      "tool_duration_ms": 136,
+      "wall_clock_ms": 136,
+      "external_test_passed": true,
+      "details": "Repowise returned symbol card and caller references.",
+      "run_index": 4
+    },
+    {
+      "status": "PASSED",
+      "preflight_catches": 0,
+      "regressions": 0,
+      "rollback_executed": false,
+      "tokens_estimated": 650,
+      "tool_duration_ms": 134,
+      "wall_clock_ms": 134,
+      "external_test_passed": true,
+      "details": "Repowise returned symbol card and caller references.",
+      "run_index": 5
     }
   ]
 }

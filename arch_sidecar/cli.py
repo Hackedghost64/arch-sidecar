@@ -369,7 +369,7 @@ def main():
     elif args.command == "decouple":
         sym_list = [s.strip() for s in args.symbols.split(",")]
         ext = os.path.splitext(args.from_file)[1].lower()
-        if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs"):
+        if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java"):
             res = decouple_polyglot_symbol(
                 symbol=sym_list[0],
                 from_file=args.from_file,

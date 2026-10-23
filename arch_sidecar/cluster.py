@@ -21,7 +21,14 @@ from .guard import resolve_local_module_path
 from .ts_ast import parse_ts_js_ast, resolve_ts_import_path, find_tsconfig
 from .go_ast import parse_go_ast
 from .rust_ast import parse_rust_ast
-from .polyglot_resolver import resolve_go_import_path, resolve_rust_import_path
+from .dart_ast import parse_dart_ast
+from .jvm_ast import parse_jvm_ast
+from .polyglot_resolver import (
+    resolve_go_import_path,
+    resolve_rust_import_path,
+    resolve_dart_import_path,
+    resolve_jvm_import_path,
+)
 
 
 class DependencyGraph:
@@ -107,6 +114,23 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                     with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
                         lines = fh.readlines()
                     graph.add_module(rel, len(lines), "rust")
+                    file_map[full_p] = rel
+                except Exception:
+                    pass
+            elif ext_lower == ".dart":
+                try:
+                    with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                        lines = fh.readlines()
+                    graph.add_module(rel, len(lines), "dart")
+                    file_map[full_p] = rel
+                except Exception:
+                    pass
+            elif ext_lower in {".java", ".kt", ".kts"}:
+                try:
+                    with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                        lines = fh.readlines()
+                    lang_name = "kotlin" if ext_lower in {".kt", ".kts"} else "java"
+                    graph.add_module(rel, len(lines), lang_name)
                     file_map[full_p] = rel
                 except Exception:
                     pass
@@ -222,6 +246,30 @@ def build_repository_dependency_graph(root_dir: str) -> DependencyGraph:
                 parsed = parse_rust_ast(content, filename=full_p)
                 for imp in parsed.get("imports", []):
                     resolved = resolve_rust_import_path(imp["module"], full_p, root_abs)
+                    if resolved and resolved in file_map:
+                        graph.add_dependency(rel_src, file_map[resolved], [imp["module"]])
+            except Exception:
+                pass
+
+        elif lang == "dart":
+            try:
+                with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                    content = fh.read()
+                parsed = parse_dart_ast(content, filename=full_p)
+                for imp in parsed.get("imports", []):
+                    resolved = resolve_dart_import_path(imp["module"], full_p, root_abs)
+                    if resolved and resolved in file_map:
+                        graph.add_dependency(rel_src, file_map[resolved], [imp["module"]])
+            except Exception:
+                pass
+
+        elif lang in ("kotlin", "java", "jvm"):
+            try:
+                with open(full_p, "r", encoding="utf-8", errors="ignore") as fh:
+                    content = fh.read()
+                parsed = parse_jvm_ast(content, filename=full_p)
+                for imp in parsed.get("imports", []):
+                    resolved = resolve_jvm_import_path(imp["module"], full_p, root_abs)
                     if resolved and resolved in file_map:
                         graph.add_dependency(rel_src, file_map[resolved], [imp["module"]])
             except Exception:

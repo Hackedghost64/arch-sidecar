@@ -868,6 +868,143 @@ def check_code_health(
             "duration_ms": duration_ms
         }
 
+    # Dart preflight routing
+    if target_abs.endswith(".dart"):
+        from .dart_ast import parse_dart_ast
+        from .polyglot_resolver import (
+            check_dart_lexical_scope,
+            detect_dart_circular_imports,
+            resolve_dart_import_path,
+        )
+        parsed = parse_dart_ast(source, filename=target_abs)
+        dart_issues: List[Dict[str, Any]] = []
+
+        brace_balance = source.count("{") - source.count("}")
+        if brace_balance != 0:
+            dart_issues.append({
+                "severity": "ERROR",
+                "type": "UNBALANCED_BRACES",
+                "line": len(source.splitlines()),
+                "message": f"Dart source file '{rel_path}' has unbalanced braces (delta: {brace_balance}).",
+                "recommendation": "Check for unclosed class, function, or block curly braces."
+            })
+
+        # Local import resolution check
+        for imp in parsed.get("imports", []):
+            mod_uri = imp.get("module", "")
+            if mod_uri.startswith(("./", "../")) or not mod_uri.startswith(("dart:", "package:")):
+                resolved = resolve_dart_import_path(mod_uri, target_abs, root_abs)
+                if not resolved or not os.path.isfile(resolved):
+                    dart_issues.append({
+                        "severity": "ERROR",
+                        "type": "BROKEN_LOCAL_IMPORT",
+                        "line": imp.get("line", 1),
+                        "module": mod_uri,
+                        "message": f"Cannot resolve local Dart import '{mod_uri}' from '{rel_path}'.",
+                        "recommendation": "Verify relative path or file existence."
+                    })
+
+        # In-process lexical scope & undeclared identifier check
+        scope_issues = check_dart_lexical_scope(source, filename=rel_path)
+        for si in scope_issues:
+            dart_issues.append({
+                "severity": "ERROR",
+                "type": "UNDECLARED_SYMBOL_OR_UNIMPORTED_PACKAGE",
+                "line": 1,
+                "message": si,
+                "recommendation": "Import the package or declare the identifier."
+            })
+
+        # Dart circular import cycle check
+        cycles = detect_dart_circular_imports(root_abs)
+        for c in cycles:
+            dart_issues.append({
+                "severity": "ERROR",
+                "type": "CIRCULAR_IMPORT",
+                "line": 1,
+                "message": c["hazard"],
+                "recommendation": "Break the circular import dependency."
+            })
+
+        errors = sum(1 for i in dart_issues if i["severity"] == "ERROR")
+        warnings = sum(1 for i in dart_issues if i["severity"] == "WARNING")
+        health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        return {
+            "success": errors == 0,
+            "file": rel_path,
+            "language": "dart",
+            "health_score": health_score,
+            "total_issues": len(dart_issues),
+            "errors": errors,
+            "warnings": warnings,
+            "issues": dart_issues,
+            "duration_ms": duration_ms
+        }
+
+    # JVM (Kotlin & Java) preflight routing
+    if target_abs.endswith((".kt", ".kts", ".java")):
+        from .jvm_ast import parse_jvm_ast
+        from .polyglot_resolver import (
+            check_jvm_lexical_scope,
+            detect_jvm_circular_imports,
+            resolve_jvm_import_path,
+        )
+        is_kt = target_abs.endswith((".kt", ".kts"))
+        lang_name = "kotlin" if is_kt else "java"
+        parsed = parse_jvm_ast(source, filename=target_abs)
+        jvm_issues: List[Dict[str, Any]] = []
+
+        brace_balance = source.count("{") - source.count("}")
+        if brace_balance != 0:
+            jvm_issues.append({
+                "severity": "ERROR",
+                "type": "UNBALANCED_BRACES",
+                "line": len(source.splitlines()),
+                "message": f"{lang_name.capitalize()} source file '{rel_path}' has unbalanced braces (delta: {brace_balance}).",
+                "recommendation": "Check for unclosed class, function, or method curly braces."
+            })
+
+        # In-process lexical scope & undeclared identifier check
+        scope_issues = check_jvm_lexical_scope(source, filename=rel_path)
+        for si in scope_issues:
+            jvm_issues.append({
+                "severity": "ERROR",
+                "type": "UNDECLARED_SYMBOL_OR_UNRESOLVED_TYPE",
+                "line": 1,
+                "message": si,
+                "recommendation": "Import the package or declare the class/type."
+            })
+
+        # JVM package circular dependency check
+        cycles = detect_jvm_circular_imports(root_abs)
+        for c in cycles:
+            jvm_issues.append({
+                "severity": "ERROR",
+                "type": "CIRCULAR_IMPORT",
+                "line": 1,
+                "message": c["hazard"],
+                "recommendation": "Break the package circular dependency."
+            })
+
+        errors = sum(1 for i in jvm_issues if i["severity"] == "ERROR")
+        warnings = sum(1 for i in jvm_issues if i["severity"] == "WARNING")
+        health_score = max(0.0, round(100.0 - (errors * 25.0 + warnings * 5.0), 1))
+        duration_ms = round((time.perf_counter() - start_time) * 1000, 2)
+
+        return {
+            "success": errors == 0,
+            "file": rel_path,
+            "language": lang_name,
+            "health_score": health_score,
+            "total_issues": len(jvm_issues),
+            "errors": errors,
+            "warnings": warnings,
+            "issues": jvm_issues,
+            "duration_ms": duration_ms
+        }
+
     # 1. AST Syntax Check
     try:
         tree = ast.parse(source, filename=target_abs)

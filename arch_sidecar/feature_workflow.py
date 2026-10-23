@@ -14,6 +14,8 @@ from .session_logger import record_session
 from .ts_ast import parse_ts_js_ast
 from .go_ast import parse_go_ast
 from .rust_ast import parse_rust_ast
+from .dart_ast import parse_dart_ast
+from .jvm_ast import parse_jvm_ast
 
 
 STOPWORDS = {
@@ -198,9 +200,59 @@ def build_rust_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer
     return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
 
 
+def build_dart_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
+    parsed = parse_dart_ast("".join(lines), filename=rel_path)
+    imports = [f"import '{imp['module']}';" for imp in parsed.get("imports", [])[:15]]
+    symbols: Dict[str, Dict[str, Any]] = {}
+    for decl in parsed.get("declarations", []):
+        name = decl["name"]
+        s_line = decl.get("start_line", 1)
+        e_line = decl.get("end_line", 1)
+        raw_slice = lines[s_line - 1 : e_line]
+        numbered_code = "".join(f"{s_line + idx}: {line}" for idx, line in enumerate(raw_slice))
+        raw_code = "".join(raw_slice)
+        symbols[name] = {
+            "type": decl.get("kind", "function"),
+            "name": name,
+            "filename": rel_path,
+            "start_line": s_line,
+            "end_line": e_line,
+            "signature": decl.get("signature", name),
+            "code": raw_code,
+            "numbered_code": numbered_code,
+            "ast_node": None,
+        }
+    return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
+
+
+def build_jvm_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
+    parsed = parse_jvm_ast("".join(lines), filename=rel_path)
+    imports = [f"import {imp['module']};" for imp in parsed.get("imports", [])[:15]]
+    symbols: Dict[str, Dict[str, Any]] = {}
+    for decl in parsed.get("declarations", []):
+        name = decl["name"]
+        s_line = decl.get("start_line", 1)
+        e_line = decl.get("end_line", 1)
+        raw_slice = lines[s_line - 1 : e_line]
+        numbered_code = "".join(f"{s_line + idx}: {line}" for idx, line in enumerate(raw_slice))
+        raw_code = "".join(raw_slice)
+        symbols[name] = {
+            "type": decl.get("kind", "class" if "class" in decl.get("kind", "") else "method"),
+            "name": name,
+            "filename": rel_path,
+            "start_line": s_line,
+            "end_line": e_line,
+            "signature": decl.get("signature", name),
+            "code": raw_code,
+            "numbered_code": numbered_code,
+            "ast_node": None,
+        }
+    return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
+
+
 def classify_feature_intent(task: str) -> Dict[str, Any]:
     """
-    Step 1: Understand the requested change across Python, TypeScript, Go, and Rust.
+    Step 1: Understand the requested change across Python, TypeScript, Go, Rust, Dart, and JVM (Java/Kotlin).
     Extracts intent category, explicit file mentions, identifier tokens, and route/CLI patterns.
     """
     task_lower = task.lower()
@@ -215,13 +267,14 @@ def classify_feature_intent(task: str) -> Dict[str, Any]:
     else:
         category = "add_or_extend_function"
 
-    explicit_files = re.findall(r"[\w\-./]+\.(?:py|ts|tsx|js|jsx|go|rs)\b", task)
+    explicit_files = re.findall(r"[\w\-./]+\.(?:py|ts|tsx|js|jsx|go|rs|dart|kt|kts|java)\b", task)
     raw_tokens = re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", task)
     keywords = []
     seen = set()
+    polyglot_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java")
     for tok in raw_tokens:
         tok_low = tok.lower()
-        if tok_low not in STOPWORDS and not any(tok.endswith(ext) for ext in (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs")) and tok not in seen:
+        if tok_low not in STOPWORDS and not any(tok.endswith(ext) for ext in polyglot_exts) and tok not in seen:
             keywords.append(tok)
             seen.add(tok)
 
@@ -234,7 +287,7 @@ def classify_feature_intent(task: str) -> Dict[str, Any]:
 
 def detect_git_modified_source_files(root_abs: str) -> List[str]:
     """Detects modified or untracked source files in a git working tree relative to root_abs."""
-    valid_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs")
+    valid_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".dart", ".kt", ".kts", ".java")
     try:
         res = subprocess.run(
             ["git", "status", "--porcelain"],
@@ -307,7 +360,7 @@ def run_feature_workflow(
     source_files: List[Tuple[str, str]] = []
     test_files: List[Tuple[str, str]] = []
 
-    valid_source_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs")
+    valid_source_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".dart", ".java", ".kt", ".kts")
     for current_root, dirs, files in os.walk(root_abs):
         dirs[:] = [d for d in dirs if d not in DEFAULT_IGNORED_DIRS and not d.startswith(".")]
         for file in sorted(files):
@@ -329,6 +382,12 @@ def run_feature_workflow(
             elif ext == ".go" and file.endswith("_test.go"):
                 is_test = True
             elif ext == ".rs" and (file.endswith("_test.rs") or rel_low.startswith("tests/")):
+                is_test = True
+            elif ext == ".dart" and (file.endswith("_test.dart") or rel_low.startswith("test/")):
+                is_test = True
+            elif ext in (".kt", ".kts") and (file.endswith(("Test.kt", "Spec.kt", "Tests.kt")) or "test" in rel_low.split(os.sep)):
+                is_test = True
+            elif ext == ".java" and (file.endswith(("Test.java", "Tests.java", "TestCase.java")) or "test" in rel_low.split(os.sep)):
                 is_test = True
 
             if is_test:
@@ -364,6 +423,12 @@ def run_feature_workflow(
                 file_lines_map[rel_path] = lines
             elif ext == ".rs":
                 file_analyzers[rel_path] = build_rust_analyzer(rel_path, lines)
+                file_lines_map[rel_path] = lines
+            elif ext == ".dart":
+                file_analyzers[rel_path] = build_dart_analyzer(rel_path, lines)
+                file_lines_map[rel_path] = lines
+            elif ext in (".java", ".kt", ".kts"):
+                file_analyzers[rel_path] = build_jvm_analyzer(rel_path, lines)
                 file_lines_map[rel_path] = lines
         except Exception:
             continue
@@ -572,6 +637,29 @@ def run_feature_workflow(
         elif t_ext == ".rs":
             stem = os.path.splitext(os.path.basename(test_file))[0]
             inferred_test_cmd = f"cargo test --test {stem}"
+        elif t_ext == ".dart":
+            pubspec = os.path.join(root_abs, "pubspec.yaml")
+            is_flutter = False
+            if os.path.isfile(pubspec):
+                try:
+                    with open(pubspec, "r", encoding="utf-8") as pf:
+                        if "flutter:" in pf.read():
+                            is_flutter = True
+                except Exception:
+                    pass
+            inferred_test_cmd = f"flutter test {test_file}" if is_flutter else f"dart test {test_file}"
+        elif t_ext in (".kt", ".kts", ".java"):
+            gradlew = os.path.join(root_abs, "gradlew")
+            pom = os.path.join(root_abs, "pom.xml")
+            stem = os.path.splitext(os.path.basename(test_file))[0]
+            if os.path.isfile(gradlew):
+                inferred_test_cmd = f"./gradlew test --tests {stem}"
+            elif os.path.isfile(os.path.join(root_abs, "build.gradle")) or os.path.isfile(os.path.join(root_abs, "build.gradle.kts")):
+                inferred_test_cmd = f"gradle test --tests {stem}"
+            elif os.path.isfile(pom):
+                inferred_test_cmd = f"mvn test -Dtest={stem}"
+            else:
+                inferred_test_cmd = f"./gradlew test --tests {stem}"
 
     # 3d. Dynamic Reflection / Uncertainty in primary_file
     uncertainty_findings = []

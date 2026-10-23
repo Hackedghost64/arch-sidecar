@@ -7,6 +7,8 @@ from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary,
 from .ts_ast import format_ts_digest_skeleton
 from .go_ast import format_go_digest_skeleton
 from .rust_ast import format_rust_digest_skeleton
+from .dart_ast import format_dart_digest_skeleton
+from .jvm_ast import format_jvm_digest_skeleton
 
 def _format_arg(arg: ast.arg, default: Optional[ast.AST] = None) -> str:
     """Format an ast.arg with optional type annotation and default value."""
@@ -149,25 +151,12 @@ def parse_ts_js_file(filepath: str) -> str:
     return format_ts_digest_skeleton(filepath)
 
 def parse_jvm_file(filepath: str) -> str:
-    """Extract declarations and signatures from Kotlin (.kt) or Java (.java) files."""
-    summary: List[str] = []
-    keywords = [
-        "fun ", "suspend fun ", "data class ", "sealed class ", "enum class ",
-        "class ", "interface ", "record ", "object ", "companion object",
-        "public ", "private ", "protected ", "package ", "import "
-    ]
-    try:
-        with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
-            for line in f:
-                stripped = line.strip()
-                if stripped.startswith("//") or stripped.startswith("/*") or stripped.startswith("*"):
-                    continue
-                if any(stripped.startswith(k) or f" {k}" in stripped for k in keywords):
-                    clean = stripped.split("{")[0].strip()
-                    summary.append(f"  {clean}")
-    except Exception as e:
-        return f"  [Error reading JVM: {e}]\n"
-    return "\n".join(summary[:30]) + ("\n  ..." if len(summary) > 30 else "") + "\n"
+    """Extract declarations, packages, and imports from Java or Kotlin files."""
+    return format_jvm_digest_skeleton(filepath)
+
+def parse_dart_file(filepath: str) -> str:
+    """Extract declarations, classes, and directives from Dart files."""
+    return format_dart_digest_skeleton(filepath)
 
 def parse_c_cpp_file(filepath: str) -> str:
     """Extract declarations, structs, and definitions from C/C++ files."""
@@ -253,7 +242,7 @@ def generate_digest(
         ".ts", ".js", ".jsx", ".tsx",
         ".dart",
         ".go", ".rs",
-        ".java", ".kt",
+        ".java", ".kt", ".kts",
         ".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"
     }
 
@@ -267,7 +256,13 @@ def generate_digest(
                 output.append(parse_python_file(root_abs))
             elif ext.lower() in {".ts", ".js", ".tsx", ".jsx"}:
                 output.append(parse_ts_js_file(root_abs))
-            elif ext.lower() in {".java", ".kt"}:
+            elif ext.lower() == ".go":
+                output.append(parse_go_file(root_abs))
+            elif ext.lower() == ".rs":
+                output.append(parse_rust_file(root_abs))
+            elif ext.lower() == ".dart":
+                output.append(parse_dart_file(root_abs))
+            elif ext.lower() in {".java", ".kt", ".kts"}:
                 output.append(parse_jvm_file(root_abs))
             elif ext.lower() in {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"}:
                 output.append(parse_c_cpp_file(root_abs))
@@ -304,7 +299,13 @@ def generate_digest(
                     output.append(parse_python_file(full_path))
                 elif ext.lower() in {".ts", ".js", ".tsx", ".jsx"}:
                     output.append(parse_ts_js_file(full_path))
-                elif ext.lower() in {".java", ".kt"}:
+                elif ext.lower() == ".go":
+                    output.append(parse_go_file(full_path))
+                elif ext.lower() == ".rs":
+                    output.append(parse_rust_file(full_path))
+                elif ext.lower() == ".dart":
+                    output.append(parse_dart_file(full_path))
+                elif ext.lower() in {".java", ".kt", ".kts"}:
                     output.append(parse_jvm_file(full_path))
                 elif ext.lower() in {".c", ".h", ".cpp", ".hpp", ".cc", ".cxx"}:
                     output.append(parse_c_cpp_file(full_path))

@@ -26,6 +26,8 @@ from .decouple import prefactor_decouple
 from .ts_ast import parse_ts_js_ast
 from .go_ast import parse_go_ast
 from .rust_ast import parse_rust_ast
+from .dart_ast import parse_dart_ast
+from .jvm_ast import parse_jvm_ast
 from .guard import check_code_health
 
 
@@ -255,6 +257,95 @@ def decouple_polyglot_symbol(
                 with open(to_path, "w", encoding="utf-8") as f:
                     f.write(new_to_content)
 
+        # 5. Dart
+        elif ext == ".dart":
+            lang = "dart"
+            parsed = parse_dart_ast(from_source, filename=from_path)
+            matched = [d for d in parsed.get("declarations", []) if d["name"] == symbol]
+            if not matched:
+                rollback()
+                return {"success": False, "error": f"Symbol '{symbol}' not found in {from_path}"}
+            target_decl = matched[0]
+            symbol_start = target_decl["start_line"] - 1
+            symbol_end = target_decl["end_line"]
+            symbol_code = "".join(from_lines[symbol_start:symbol_end])
+
+            rel_import = os.path.relpath(to_path, os.path.dirname(from_path)).replace("\\", "/")
+            if not rel_import.startswith("."):
+                rel_import = "./" + rel_import
+
+            new_from_lines = from_lines[:symbol_start]
+            if add_backward_compat_alias:
+                new_from_lines.append(f"export '{rel_import}' show {symbol};\n")
+            new_from_lines.extend(from_lines[symbol_end:])
+
+            needed_dart_imports: List[str] = []
+            for imp in parsed.get("imports", []):
+                mod = imp["module"].split("/")[-1].replace(".dart", "")
+                if re.search(rf"\b{re.escape(mod)}\b", symbol_code):
+                    alias_str = f" as {imp['alias']}" if imp.get("alias") else ""
+                    needed_dart_imports.append(f"import '{imp['module']}'{alias_str};\n")
+
+            to_content = ""
+            if os.path.exists(to_path):
+                with open(to_path, "r", encoding="utf-8") as f:
+                    to_content = f.read()
+
+            import_header = "".join(needed_dart_imports)
+            if to_content:
+                new_to_content = to_content.rstrip() + "\n\n" + import_header + symbol_code.strip() + "\n"
+            else:
+                new_to_content = import_header + ("\n" if import_header else "") + symbol_code.strip() + "\n"
+
+            if not dry_run:
+                with open(from_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_from_lines)
+                os.makedirs(os.path.dirname(to_path), exist_ok=True)
+                with open(to_path, "w", encoding="utf-8") as f:
+                    f.write(new_to_content)
+
+        # 6. JVM (Kotlin & Java)
+        elif ext in (".kt", ".kts", ".java"):
+            is_kt = ext in (".kt", ".kts")
+            lang = "kotlin" if is_kt else "java"
+            parsed = parse_jvm_ast(from_source, filename=from_path)
+            matched = [d for d in parsed.get("declarations", []) if d["name"] == symbol]
+            if not matched:
+                rollback()
+                return {"success": False, "error": f"Symbol '{symbol}' not found in {from_path}"}
+            target_decl = matched[0]
+            symbol_start = target_decl["start_line"] - 1
+            symbol_end = target_decl["end_line"]
+            symbol_code = "".join(from_lines[symbol_start:symbol_end])
+
+            new_from_lines = from_lines[:symbol_start] + from_lines[symbol_end:]
+
+            pkg_name = parsed.get("package") or ""
+            needed_jvm_imports: List[str] = []
+            for imp in parsed.get("imports", []):
+                imp_tail = imp["module"].split(".")[-1].rstrip(";")
+                if re.search(rf"\b{re.escape(imp_tail)}\b", symbol_code):
+                    needed_jvm_imports.append(f"import {imp['module']};\n")
+
+            to_content = ""
+            if os.path.exists(to_path):
+                with open(to_path, "r", encoding="utf-8") as f:
+                    to_content = f.read()
+
+            import_header = "".join(needed_jvm_imports)
+            pkg_header = f"package {pkg_name};\n\n" if pkg_name else ""
+            if to_content:
+                new_to_content = to_content.rstrip() + "\n\n" + import_header + symbol_code.strip() + "\n"
+            else:
+                new_to_content = pkg_header + import_header + ("\n" if import_header else "") + symbol_code.strip() + "\n"
+
+            if not dry_run:
+                with open(from_path, "w", encoding="utf-8") as f:
+                    f.writelines(new_from_lines)
+                os.makedirs(os.path.dirname(to_path), exist_ok=True)
+                with open(to_path, "w", encoding="utf-8") as f:
+                    f.write(new_to_content)
+
         else:
             rollback()
             return {"success": False, "error": f"Unsupported language for decouple: {ext}"}
@@ -311,6 +402,8 @@ def decouple_polyglot_symbol(
         return {
             "success": True,
             "symbol": symbol,
+            "extracted_symbols": [symbol],
+            "execution_time_ms": duration_ms,
             "language": lang,
             "from_file": os.path.relpath(from_path, root_abs),
             "to_file": os.path.relpath(to_path, root_abs),

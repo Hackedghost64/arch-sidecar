@@ -6,6 +6,8 @@ from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, estimate_tokens
 from .ts_ast import parse_ts_js_ast
 from .go_ast import parse_go_ast
 from .rust_ast import parse_rust_ast
+from .dart_ast import parse_dart_ast
+from .jvm_ast import parse_jvm_ast
 
 class SymbolFinder(ast.NodeVisitor):
     def __init__(self, filename: str, lines: List[str]):
@@ -230,6 +232,55 @@ def locate_surgical_context(
         except (OSError, UnicodeDecodeError):
             pass
 
+    def _index_dart_file(rel_path: str, full_path: str):
+        all_source_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                content = file_obj.read()
+            parsed = parse_dart_ast(content, filename=rel_path)
+            imports = [f"import '{imp['module']}';" for imp in parsed.get("imports", [])[:10]]
+            file_imports_map[rel_path] = imports
+            for decl in parsed.get("declarations", []):
+                sym_name = decl["name"]
+                short_name = sym_name.split(".")[-1]
+                if sym_name in symbols_to_find or short_name in symbols_to_find or any(s.lower() in (sym_name.lower(), short_name.lower()) for s in symbols_to_find):
+                    matched_symbols[sym_name] = {
+                        "type": decl["kind"],
+                        "name": sym_name,
+                        "filename": rel_path,
+                        "start_line": decl.get("start_line", decl.get("line", 1)),
+                        "end_line": decl.get("end_line", decl.get("line", 1)),
+                        "code": decl.get("code", decl.get("signature", "")),
+                        "lang": "dart"
+                    }
+        except (OSError, UnicodeDecodeError):
+            pass
+
+    def _index_jvm_file(rel_path: str, full_path: str):
+        all_source_files.append((rel_path, full_path))
+        try:
+            with open(full_path, "r", encoding="utf-8", errors="ignore") as file_obj:
+                content = file_obj.read()
+            parsed = parse_jvm_ast(content, filename=rel_path)
+            imports = [f"import {imp['module']};" for imp in parsed.get("imports", [])[:10]]
+            file_imports_map[rel_path] = imports
+            lang = parsed.get("language", "kotlin" if rel_path.endswith((".kt", ".kts")) else "java")
+            for decl in parsed.get("declarations", []):
+                sym_name = decl["name"]
+                short_name = sym_name.split(".")[-1]
+                if sym_name in symbols_to_find or short_name in symbols_to_find or any(s.lower() in (sym_name.lower(), short_name.lower()) for s in symbols_to_find):
+                    matched_symbols[sym_name] = {
+                        "type": decl["kind"],
+                        "name": sym_name,
+                        "filename": rel_path,
+                        "start_line": decl.get("start_line", decl.get("line", 1)),
+                        "end_line": decl.get("end_line", decl.get("line", 1)),
+                        "code": decl.get("code", decl.get("signature", "")),
+                        "lang": lang
+                    }
+        except (OSError, UnicodeDecodeError):
+            pass
+
     def _index_source_file(rel_path: str, full_path: str):
         ext = os.path.splitext(rel_path)[1].lower()
         if ext == ".py":
@@ -240,6 +291,10 @@ def locate_surgical_context(
             _index_go_file(rel_path, full_path)
         elif ext == ".rs":
             _index_rs_file(rel_path, full_path)
+        elif ext == ".dart":
+            _index_dart_file(rel_path, full_path)
+        elif ext in (".java", ".kt", ".kts"):
+            _index_jvm_file(rel_path, full_path)
 
     # 1. First pass: find symbol definitions and imports
     if single_file_target:
@@ -252,7 +307,7 @@ def locate_surgical_context(
             ]
             for f in files:
                 ext = os.path.splitext(f)[1].lower()
-                if ext in (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs"):
+                if ext in (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".dart", ".java", ".kt", ".kts"):
                     full_path = os.path.join(root, f)
                     rel_path = os.path.relpath(full_path, root_abs)
                     if is_ignored_path(rel_path):

@@ -638,16 +638,34 @@ def run_feature_workflow(
             stem = os.path.splitext(os.path.basename(test_file))[0]
             inferred_test_cmd = f"cargo test --test {stem}"
         elif t_ext == ".dart":
-            pubspec = os.path.join(root_abs, "pubspec.yaml")
+            # Search upwards from test_file for nearest pubspec.yaml
+            test_full_p = os.path.join(root_abs, test_file)
+            cur_dir = os.path.dirname(test_full_p)
+            pkg_dir = root_abs
             is_flutter = False
-            if os.path.isfile(pubspec):
-                try:
-                    with open(pubspec, "r", encoding="utf-8") as pf:
-                        if "flutter:" in pf.read():
-                            is_flutter = True
-                except Exception:
-                    pass
-            inferred_test_cmd = f"flutter test {test_file}" if is_flutter else f"dart test {test_file}"
+            while cur_dir and len(cur_dir) >= len(root_abs):
+                cand_pub = os.path.join(cur_dir, "pubspec.yaml")
+                if os.path.isfile(cand_pub):
+                    pkg_dir = cur_dir
+                    try:
+                        with open(cand_pub, "r", encoding="utf-8") as pf:
+                            if "flutter:" in pf.read():
+                                is_flutter = True
+                    except Exception:
+                        pass
+                    break
+                parent = os.path.dirname(cur_dir)
+                if parent == cur_dir:
+                    break
+                cur_dir = parent
+
+            pkg_rel = os.path.relpath(pkg_dir, root_abs)
+            test_sub_rel = os.path.relpath(test_full_p, pkg_dir)
+            runner = "flutter test" if is_flutter else "dart test"
+            if pkg_rel and pkg_rel != ".":
+                inferred_test_cmd = f"cd {pkg_rel} && {runner} {test_sub_rel}"
+            else:
+                inferred_test_cmd = f"{runner} {test_sub_rel}"
         elif t_ext in (".kt", ".kts", ".java"):
             gradlew = os.path.join(root_abs, "gradlew")
             pom = os.path.join(root_abs, "pom.xml")

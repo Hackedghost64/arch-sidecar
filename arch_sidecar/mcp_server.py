@@ -2,7 +2,10 @@ import sys
 import json
 import os
 import traceback
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 from .digest import generate_digest
 from .context import locate_surgical_context
@@ -430,341 +433,380 @@ TOOLS = [
     }
 ]
 
+POLYGLOT_EXTS = frozenset({".ts", ".tsx", ".js", ".jsx", ".go", ".rs"})
+
+
+def _tool_feature_workflow(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    task = arguments["task"]
+    project_root = arguments.get("project_root", ".")
+    target_files = arguments.get("target_files")
+    target_symbols = arguments.get("target_symbols")
+    verify = arguments.get("verify", False)
+    test_command = arguments.get("test_command")
+    token_budget = arguments.get("token_budget", 3200)
+
+    res = run_feature_workflow(
+        task=task,
+        project_root=project_root,
+        target_files=target_files,
+        target_symbols=target_symbols,
+        verify=verify,
+        test_command=test_command,
+        token_budget=token_budget,
+    )
+    text_out = json.dumps(res, indent=2) if verify else res["context"]
+    return {
+        "content": [{"type": "text", "text": text_out}],
+        "isError": not res.get("success", False),
+    }
+
+
+def _tool_plan_adaptive_retrieval(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    task = arguments["task"]
+    root_dir = arguments.get("root_dir", ".")
+    target_symbols = arguments.get("target_symbols")
+    token_budget = arguments.get("token_budget", 3000)
+    strategy_override = arguments.get("strategy_override")
+    if strategy_override == "auto":
+        strategy_override = None
+
+    res = plan_adaptive_retrieval(
+        task=task,
+        root_dir=root_dir,
+        target_symbols=target_symbols,
+        token_budget=token_budget,
+        strategy_override=strategy_override,
+    )
+    return {
+        "content": [{"type": "text", "text": res["context"]}],
+        "isError": False,
+    }
+
+
+def _tool_get_architecture_digest(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    root_dir = arguments.get("root_dir", ".")
+    max_tokens = arguments.get("max_tokens", 4000)
+    res = generate_digest(root_dir=root_dir, max_tokens=max_tokens)
+    return {
+        "content": [{"type": "text", "text": res["digest"]}],
+        "isError": False,
+    }
+
+
+def _tool_locate_surgical_context(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    task = arguments["task"]
+    root_dir = arguments.get("root_dir", ".")
+    target_symbols = arguments.get("target_symbols")
+    res = locate_surgical_context(task=task, root_dir=root_dir, target_symbols=target_symbols)
+    return {
+        "content": [{"type": "text", "text": res["context"]}],
+        "isError": False,
+    }
+
+
+def _tool_scan_uncertainty(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    root_dir = arguments.get("root_dir", ".")
+    res = scan_codebase_uncertainty(root_dir=root_dir)
+    return {
+        "content": [{"type": "text", "text": json.dumps(res, indent=2)}],
+        "isError": False,
+    }
+
+
+def _tool_prefactor_decouple(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    symbol = arguments["symbol"]
+    from_file = arguments["from_file"]
+    to_file = arguments["to_file"]
+    project_root = arguments.get("project_root", ".")
+    run_tests = arguments.get("run_tests")
+    dry_run = arguments.get("dry_run", False)
+
+    ext = os.path.splitext(from_file)[1].lower()
+    if ext in POLYGLOT_EXTS:
+        sym_name = symbol if isinstance(symbol, str) else symbol[0]
+        res = decouple_polyglot_symbol(
+            symbol=sym_name,
+            from_file=from_file,
+            to_file=to_file,
+            project_root=project_root,
+            test_cmd=run_tests,
+            dry_run=dry_run,
+        )
+    else:
+        res = prefactor_decouple(
+            symbol=symbol,
+            from_file=from_file,
+            to_file=to_file,
+            project_root=project_root,
+            run_tests=run_tests,
+            dry_run=dry_run,
+        )
+    return {
+        "content": [{"type": "text", "text": json.dumps(res, indent=2)}],
+        "isError": not res.get("success", False),
+    }
+
+
+def _tool_execute_refactor_workflow(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    task = arguments["task"]
+    project_root = arguments.get("project_root", ".")
+    from_file = arguments.get("from_file")
+    to_file = arguments.get("to_file")
+    symbols = arguments.get("symbols")
+    test_command = arguments.get("test_command")
+    dry_run = arguments.get("dry_run", False)
+    token_budget = arguments.get("token_budget", 3000)
+
+    res = run_workflow(
+        task=task,
+        project_root=project_root,
+        from_file=from_file,
+        to_file=to_file,
+        symbols=symbols,
+        test_command=test_command,
+        dry_run=dry_run,
+        token_budget=token_budget,
+    )
+    return {
+        "content": [{"type": "text", "text": json.dumps(res, indent=2)}],
+        "isError": not res.get("success", False),
+    }
+
+
+def _tool_check_code_health(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    target_path = arguments["target_path"]
+    project_root = arguments.get("project_root", ".")
+    res = check_code_health(target_path=target_path, project_root=project_root)
+    return {
+        "content": [{"type": "text", "text": json.dumps(res, indent=2)}],
+        "isError": not res.get("success", False),
+    }
+
+
+def _tool_get_session_report(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    project_root = arguments.get("project_root")
+    limit = arguments.get("limit", 20)
+    fmt = arguments.get("format", "markdown")
+    summary = generate_session_summary(project_root=project_root, limit=limit)
+    if fmt == "json":
+        out_text = json.dumps(summary, indent=2, default=str)
+    elif fmt == "terminal":
+        out_text = format_session_report_terminal(summary)
+    else:
+        out_text = format_session_report_markdown(summary, project_filter=project_root)
+    return {
+        "content": [{"type": "text", "text": out_text}],
+        "isError": False,
+    }
+
+
+def _tool_export_test_report(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    output_path = arguments["output_path"]
+    project_root = arguments.get("project_root")
+    summary = generate_session_summary(project_root=project_root)
+    md_report = format_session_report_markdown(summary, project_filter=project_root)
+    os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as f:
+        f.write(md_report)
+    return {
+        "content": [
+            {
+                "type": "text",
+                "text": f"Successfully exported Devrith test report to {output_path} ({summary.get('total_sessions')} sessions recorded).",
+            }
+        ],
+        "isError": False,
+    }
+
+
+def _tool_get_subsystem_clusters(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    root_dir = arguments.get("root_dir", ".")
+    graph = build_repository_dependency_graph(root_dir)
+    clusters = partition_into_subsystems(graph, root_dir)
+    payload = {
+        "total_modules": len(graph.modules),
+        "total_dependencies": sum(len(deps) for deps in graph.edges.values()),
+        "total_clusters": len(clusters),
+        "clusters": [
+            {
+                "id": c.cluster_id,
+                "name": c.name,
+                "modules_count": len(c.modules),
+                "modules": c.modules[:15],
+                "cohesion": c.cohesion,
+                "afferent_coupling": c.afferent_coupling,
+                "efferent_coupling": c.efferent_coupling,
+                "instability": c.instability,
+            }
+            for c in clusters
+        ],
+    }
+    return {
+        "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
+        "isError": False,
+    }
+
+
+def _tool_predict_change_impact(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    target = arguments["target"]
+    root_dir = arguments.get("root_dir", ".")
+    graph = build_repository_dependency_graph(root_dir)
+    clusters = partition_into_subsystems(graph, root_dir)
+    impact = predict_change_impact(target, graph, clusters, root_dir)
+    payload = {
+        "target": target,
+        "target_file": impact.target_file,
+        "direct_callers_count": len(impact.direct_callers),
+        "direct_callers": impact.direct_callers,
+        "transitive_blast_radius_count": len(impact.transitive_blast_radius),
+        "transitive_blast_radius": impact.transitive_blast_radius[:25],
+        "affected_clusters": impact.affected_clusters,
+        "recommended_test_files": impact.recommended_test_files,
+        "risk_level": impact.risk_level,
+    }
+    return {
+        "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
+        "isError": False,
+    }
+
+
+def _tally_issue_metrics(issues: Any) -> Tuple[int, int, Dict[str, int]]:
+    errors = 0
+    warnings = 0
+    categories = {"complexity": 0, "anti_pattern": 0, "oop_cohesion": 0, "contract": 0}
+    for issue in issues:
+        if issue.severity == "error":
+            errors += 1
+        elif issue.severity == "warning":
+            warnings += 1
+        cat = issue.category
+        if cat in categories:
+            categories[cat] += 1
+    return errors, warnings, categories
+
+
+def _build_single_file_quality_report(issues: Any, strict: bool) -> QualityReport:
+    errors, warnings, categories = _tally_issue_metrics(issues)
+    is_clean = len(issues) == 0 if strict else (errors == 0)
+    score_deduction = (errors * 10) + (warnings * 2)
+    score_val = max(0.0, 100.0 - score_deduction)
+    return QualityReport(
+        total_files=1,
+        total_issues=len(issues),
+        error_count=errors,
+        warning_count=warnings,
+        clean=is_clean,
+        score=score_val,
+        issues=issues,
+        metrics={"categories": categories},
+    )
+
+
+def _tool_audit_code_quality(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    target_path = arguments.get("target_path", ".")
+    strict = arguments.get("strict", False)
+    abs_target = os.path.abspath(target_path)
+    if os.path.isfile(abs_target):
+        issues = audit_file(abs_target)
+        report = _build_single_file_quality_report(issues, strict)
+    else:
+        report = audit_repository(abs_target, strict=strict)
+
+    return {
+        "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
+        "isError": False,
+    }
+
+
+def _tool_audit_git_changes(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    repo_p = arguments.get("repo_path", ".")
+    staged = arguments.get("staged_only", False)
+    base = arguments.get("base_branch")
+    strict = arguments.get("strict", False)
+    report = audit_git_changeset(repo_p, staged_only=staged, base_branch=base, strict=strict)
+    return {
+        "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
+        "isError": False,
+    }
+
+
+def _tool_get_git_change_impact(arguments: Dict[str, Any]) -> Dict[str, Any]:
+    repo_p = arguments.get("repo_path", ".")
+    staged = arguments.get("staged_only", False)
+    base = arguments.get("base_branch", "main")
+    impact = analyze_git_change_impact(repo_p, staged_only=staged, base_branch=base)
+    return {
+        "content": [{"type": "text", "text": json.dumps(impact, indent=2)}],
+        "isError": False,
+    }
+
+
+_TOOL_HANDLERS = {
+    "feature_workflow": _tool_feature_workflow,
+    "plan_adaptive_retrieval": _tool_plan_adaptive_retrieval,
+    "get_architecture_digest": _tool_get_architecture_digest,
+    "locate_surgical_context": _tool_locate_surgical_context,
+    "scan_uncertainty": _tool_scan_uncertainty,
+    "prefactor_decouple": _tool_prefactor_decouple,
+    "execute_refactor_workflow": _tool_execute_refactor_workflow,
+    "check_code_health": _tool_check_code_health,
+    "get_session_report": _tool_get_session_report,
+    "export_test_report": _tool_export_test_report,
+    "get_subsystem_clusters": _tool_get_subsystem_clusters,
+    "predict_change_impact": _tool_predict_change_impact,
+    "audit_code_quality": _tool_audit_code_quality,
+    "audit_git_changes": _tool_audit_git_changes,
+    "get_git_change_impact": _tool_get_git_change_impact,
+}
+
+
 def handle_tool_call(name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        if name == "feature_workflow":
-            task = arguments["task"]
-            project_root = arguments.get("project_root", ".")
-            target_files = arguments.get("target_files")
-            target_symbols = arguments.get("target_symbols")
-            verify = arguments.get("verify", False)
-            test_command = arguments.get("test_command")
-            token_budget = arguments.get("token_budget", 3200)
-
-            res = run_feature_workflow(
-                task=task,
-                project_root=project_root,
-                target_files=target_files,
-                target_symbols=target_symbols,
-                verify=verify,
-                test_command=test_command,
-                token_budget=token_budget,
-            )
-            text_out = json.dumps(res, indent=2) if verify else res["context"]
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": text_out
-                    }
-                ],
-                "isError": not res.get("success", False)
-            }
-
-        elif name == "plan_adaptive_retrieval":
-            task = arguments["task"]
-            root_dir = arguments.get("root_dir", ".")
-            target_symbols = arguments.get("target_symbols")
-            token_budget = arguments.get("token_budget", 3000)
-            strategy_override = arguments.get("strategy_override")
-            if strategy_override == "auto":
-                strategy_override = None
-
-            res = plan_adaptive_retrieval(
-                task=task,
-                root_dir=root_dir,
-                target_symbols=target_symbols,
-                token_budget=token_budget,
-                strategy_override=strategy_override
-            )
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": res["context"]
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "get_architecture_digest":
-            root_dir = arguments.get("root_dir", ".")
-            max_tokens = arguments.get("max_tokens", 4000)
-            res = generate_digest(root_dir=root_dir, max_tokens=max_tokens)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": res["digest"]
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "locate_surgical_context":
-            task = arguments["task"]
-            root_dir = arguments.get("root_dir", ".")
-            target_symbols = arguments.get("target_symbols")
-            res = locate_surgical_context(task=task, root_dir=root_dir, target_symbols=target_symbols)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": res["context"]
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "scan_uncertainty":
-            root_dir = arguments.get("root_dir", ".")
-            res = scan_codebase_uncertainty(root_dir=root_dir)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(res, indent=2)
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "prefactor_decouple":
-            symbol = arguments["symbol"]
-            from_file = arguments["from_file"]
-            to_file = arguments["to_file"]
-            project_root = arguments.get("project_root", ".")
-            run_tests = arguments.get("run_tests")
-            dry_run = arguments.get("dry_run", False)
-
-            ext = os.path.splitext(from_file)[1].lower()
-            if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs"):
-                sym_name = symbol if isinstance(symbol, str) else symbol[0]
-                res = decouple_polyglot_symbol(
-                    symbol=sym_name,
-                    from_file=from_file,
-                    to_file=to_file,
-                    project_root=project_root,
-                    test_cmd=run_tests,
-                    dry_run=dry_run
-                )
-            else:
-                res = prefactor_decouple(
-                    symbol=symbol,
-                    from_file=from_file,
-                    to_file=to_file,
-                    project_root=project_root,
-                    run_tests=run_tests,
-                    dry_run=dry_run
-                )
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(res, indent=2)
-                    }
-                ],
-                "isError": not res.get("success", False)
-            }
-
-        elif name == "execute_refactor_workflow":
-            task = arguments["task"]
-            project_root = arguments.get("project_root", ".")
-            from_file = arguments.get("from_file")
-            to_file = arguments.get("to_file")
-            symbols = arguments.get("symbols")
-            test_command = arguments.get("test_command")
-            dry_run = arguments.get("dry_run", False)
-            token_budget = arguments.get("token_budget", 3000)
-
-            res = run_workflow(
-                task=task,
-                project_root=project_root,
-                from_file=from_file,
-                to_file=to_file,
-                symbols=symbols,
-                test_command=test_command,
-                dry_run=dry_run,
-                token_budget=token_budget
-            )
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(res, indent=2)
-                    }
-                ],
-                "isError": not res.get("success", False)
-            }
-
-        elif name == "check_code_health":
-            target_path = arguments["target_path"]
-            project_root = arguments.get("project_root", ".")
-            res = check_code_health(target_path=target_path, project_root=project_root)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": json.dumps(res, indent=2)
-                    }
-                ],
-                "isError": not res.get("success", False)
-            }
-
-        elif name == "get_session_report":
-            project_root = arguments.get("project_root")
-            limit = arguments.get("limit", 20)
-            fmt = arguments.get("format", "markdown")
-            summary = generate_session_summary(project_root=project_root, limit=limit)
-            if fmt == "json":
-                out_text = json.dumps(summary, indent=2, default=str)
-            elif fmt == "terminal":
-                out_text = format_session_report_terminal(summary)
-            else:
-                out_text = format_session_report_markdown(summary, project_filter=project_root)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": out_text
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "export_test_report":
-            output_path = arguments["output_path"]
-            project_root = arguments.get("project_root")
-            summary = generate_session_summary(project_root=project_root)
-            md_report = format_session_report_markdown(summary, project_filter=project_root)
-            os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(md_report)
-            return {
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f"Successfully exported Devrith test report to {output_path} ({summary.get('total_sessions')} sessions recorded)."
-                    }
-                ],
-                "isError": False
-            }
-
-        elif name == "get_subsystem_clusters":
-            root_dir = arguments.get("root_dir", ".")
-            graph = build_repository_dependency_graph(root_dir)
-            clusters = partition_into_subsystems(graph, root_dir)
-            payload = {
-                "total_modules": len(graph.modules),
-                "total_dependencies": sum(len(deps) for deps in graph.edges.values()),
-                "total_clusters": len(clusters),
-                "clusters": [
-                    {
-                        "id": c.cluster_id,
-                        "name": c.name,
-                        "modules_count": len(c.modules),
-                        "modules": c.modules[:15],
-                        "cohesion": c.cohesion,
-                        "afferent_coupling": c.afferent_coupling,
-                        "efferent_coupling": c.efferent_coupling,
-                        "instability": c.instability,
-                    }
-                    for c in clusters
-                ]
-            }
-            return {
-                "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
-                "isError": False
-            }
-
-        elif name == "predict_change_impact":
-            target = arguments["target"]
-            root_dir = arguments.get("root_dir", ".")
-            graph = build_repository_dependency_graph(root_dir)
-            clusters = partition_into_subsystems(graph, root_dir)
-            impact = predict_change_impact(target, graph, clusters, root_dir)
-            payload = {
-                "target": target,
-                "target_file": impact.target_file,
-                "direct_callers_count": len(impact.direct_callers),
-                "direct_callers": impact.direct_callers,
-                "transitive_blast_radius_count": len(impact.transitive_blast_radius),
-                "transitive_blast_radius": impact.transitive_blast_radius[:25],
-                "affected_clusters": impact.affected_clusters,
-                "recommended_test_files": impact.recommended_test_files,
-                "risk_level": impact.risk_level
-            }
-            return {
-                "content": [{"type": "text", "text": json.dumps(payload, indent=2)}],
-                "isError": False
-            }
-
-        elif name == "audit_code_quality":
-            target_path = arguments.get("target_path", ".")
-            strict = arguments.get("strict", False)
-            abs_target = os.path.abspath(target_path)
-            if os.path.isfile(abs_target):
-                issues = audit_file(abs_target)
-                report = QualityReport(
-                    total_files=1,
-                    total_issues=len(issues),
-                    error_count=sum(1 for i in issues if i.severity == "error"),
-                    warning_count=sum(1 for i in issues if i.severity == "warning"),
-                    clean=(len(issues) == 0 if strict else not any(i.severity == "error" for i in issues)),
-                    score=max(0.0, 100.0 - sum(10 if i.severity == "error" else 2 for i in issues)),
-                    issues=issues,
-                    metrics={
-                        "categories": {
-                            "complexity": sum(1 for i in issues if i.category == "complexity"),
-                            "anti_pattern": sum(1 for i in issues if i.category == "anti_pattern"),
-                            "oop_cohesion": sum(1 for i in issues if i.category == "oop_cohesion"),
-                            "contract": sum(1 for i in issues if i.category == "contract"),
-                        }
-                    }
-                )
-            else:
-                report = audit_repository(abs_target, strict=strict)
-
-            return {
-                "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
-                "isError": False
-            }
-
-        elif name == "audit_git_changes":
-            repo_p = arguments.get("repo_path", ".")
-            staged = arguments.get("staged_only", False)
-            base = arguments.get("base_branch")
-            strict = arguments.get("strict", False)
-            report = audit_git_changeset(repo_p, staged_only=staged, base_branch=base, strict=strict)
-            return {
-                "content": [{"type": "text", "text": json.dumps(report.to_dict(), indent=2)}],
-                "isError": False
-            }
-
-        elif name == "get_git_change_impact":
-            repo_p = arguments.get("repo_path", ".")
-            staged = arguments.get("staged_only", False)
-            base = arguments.get("base_branch", "main")
-            impact = analyze_git_change_impact(repo_p, staged_only=staged, base_branch=base)
-            return {
-                "content": [{"type": "text", "text": json.dumps(impact, indent=2)}],
-                "isError": False
-            }
-
-        else:
-            return {
-                "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
-                "isError": True
-            }
-
+        handler = _TOOL_HANDLERS.get(name)
+        if handler:
+            return handler(arguments)
+        return {
+            "content": [{"type": "text", "text": f"Unknown tool: {name}"}],
+            "isError": True,
+        }
     except Exception as e:
+        logger.error("Error executing %s: %s", name, e, exc_info=True)
         tb = traceback.format_exc()
         return {
             "content": [{"type": "text", "text": f"Error executing {name}: {str(e)}\n{tb}"}],
-            "isError": True
+            "isError": True,
         }
 
-def run_mcp_server():
+
+def _dispatch_mcp_request(
+    method: Optional[str],
+    params: Dict[str, Any],
+    req_id: Any,
+) -> Optional[Dict[str, Any]]:
+    if method == "notifications/initialized":
+        return None
+
+    response: Dict[str, Any] = {"jsonrpc": "2.0", "id": req_id}
+    if method == "initialize":
+        response["result"] = {
+            "protocolVersion": PROTOCOL_VERSION,
+            "capabilities": {"tools": {"listChanged": False}},
+            "serverInfo": {"name": SERVER_NAME, "version": SERVER_VERSION},
+        }
+    elif method == "tools/list":
+        response["result"] = {"tools": TOOLS}
+    elif method == "tools/call":
+        tool_name = params.get("name", "")
+        tool_args = params.get("arguments", {})
+        response["result"] = handle_tool_call(tool_name, tool_args)
+    elif method == "ping":
+        response["result"] = {}
+    else:
+        response["error"] = {"code": -32601, "message": f"Method not found: {method}"}
+    return response
+
+
+def run_mcp_server() -> None:
     """Runs standard stdio JSON-RPC MCP server."""
     for line in sys.stdin:
         line = line.strip()
@@ -775,48 +817,10 @@ def run_mcp_server():
         except json.JSONDecodeError:
             continue
 
-        req_id = req.get("id")
-        method = req.get("method")
-        params = req.get("params", {})
-
-        response: Dict[str, Any] = {
-            "jsonrpc": "2.0",
-            "id": req_id
-        }
-
-        if method == "initialize":
-            response["result"] = {
-                "protocolVersion": PROTOCOL_VERSION,
-                "capabilities": {
-                    "tools": {
-                        "listChanged": False
-                    }
-                },
-                "serverInfo": {
-                    "name": SERVER_NAME,
-                    "version": SERVER_VERSION
-                }
-            }
-        elif method == "notifications/initialized":
-            continue
-        elif method == "tools/list":
-            response["result"] = {
-                "tools": TOOLS
-            }
-        elif method == "tools/call":
-            tool_name = params.get("name")
-            tool_args = params.get("arguments", {})
-            response["result"] = handle_tool_call(tool_name, tool_args)
-        elif method == "ping":
-            response["result"] = {}
-        else:
-            response["error"] = {
-                "code": -32601,
-                "message": f"Method not found: {method}"
-            }
-
-        sys.stdout.write(json.dumps(response) + "\n")
-        sys.stdout.flush()
+        response = _dispatch_mcp_request(req.get("method"), req.get("params", {}), req.get("id"))
+        if response is not None:
+            sys.stdout.write(json.dumps(response) + "\n")
+            sys.stdout.flush()
 
 if __name__ == "__main__":
     run_mcp_server()

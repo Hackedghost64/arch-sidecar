@@ -2,10 +2,13 @@
 Usage: python3 grade.py > grades.json
 """
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
+
+logger = logging.getLogger(__name__)
 
 BASE = "/tmp/round3_runs"
 
@@ -19,6 +22,7 @@ def run_cmd(cmd, cwd, timeout=30):
         failed = int(failed_m.group(1)) if failed_m else 0
         return {"returncode": res.returncode, "passed": passed, "failed": failed, "output": out[-1000:]}
     except Exception as e:
+        logger.debug("Command failed: %s", e)
         return {"returncode": -1, "passed": 0, "failed": 0, "error": str(e)}
 
 def grade_f1_click(run_dir):

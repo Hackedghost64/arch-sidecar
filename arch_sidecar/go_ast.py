@@ -9,7 +9,53 @@ Provides:
 """
 
 import re
-from typing import Dict, List, Any
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+GO_FUNC_PAT = re.compile(r"^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s*\(")
+GO_TYPE_PAT = re.compile(r"^type\s+([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s+(struct|interface|[A-Za-z0-9_]+)")
+GO_CONST_PAT = re.compile(r"^(?:const|var)\s+([A-Za-z0-9_]+)\s*=")
+GO_GROUPED_BLOCK_START = re.compile(r"^(const|var)\s*\(")
+
+
+def _handle_go_escape(code: str, i: int, n: int) -> Tuple[str, int]:
+    """Extracts escaped character sequence inside string or rune."""
+    if i + 1 < n:
+        return code[i : i + 2], i + 2
+    return code[i], i + 1
+
+
+def _consume_go_comment(code: str, i: int, n: int) -> Tuple[Optional[str], int]:
+    """Extracts a comment replacement and advanced index, or (None, i) if not a comment."""
+    if i + 1 >= n or code[i] != "/":
+        return None, i
+    next_c = code[i + 1]
+    if next_c == "/":
+        newline_pos = code.find("\n", i)
+        if newline_pos == -1:
+            return "", n
+        return "\n", newline_pos + 1
+    if next_c == "*":
+        end_pos = code.find("*/", i + 2)
+        if end_pos == -1:
+            return "", n
+        newlines = code[i : end_pos + 2].count("\n")
+        return "\n" * newlines, end_pos + 2
+    return None, i
+
+
+def _handle_in_quote(
+    code: str, i: int, n: int, quote_char: str
+) -> Tuple[str, int, Optional[str]]:
+    """Handles parsing while inside a string, rune, or raw string."""
+    c = code[i]
+    if c == "\\" and quote_char in ('"', "'"):
+        chunk, next_i = _handle_go_escape(code, i, n)
+        return chunk, next_i, quote_char
+    new_quote = None if c == quote_char else quote_char
+    return c, i + 1, new_quote
 
 
 def strip_go_comments(code: str) -> str:
@@ -17,65 +63,245 @@ def strip_go_comments(code: str) -> str:
     output: List[str] = []
     i = 0
     n = len(code)
-    in_string = False
-    in_rune = False
-    in_raw_string = False
+    quote_char: Optional[str] = None
 
     while i < n:
         c = code[i]
-        # Check escape inside normal string
-        if (in_string or in_rune) and c == "\\":
-            output.append(c)
-            if i + 1 < n:
-                output.append(code[i + 1])
-                i += 2
-                continue
-            i += 1
+        if quote_char is not None:
+            chunk, i, quote_char = _handle_in_quote(code, i, n, quote_char)
+            output.append(chunk)
             continue
 
-        # Raw string literal `...`
-        if not in_string and not in_rune and c == "`":
-            in_raw_string = not in_raw_string
-            output.append(c)
-            i += 1
+        rep, next_i = _consume_go_comment(code, i, n)
+        if rep is not None:
+            output.append(rep)
+            i = next_i
             continue
 
-        # Double-quoted string "..."
-        if not in_raw_string and not in_rune and c == '"':
-            in_string = not in_string
-            output.append(c)
-            i += 1
-            continue
-
-        # Rune literal '...'
-        if not in_raw_string and not in_string and c == "'":
-            in_rune = not in_rune
-            output.append(c)
-            i += 1
-            continue
-
-        # Outside strings: check comments
-        if not in_string and not in_rune and not in_raw_string:
-            if c == "/" and i + 1 < n and code[i + 1] == "/":
-                newline_pos = code.find("\n", i)
-                if newline_pos == -1:
-                    break
-                output.append("\n")
-                i = newline_pos + 1
-                continue
-            elif c == "/" and i + 1 < n and code[i + 1] == "*":
-                end_pos = code.find("*/", i + 2)
-                if end_pos == -1:
-                    break
-                comment_newlines = code[i : end_pos + 2].count("\n")
-                output.append("\n" * comment_newlines)
-                i = end_pos + 2
-                continue
+        if c in ('"', "'", "`"):
+            quote_char = c
 
         output.append(c)
         i += 1
 
     return "".join(output)
+
+
+def _extract_go_package(lines: List[str]) -> str:
+    """Extracts package name from Go source lines."""
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("package "):
+            parts = stripped.split()
+            if len(parts) >= 2:
+                return parts[1].strip()
+            break
+    return ""
+
+
+def _parse_go_import_spec(stripped: str, line_no: int) -> Optional[Dict[str, Any]]:
+    """Extracts quoted module from an import line if present."""
+    m = re.search(r'["\']([^"\']+)["\']', stripped)
+    if m:
+        return {"module": m.group(1), "line": line_no}
+    return None
+
+
+def _handle_import_line(
+    stripped: str, in_block: bool, line_no: int
+) -> Tuple[bool, Optional[Dict[str, Any]]]:
+    """Updates import block state and extracts any import specifier."""
+    if stripped.startswith("import ("):
+        return True, None
+    if in_block and stripped == ")":
+        return False, None
+    if in_block:
+        return True, _parse_go_import_spec(stripped, line_no)
+    if stripped.startswith("import "):
+        return False, _parse_go_import_spec(stripped, line_no)
+    return False, None
+
+
+def _extract_go_imports(lines: List[str]) -> List[Dict[str, Any]]:
+    """Extracts imports list from Go source lines."""
+    imports: List[Dict[str, Any]] = []
+    in_block = False
+
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        in_block, imp = _handle_import_line(stripped, in_block, idx + 1)
+        if imp:
+            imports.append(imp)
+
+    return imports
+
+
+def _find_go_block_end(lines: List[str], start_idx: int) -> int:
+    """Finds ending line index for a brace-enclosed Go block."""
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        l = lines[j]
+        brace_count += l.count("{") - l.count("}")
+        if "{" in l:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+    return start_idx
+
+
+def _find_go_type_end(lines: List[str], start_idx: int) -> int:
+    """Finds ending line index for a Go type declaration (struct, interface, or alias)."""
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        l = lines[j]
+        brace_count += l.count("{") - l.count("}")
+        if "{" in l:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if not found_brace and j > start_idx and not l.startswith(("\t", " ")):
+            return j - 1
+    return start_idx
+
+
+def _parse_grouped_decl_line(stripped: str, kind: str, line_no: int) -> Optional[Dict[str, Any]]:
+    """Parses an entry inside a grouped var/const block."""
+    m_id = re.match(r"^([A-Za-z0-9_]+)", stripped)
+    if not m_id or m_id.group(1) == "_":
+        return None
+    name = m_id.group(1)
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": name[0].isupper() if name else False,
+        "signature": stripped,
+        "line": line_no,
+        "start_line": line_no,
+        "end_line": line_no,
+        "code": stripped,
+    }
+
+
+def _parse_go_func(lines: List[str], idx: int, stripped: str) -> Optional[Dict[str, Any]]:
+    """Parses a function or method definition."""
+    m_func = GO_FUNC_PAT.match(stripped)
+    if not m_func:
+        return None
+    name = m_func.group(1)
+    is_method = "(" in stripped[: stripped.find(name)]
+    kind = "method" if is_method else "function"
+    end_idx = _find_go_block_end(lines, idx)
+    decl_code = "".join(lines[idx : end_idx + 1])
+    sig = stripped.split("{")[0].strip()
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": name[0].isupper() if name else False,
+        "signature": sig,
+        "line": idx + 1,
+        "start_line": idx + 1,
+        "end_line": end_idx + 1,
+        "code": decl_code,
+    }
+
+
+def _parse_go_type(lines: List[str], idx: int, stripped: str) -> Optional[Dict[str, Any]]:
+    """Parses a type definition (struct, interface, or alias)."""
+    m_type = GO_TYPE_PAT.match(stripped)
+    if not m_type:
+        return None
+    name = m_type.group(1)
+    type_category = m_type.group(2)
+    kind = type_category if type_category in ("struct", "interface") else "type"
+    end_idx = _find_go_type_end(lines, idx)
+    decl_code = "".join(lines[idx : end_idx + 1])
+    sig = stripped.split("{")[0].strip()
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": name[0].isupper() if name else False,
+        "signature": sig,
+        "line": idx + 1,
+        "start_line": idx + 1,
+        "end_line": end_idx + 1,
+        "code": decl_code,
+    }
+
+
+def _parse_go_single_const_var(stripped: str, line_no: int, raw_line: str) -> Optional[Dict[str, Any]]:
+    """Parses a single top-level const or var line."""
+    m_const = GO_CONST_PAT.match(stripped)
+    if not m_const:
+        return None
+    name = m_const.group(1)
+    kind = "const" if stripped.startswith("const") else "var"
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": name[0].isupper() if name else False,
+        "signature": stripped,
+        "line": line_no,
+        "start_line": line_no,
+        "end_line": line_no,
+        "code": raw_line,
+    }
+
+
+def _parse_go_declaration(lines: List[str], idx: int, stripped: str, raw_line: str) -> Optional[Dict[str, Any]]:
+    """Tries parsing function, type, or single const/var declaration."""
+    fn_decl = _parse_go_func(lines, idx, stripped)
+    if fn_decl:
+        return fn_decl
+    type_decl = _parse_go_type(lines, idx, stripped)
+    if type_decl:
+        return type_decl
+    return _parse_go_single_const_var(stripped, idx + 1, raw_line)
+
+
+def _handle_grouped_block(
+    stripped: str,
+    grouped_kind: str,
+    idx: int,
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """Processes a line within a grouped const/var block."""
+    if stripped == ")":
+        return False, "", None
+    decl = _parse_grouped_decl_line(stripped, grouped_kind, idx + 1)
+    return True, grouped_kind, decl
+
+
+def _extract_go_declarations(lines: List[str]) -> List[Dict[str, Any]]:
+    """Extracts all top-level symbols from Go source lines."""
+    declarations: List[Dict[str, Any]] = []
+    in_grouped_block = False
+    grouped_kind = ""
+
+    for idx, line in enumerate(lines):
+        stripped = line.strip()
+        if not stripped:
+            continue
+
+        m_group = GO_GROUPED_BLOCK_START.match(stripped)
+        if m_group:
+            in_grouped_block = True
+            grouped_kind = m_group.group(1)
+            continue
+
+        if in_grouped_block:
+            in_grouped_block, grouped_kind, decl = _handle_grouped_block(
+                stripped, grouped_kind, idx
+            )
+            if decl:
+                declarations.append(decl)
+            continue
+
+        decl = _parse_go_declaration(lines, idx, stripped, line)
+        if decl:
+            declarations.append(decl)
+
+    return declarations
 
 
 def parse_go_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
@@ -88,173 +314,11 @@ def parse_go_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     clean_code = strip_go_comments(source_text)
     lines = clean_code.splitlines(keepends=True)
 
-    package_name = ""
-    imports: List[Dict[str, Any]] = []
-    declarations: List[Dict[str, Any]] = []
-
-    # 1. Package name
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("package "):
-            parts = stripped.split()
-            if len(parts) >= 2:
-                package_name = parts[1].strip()
-            break
-
-    # 2. Imports
-    in_import_block = False
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if stripped.startswith("import ("):
-            in_import_block = True
-            continue
-        if in_import_block:
-            if stripped == ")":
-                in_import_block = False
-            elif stripped:
-                imp_match = re.search(r'["\']([^"\']+)["\']', stripped)
-                if imp_match:
-                    imports.append({"module": imp_match.group(1), "line": idx + 1})
-            continue
-        if stripped.startswith("import ") and '"' in stripped:
-            imp_match = re.search(r'["\']([^"\']+)["\']', stripped)
-            if imp_match:
-                imports.append({"module": imp_match.group(1), "line": idx + 1})
-
-    # 3. Declarations (Functions, Methods, Types, Structs, Interfaces, Constants, Vars)
-    func_pat = re.compile(r"^func\s+(?:\((?:[^)]+)\)\s+)?([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s*\(")
-    type_pat = re.compile(r"^type\s+([A-Za-z0-9_]+)(?:\[[^\]]+\])?\s+(struct|interface|[A-Za-z0-9_]+)")
-    const_pat = re.compile(r"^(?:const|var)\s+([A-Za-z0-9_]+)\s*=")
-    grouped_block_start = re.compile(r"^(const|var)\s*\(")
-
-    in_grouped_block = False
-    grouped_kind = ""
-
-    for idx, line in enumerate(lines):
-        stripped = line.strip()
-        if not stripped:
-            continue
-
-        # Check grouped const/var block
-        m_group = grouped_block_start.match(stripped)
-        if m_group:
-            in_grouped_block = True
-            grouped_kind = m_group.group(1)
-            continue
-
-        if in_grouped_block:
-            if stripped == ")":
-                in_grouped_block = False
-                grouped_kind = ""
-                continue
-            # Extract identifier from line in grouped block
-            # e.g.: "Reset Attribute = iota", "Bold", "Status = 200", "mapReset map[...]"
-            m_id = re.match(r"^([A-Za-z0-9_]+)", stripped)
-            if m_id:
-                name = m_id.group(1)
-                if name != "_":
-                    declarations.append({
-                        "kind": grouped_kind,
-                        "name": name,
-                        "is_exported": name[0].isupper() if name else False,
-                        "signature": stripped,
-                        "line": idx + 1,
-                        "start_line": idx + 1,
-                        "end_line": idx + 1,
-                        "code": stripped,
-                    })
-            continue
-
-        # Function or Method (including generic functions func Foo[T any](...))
-        m_func = func_pat.match(stripped)
-        if m_func:
-            name = m_func.group(1)
-            is_method = "(" in stripped[: stripped.find(name)]
-            kind = "method" if is_method else "function"
-
-            brace_count = 0
-            found_brace = False
-            end_idx = idx
-            for j in range(idx, len(lines)):
-                l = lines[j]
-                brace_count += l.count("{") - l.count("}")
-                if "{" in l:
-                    found_brace = True
-                if found_brace and brace_count <= 0:
-                    end_idx = j
-                    break
-
-            decl_code = "".join(lines[idx : end_idx + 1])
-            sig = stripped.split("{")[0].strip()
-            declarations.append({
-                "kind": kind,
-                "name": name,
-                "is_exported": name[0].isupper() if name else False,
-                "signature": sig,
-                "line": idx + 1,
-                "start_line": idx + 1,
-                "end_line": end_idx + 1,
-                "code": decl_code,
-            })
-            continue
-
-        # Type (struct, interface, alias)
-        m_type = type_pat.match(stripped)
-        if m_type:
-            name = m_type.group(1)
-            type_category = m_type.group(2)
-            kind = type_category if type_category in ("struct", "interface") else "type"
-
-            brace_count = 0
-            found_brace = False
-            end_idx = idx
-            for j in range(idx, len(lines)):
-                l = lines[j]
-                brace_count += l.count("{") - l.count("}")
-                if "{" in l:
-                    found_brace = True
-                if found_brace and brace_count <= 0:
-                    end_idx = j
-                    break
-                if not found_brace and j > idx and not lines[j].startswith(("\t", " ")):
-                    end_idx = j - 1
-                    break
-
-            decl_code = "".join(lines[idx : end_idx + 1])
-            sig = stripped.split("{")[0].strip()
-            declarations.append({
-                "kind": kind,
-                "name": name,
-                "is_exported": name[0].isupper() if name else False,
-                "signature": sig,
-                "line": idx + 1,
-                "start_line": idx + 1,
-                "end_line": end_idx + 1,
-                "code": decl_code,
-            })
-            continue
-
-        # Top-level const or var
-        m_const = const_pat.match(stripped)
-        if m_const:
-            name = m_const.group(1)
-            kind = "const" if stripped.startswith("const") else "var"
-            declarations.append({
-                "kind": kind,
-                "name": name,
-                "is_exported": name[0].isupper() if name else False,
-                "signature": stripped,
-                "line": idx + 1,
-                "start_line": idx + 1,
-                "end_line": idx + 1,
-                "code": line,
-            })
-
     return {
         "filename": filename,
-        "package": package_name,
-        "imports": imports,
-        "declarations": declarations,
+        "package": _extract_go_package(lines),
+        "imports": _extract_go_imports(lines),
+        "declarations": _extract_go_declarations(lines),
         "total_lines": len(lines),
     }
 

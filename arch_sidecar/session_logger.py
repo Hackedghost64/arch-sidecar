@@ -165,6 +165,46 @@ def _write_session_records(record: Dict[str, Any], root_abs: str) -> None:
         logger.debug("Failed writing project session to %s: %s", root_abs, e)
 
 
+def _resolve_project_context(project_root: str) -> Tuple[str, str]:
+    if os.path.exists(project_root):
+        root_abs = os.path.abspath(project_root)
+    else:
+        root_abs = os.getcwd()
+    project_name = os.path.basename(root_abs) if root_abs else "unknown"
+    return root_abs, project_name
+
+
+def _assemble_record_header(session_id: str, command: str, task: str, root_abs: str, project_name: str) -> Dict[str, Any]:
+    return {
+        "session_id": session_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "command": command,
+        "task": task,
+        "project_root": root_abs,
+        "project_name": project_name,
+        "git": _get_git_info(root_abs),
+    }
+
+
+def _assemble_execution_info(success: bool, duration_ms: float, mode: Optional[str], target_files: Optional[List[str]], target_symbols: Optional[List[str]]) -> Dict[str, Any]:
+    return {
+        "success": success,
+        "duration_ms": round(duration_ms, 2),
+        "mode": mode if mode is not None else "default",
+        "target_files": target_files if target_files is not None else [],
+        "target_symbols": target_symbols if target_symbols is not None else [],
+    }
+
+
+def _assemble_verification_info(tokens: Optional[int], preflight: Any, test_run: Any, ledger: Any) -> Dict[str, Any]:
+    return {
+        "estimated_tokens": tokens,
+        "preflight": _sanitize_preflight(preflight),
+        "test_run": _sanitize_test_run(test_run),
+        "verification_ledger": _sanitize_ledger(ledger),
+    }
+
+
 def record_session(
     command: str,
     task: str,
@@ -192,26 +232,11 @@ def record_session(
 
     try:
         session_id = f"sess_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}"
-        root_abs = os.path.abspath(project_root) if os.path.exists(project_root) else os.getcwd()
-        project_name = os.path.basename(root_abs) if root_abs else "unknown"
-
-        record = {
-            "session_id": session_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-            "command": command,
-            "task": task,
-            "project_root": root_abs,
-            "project_name": project_name,
-            "git": _get_git_info(root_abs),
-            "success": success,
-            "duration_ms": round(duration_ms, 2),
-            "mode": mode or "default",
-            "target_files": target_files or [],
-            "target_symbols": target_symbols or [],
-            "estimated_tokens": estimated_tokens,
-            "preflight": _sanitize_preflight(preflight),
-            "test_run": _sanitize_test_run(test_run),
-            "verification_ledger": _sanitize_ledger(verification_ledger),
+        root_abs, project_name = _resolve_project_context(project_root)
+        header = _assemble_record_header(session_id, command, task, root_abs, project_name)
+        exec_info = _assemble_execution_info(success, duration_ms, mode, target_files, target_symbols)
+        verif_info = _assemble_verification_info(estimated_tokens, preflight, test_run, verification_ledger)
+        meta_info = {
             "error": str(error) if error else None,
             "caller": caller,
             "env": {
@@ -219,8 +244,9 @@ def record_session(
                 "os": platform.system().lower(),
                 "sidecar_version": "0.4.0",
             },
-            "extra": extra or {},
+            "extra": extra if extra is not None else {},
         }
+        record = {**header, **exec_info, **verif_info, **meta_info}
 
         _write_session_records(record, root_abs)
         return session_id
@@ -328,10 +354,74 @@ def load_sessions(
         return records[:limit]
     return records
 
-    if limit and limit > 0:
-        records = records[:limit]
 
-    return records
+def _empty_session_summary() -> Dict[str, Any]:
+    return {
+        "total_sessions": 0,
+        "success_rate_percent": 0.0,
+        "avg_duration_ms": 0.0,
+        "commands": {},
+        "projects": {},
+        "verification_stats": {
+            "verified_runs": 0,
+            "preflight_errors_caught": 0,
+            "tests_passed": 0,
+            "tests_failed": 0,
+        },
+        "recent_sessions": [],
+    }
+
+
+def _extract_verification_delta(s: Dict[str, Any]) -> Tuple[int, int, int, int]:
+    pf = s.get("preflight")
+    errors = pf.get("errors", 0) if isinstance(pf, dict) else 0
+
+    tr = s.get("test_run")
+    passed = tr.get("passed_count", 0) if isinstance(tr, dict) else 0
+    failed = tr.get("failed_count", 0) if isinstance(tr, dict) else 0
+
+    vl = s.get("verification_ledger")
+    is_verified = (
+        isinstance(vl, dict)
+        and vl.get("statically_verified_count", 0) > 0
+        and bool(s.get("success"))
+    )
+    verified = 1 if is_verified else 0
+    return errors, passed, failed, verified
+
+
+def _aggregate_session_metrics(sessions: List[Dict[str, Any]]) -> Dict[str, Any]:
+    cmds: Dict[str, int] = {}
+    projs: Dict[str, int] = {}
+    tokens = 0
+    errors = 0
+    passed = 0
+    failed = 0
+    verified = 0
+
+    for s in sessions:
+        cmd = s.get("command", "unknown")
+        cmds[cmd] = cmds.get(cmd, 0) + 1
+        proj = s.get("project_name", "unknown")
+        projs[proj] = projs.get(proj, 0) + 1
+        toks = s.get("estimated_tokens")
+        if toks:
+            tokens += toks
+        e, p, f, v = _extract_verification_delta(s)
+        errors += e
+        passed += p
+        failed += f
+        verified += v
+
+    return {
+        "commands": cmds,
+        "projects": projs,
+        "tokens": tokens,
+        "errors": errors,
+        "passed": passed,
+        "failed": failed,
+        "verified": verified,
+    }
 
 
 def generate_session_summary(
@@ -344,57 +434,13 @@ def generate_session_summary(
     sessions = load_sessions(project_root=project_root, limit=limit)
     total = len(sessions)
     if total == 0:
-        return {
-            "total_sessions": 0,
-            "success_rate_percent": 0.0,
-            "avg_duration_ms": 0.0,
-            "commands": {},
-            "projects": {},
-            "verification_stats": {
-                "verified_runs": 0,
-                "preflight_errors_caught": 0,
-                "tests_passed": 0,
-                "tests_failed": 0,
-            },
-            "recent_sessions": [],
-        }
+        return _empty_session_summary()
 
     success_count = sum(1 for s in sessions if s.get("success"))
     durations = [s.get("duration_ms", 0) for s in sessions if s.get("duration_ms")]
     avg_dur = round(sum(durations) / len(durations), 2) if durations else 0.0
 
-    commands_count: Dict[str, int] = {}
-    projects_count: Dict[str, int] = {}
-    verified_runs = 0
-    preflight_errors_caught = 0
-    tests_passed = 0
-    tests_failed = 0
-    total_tokens = 0
-
-    for s in sessions:
-        cmd = s.get("command", "unknown")
-        commands_count[cmd] = commands_count.get(cmd, 0) + 1
-
-        proj = s.get("project_name", "unknown")
-        projects_count[proj] = projects_count.get(proj, 0) + 1
-
-        toks = s.get("estimated_tokens")
-        if toks:
-            total_tokens += toks
-
-        pf = s.get("preflight")
-        if pf and isinstance(pf, dict):
-            preflight_errors_caught += pf.get("errors", 0)
-
-        tr = s.get("test_run")
-        if tr and isinstance(tr, dict):
-            tests_passed += tr.get("passed_count", 0)
-            tests_failed += tr.get("failed_count", 0)
-
-        vl = s.get("verification_ledger")
-        if vl and isinstance(vl, dict):
-            if vl.get("statically_verified_count", 0) > 0 and s.get("success"):
-                verified_runs += 1
+    metrics = _aggregate_session_metrics(sessions)
 
     return {
         "total_sessions": total,
@@ -402,17 +448,65 @@ def generate_session_summary(
         "failed_count": total - success_count,
         "success_rate_percent": round((success_count / total) * 100, 1),
         "avg_duration_ms": avg_dur,
-        "total_tokens_estimated": total_tokens,
-        "commands": commands_count,
-        "projects": projects_count,
+        "total_tokens_estimated": metrics["tokens"],
+        "commands": metrics["commands"],
+        "projects": metrics["projects"],
         "verification_stats": {
-            "verified_runs": verified_runs,
-            "preflight_errors_caught": preflight_errors_caught,
-            "tests_passed": tests_passed,
-            "tests_failed": tests_failed,
+            "verified_runs": metrics["verified"],
+            "preflight_errors_caught": metrics["errors"],
+            "tests_passed": metrics["passed"],
+            "tests_failed": metrics["failed"],
         },
         "recent_sessions": sessions[:10],
     }
+
+
+def _format_markdown_cmd_table(cmds: Dict[str, int], total: int) -> List[str]:
+    lines = [
+        "## 2. Command Distribution",
+        "",
+        "| Command | Invocations | Share |",
+        "|---|---:|---:|",
+    ]
+    for cmd, cnt in sorted(cmds.items(), key=lambda x: x[1], reverse=True):
+        share = round((cnt / total) * 100, 1)
+        lines.append(f"| `{cmd}` | {cnt} | {share}% |")
+    return lines
+
+
+def _format_markdown_proj_table(projs: Dict[str, int]) -> List[str]:
+    lines = [
+        "## 3. Repositories / Projects Tested",
+        "",
+        "| Repository / Path | Sessions |",
+        "|---|---:|",
+    ]
+    for p, cnt in sorted(projs.items(), key=lambda x: x[1], reverse=True):
+        lines.append(f"| `{p}` | {cnt} |")
+    return lines
+
+
+def _format_markdown_recent_row(s: Dict[str, Any]) -> str:
+    ts = s.get("timestamp", "").replace("T", " ")[:19]
+    cmd = s.get("command", "")
+    proj = s.get("project_name", "")
+    task_raw = s.get("task") or ""
+    task_str = (task_raw[:45] + "...") if len(task_raw) > 45 else task_raw
+    lat = f"{s.get('duration_ms', 0)}ms"
+    status = "✅ PASS" if s.get("success") else "❌ FAIL"
+    return f"| {ts} | `{cmd}` | `{proj}` | {task_str} | {lat} | {status} |"
+
+
+def _format_markdown_recent_table(recent_sessions: List[Dict[str, Any]]) -> List[str]:
+    lines = [
+        "## 4. Recent Execution Sessions",
+        "",
+        "| Timestamp | Command | Project | Task | Latency | Status |",
+        "|---|---|---|---|---:|:---:|",
+    ]
+    for s in recent_sessions:
+        lines.append(_format_markdown_recent_row(s))
+    return lines
 
 
 def format_session_report_markdown(summary: Dict[str, Any], project_filter: Optional[str] = None) -> str:
@@ -427,10 +521,11 @@ def format_session_report_markdown(summary: Dict[str, Any], project_filter: Opti
     vstats = summary.get("verification_stats", {})
     cmds = summary.get("commands", {})
     projs = summary.get("projects", {})
+    scope_name = project_filter if project_filter else "All Projects"
 
     lines = [
         "# 📊 Devrith Real-World Test & Telemetry Report",
-        f"**Scope:** {project_filter or 'All Projects'} | **Total Runs Recorded:** {total} | **Success Rate:** {summary.get('success_rate_percent')}%",
+        f"**Scope:** {scope_name} | **Total Runs Recorded:** {total} | **Success Rate:** {summary.get('success_rate_percent')}%",
         "",
         "## 1. High-Level Metrics",
         "",
@@ -443,46 +538,12 @@ def format_session_report_markdown(summary: Dict[str, Any], project_filter: Opti
         f"| **Automated Tests Passed** | `{vstats.get('tests_passed', 0)}` | Pytest assertions verified green |",
         f"| **Verified Completed Runs** | `{vstats.get('verified_runs', 0)}` | Compiler-grade preflight + test gates confirmed |",
         "",
-        "## 2. Command Distribution",
-        "",
-        "| Command | Invocations | Share |",
-        "|---|---:|---:|",
     ]
-
-    for cmd, cnt in sorted(cmds.items(), key=lambda x: x[1], reverse=True):
-        share = round((cnt / total) * 100, 1)
-        lines.append(f"| `{cmd}` | {cnt} | {share}% |")
-
-    lines.extend([
-        "",
-        "## 3. Repositories / Projects Tested",
-        "",
-        "| Repository / Path | Sessions |",
-        "|---|---:|",
-    ])
-
-    for p, cnt in sorted(projs.items(), key=lambda x: x[1], reverse=True):
-        lines.append(f"| `{p}` | {cnt} |")
-
-    lines.extend([
-        "",
-        "## 4. Recent Execution Sessions",
-        "",
-        "| Timestamp | Command | Project | Task | Latency | Status |",
-        "|---|---|---|---|---:|:---:|",
-    ])
-
-    for s in summary.get("recent_sessions", []):
-        ts = s.get("timestamp", "").replace("T", " ")[:19]
-        cmd = s.get("command", "")
-        proj = s.get("project_name", "")
-        task_str = (s.get("task") or "")[:45]
-        if len(s.get("task") or "") > 45:
-            task_str += "..."
-        lat = f"{s.get('duration_ms', 0)}ms"
-        status = "✅ PASS" if s.get("success") else "❌ FAIL"
-        lines.append(f"| {ts} | `{cmd}` | `{proj}` | {task_str} | {lat} | {status} |")
-
+    lines.extend(_format_markdown_cmd_table(cmds, total))
+    lines.append("")
+    lines.extend(_format_markdown_proj_table(projs))
+    lines.append("")
+    lines.extend(_format_markdown_recent_table(summary.get("recent_sessions", [])))
     lines.append("")
     return "\n".join(lines)
 

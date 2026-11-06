@@ -7,12 +7,29 @@ import json
 import statistics as st
 import sys
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Tuple
 
 BRAIN = "/home/divyam/.gemini/antigravity-cli/brain"
 
 
 def ts(s):
     return datetime.fromisoformat(s.replace("Z", "+00:00"))
+
+
+def _count_tool_calls(step: dict) -> Tuple[int, int]:
+    calls, sidecar = 0, 0
+    for c in step.get("tool_calls", []) or []:
+        calls += 1
+        dumped = json.dumps(c)
+        if "arch-sidecar" in dumped or "arch_sidecar" in dumped:
+            sidecar += 1
+    return calls, sidecar
+
+
+def _tool_result_chars(step: dict) -> int:
+    if step.get("type") not in ("PLANNER_RESPONSE", "USER_INPUT") and isinstance(step.get("content"), str):
+        return len(step["content"])
+    return 0
 
 
 def telemetry(conv_id):
@@ -24,12 +41,10 @@ def telemetry(conv_id):
     calls, sidecar_calls = 0, 0
     tool_result_chars = 0
     for s in steps:
-        for c in s.get("tool_calls", []) or []:
-            calls += 1
-            if "arch-sidecar" in json.dumps(c) or "arch_sidecar" in json.dumps(c):
-                sidecar_calls += 1
-        if s.get("type") not in ("PLANNER_RESPONSE", "USER_INPUT") and isinstance(s.get("content"), str):
-            tool_result_chars += len(s["content"])
+        c, sc = _count_tool_calls(s)
+        calls += c
+        sidecar_calls += sc
+        tool_result_chars += _tool_result_chars(s)
     times = [ts(s["created_at"]) for s in steps if s.get("created_at")]
     return {
         "input_tokens_uncached": inp,
@@ -45,7 +60,7 @@ def telemetry(conv_id):
     }
 
 
-def agg(vals):
+def agg(vals: List[Any]) -> Optional[Dict[str, Any]]:
     vals = [v for v in vals if v is not None]
     if not vals:
         return None

@@ -13,8 +13,11 @@ import json
 import math
 import shutil
 import ast
+import logging
 import subprocess
-from typing import Dict, List, Any, Tuple
+from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 BENCHMARK_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BENCHMARK_DIR, ".."))
@@ -85,28 +88,37 @@ REPOS = {
 }
 
 
+def _extract_symbols_from_file(full_path: str, rel_path: str, repo_key: str, remaining: int) -> List[Dict[str, str]]:
+    if not os.path.exists(full_path) or remaining <= 0:
+        return []
+    try:
+        with open(full_path, "r", encoding="utf-8") as f:
+            t = ast.parse(f.read(), filename=full_path)
+    except (SyntaxError, OSError) as e:
+        logger.debug("Failed parsing %s: %s", full_path, e)
+        return []
+
+    symbols = []
+    for n in t.body:
+        if isinstance(n, (ast.FunctionDef, ast.ClassDef)) and not n.name.startswith("__"):
+            symbols.append({"repo": repo_key, "file": rel_path, "symbol": n.name})
+            if len(symbols) >= remaining:
+                break
+    return symbols
+
+
 def harvest_symbols(repo_key: str, count: int = 20) -> List[Dict[str, str]]:
     conf = REPOS[repo_key]
     repo_path = conf["path"]
-    harvested = []
-    
+    harvested: List[Dict[str, str]] = []
+
     for rel_path in conf["files"]:
+        if len(harvested) >= count:
+            break
         full_path = os.path.join(repo_path, rel_path)
-        if not os.path.exists(full_path):
-            continue
-        try:
-            with open(full_path, "r", encoding="utf-8") as f:
-                t = ast.parse(f.read(), filename=full_path)
-            for n in t.body:
-                if isinstance(n, (ast.FunctionDef, ast.ClassDef)):
-                    if not n.name.startswith("__") and len(harvested) < count:
-                        harvested.append({
-                            "repo": repo_key,
-                            "file": rel_path,
-                            "symbol": n.name
-                        })
-        except Exception:
-            pass
+        symbols = _extract_symbols_from_file(full_path, rel_path, repo_key, count - len(harvested))
+        harvested.extend(symbols)
+
     return harvested
 
 
@@ -131,20 +143,50 @@ def setup_clean_worktree(repo_path: str, trial_id: str) -> str:
     return target
 
 
+def _run_oracle_verification(apply_res: Dict[str, Any], conf: Dict[str, Any], worktree: str) -> Tuple[str, Optional[str]]:
+    if not apply_res.get("success"):
+        return "UNSAFE", f"EXTRACTION_FAILED: {apply_res.get('error')}"
+
+    import_env = {**os.environ, **conf.get("env", {})}
+    import_proc = subprocess.run(
+        conf["import_cmd"],
+        cwd=worktree,
+        env=import_env,
+        capture_output=True,
+        text=True,
+        timeout=15
+    )
+    if import_proc.returncode != 0:
+        return "UNSAFE", f"IMPORT_ERROR: {import_proc.stderr.strip()[:200]}"
+
+    test_proc = subprocess.run(
+        conf["test_cmd"],
+        cwd=worktree,
+        env=import_env,
+        capture_output=True,
+        text=True,
+        timeout=30
+    )
+    if test_proc.returncode != 0:
+        return "UNSAFE", f"TEST_REGRESSION: {test_proc.stdout.strip()[:200]}"
+
+    return "SAFE", None
+
+
 def run_oracle_for_symbol(item: Dict[str, str], trial_idx: int) -> Dict[str, Any]:
     repo_key = item["repo"]
     conf = REPOS[repo_key]
     rel_file = item["file"]
     symbol = item["symbol"]
-    
+
     trial_id = f"trial_{repo_key}_{symbol}_{trial_idx}"
     worktree = setup_clean_worktree(conf["path"], trial_id)
-    
+
     from_file = os.path.join(worktree, rel_file)
     dir_name = os.path.dirname(from_file)
     base_name = os.path.splitext(os.path.basename(from_file))[0]
     to_file = os.path.join(dir_name, f"_{base_name}_{symbol}_extracted.py")
-    
+
     # --- PHASE A: Devrith Preflight ---
     t0_dev = time.perf_counter()
     dev_res = prefactor_decouple(
@@ -155,16 +197,17 @@ def run_oracle_for_symbol(item: Dict[str, str], trial_idx: int) -> Dict[str, Any
         dry_run=True
     )
     dev_duration_ms = round((time.perf_counter() - t0_dev) * 1000, 2)
-    
+
     hazards = (
-        dev_res.get("circular_hazards") or [] +
-        dev_res.get("state_desync_hazards") or [] +
-        dev_res.get("framework_hazards") or [] +
-        dev_res.get("global_state_hazards") or []
+        (dev_res.get("circular_hazards") or []) +
+        (dev_res.get("state_desync_hazards") or []) +
+        (dev_res.get("framework_hazards") or []) +
+        (dev_res.get("global_state_hazards") or [])
     )
-    dev_prediction = "UNSAFE" if (not dev_res.get("success", False) or len(hazards) > 0) else "SAFE"
+    is_safe = bool(dev_res.get("success", False)) and len(hazards) == 0
+    dev_prediction = "SAFE" if is_safe else "UNSAFE"
     dev_tokens = estimate_tokens(dev_res.get("error", "") + str(hazards)) + 120
-    
+
     # --- PHASE B: Force Extraction To Disk ---
     apply_res = prefactor_decouple(
         symbol=symbol,
@@ -176,50 +219,15 @@ def run_oracle_for_symbol(item: Dict[str, str], trial_idx: int) -> Dict[str, Any
         allow_globals=True,
         allow_desync=True
     )
-    
+
     # --- PHASE C: Ground Truth Oracle (Import + PyTest) ---
     t0_oracle = time.perf_counter()
-    
-    oracle_status = "SAFE"
-    oracle_failure = None
-
-    if not apply_res.get("success"):
-        oracle_status = "UNSAFE"
-        oracle_failure = f"EXTRACTION_FAILED: {apply_res.get('error')}"
-    else:
-        # Step 1: Import check
-        import_env = {**os.environ, **conf.get("env", {})}
-        import_proc = subprocess.run(
-            conf["import_cmd"],
-            cwd=worktree,
-            env=import_env,
-            capture_output=True,
-            text=True,
-            timeout=15
-        )
-        
-        if import_proc.returncode != 0:
-            oracle_status = "UNSAFE"
-            oracle_failure = f"IMPORT_ERROR: {import_proc.stderr.strip()[:200]}"
-        else:
-            # Step 2: PyTest suite execution
-            test_proc = subprocess.run(
-                conf["test_cmd"],
-                cwd=worktree,
-                env=import_env,
-                capture_output=True,
-                text=True,
-                timeout=30
-            )
-            if test_proc.returncode != 0:
-                oracle_status = "UNSAFE"
-                oracle_failure = f"TEST_REGRESSION: {test_proc.stdout.strip()[:200]}"
-            
+    oracle_status, oracle_failure = _run_oracle_verification(apply_res, conf, worktree)
     oracle_duration_ms = round((time.perf_counter() - t0_oracle) * 1000, 2)
-    
+
     # Cleanup worktree
     shutil.rmtree(worktree, ignore_errors=True)
-    
+
     return {
         "repo": repo_key,
         "file": rel_file,

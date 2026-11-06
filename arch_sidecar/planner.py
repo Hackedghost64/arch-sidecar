@@ -135,6 +135,12 @@ def _score_symbol_matches(
     return semantic_score, f"semantic/docstring matches: {', '.join(sym_matches[:3])}"
 
 
+def _filter_matching_keywords(keywords: List[str], text: str) -> List[str]:
+    if not text:
+        return []
+    return [w for w in keywords if w in text]
+
+
 def _score_semantic_matches(
     sym_info: Dict[str, Any],
     docstring: Optional[str],
@@ -145,9 +151,9 @@ def _score_semantic_matches(
     mod_doc = (docstring or "").lower()
     sym_code = (sym_info.get("code") or "").lower()
 
-    sym_doc_matches = [w for w in task_domain_keywords if sym_doc and w in sym_doc]
-    sym_code_matches = [w for w in task_domain_keywords if sym_code and w in sym_code]
-    mod_doc_matches = [w for w in task_domain_keywords if mod_doc and w in mod_doc]
+    sym_doc_matches = _filter_matching_keywords(task_domain_keywords, sym_doc)
+    sym_code_matches = _filter_matching_keywords(task_domain_keywords, sym_code)
+    mod_doc_matches = _filter_matching_keywords(task_domain_keywords, mod_doc)
 
     sym_matches = list(dict.fromkeys(sym_doc_matches + sym_code_matches))
     if sym_matches:
@@ -423,21 +429,47 @@ def _try_strategy_override(strategy_override: str) -> Optional[Tuple[RetrievalSt
         return None
 
 
+def _determine_primary_file(
+    explicit_file_rel: Optional[str],
+    file_lines_map: Dict[str, List[str]],
+    default_file: str,
+) -> str:
+    if explicit_file_rel and explicit_file_rel in file_lines_map:
+        return explicit_file_rel
+    return default_file
+
+
+def _is_compact_file(lines_count: int, tokens_count: int) -> bool:
+    return lines_count <= SMALL_FILE_LINE_THRESHOLD or tokens_count <= SMALL_FILE_TOKEN_THRESHOLD
+
+
+def _should_use_whole_file(
+    is_compact: bool,
+    explicit_file_rel: Optional[str],
+    top_files_count: int,
+) -> bool:
+    if not is_compact:
+        return False
+    return explicit_file_rel is not None or top_files_count <= 1
+
+
 def _decide_content_strategy(
     task: str,
     scored_candidates: List[Dict[str, Any]],
     file_lines_map: Dict[str, List[str]],
     explicit_file_rel: Optional[str],
 ) -> Tuple[RetrievalStrategy, str]:
-    primary_file = explicit_file_rel if (explicit_file_rel and explicit_file_rel in file_lines_map) else scored_candidates[0]["file"]
+    primary_file = _determine_primary_file(
+        explicit_file_rel, file_lines_map, scored_candidates[0]["file"]
+    )
     file_lines = len(file_lines_map.get(primary_file, []))
     file_content = "".join(file_lines_map.get(primary_file, []))
     file_tokens = estimate_tokens(file_content)
 
     top_files = {c["file"] for c in scored_candidates[:3] if c["score"] >= 35}
-    is_compact = (file_lines <= SMALL_FILE_LINE_THRESHOLD or file_tokens <= SMALL_FILE_TOKEN_THRESHOLD)
+    is_compact = _is_compact_file(file_lines, file_tokens)
 
-    if is_compact and (explicit_file_rel is not None or len(top_files) <= 1):
+    if _should_use_whole_file(is_compact, explicit_file_rel, len(top_files)):
         reason = (
             f"Target file '{primary_file}' is compact ({file_lines} lines, ~{file_tokens} tokens). "
             "Returning full file directly is cheaper than AST decomposition and preserves full lexical context."
@@ -591,6 +623,33 @@ def _truncate_code_if_needed(code: str, max_lines: int = 120) -> Tuple[str, int]
     return code, estimate_tokens(code)
 
 
+def _budget_allocation_thresholds(
+    token_budget: int, scored_candidates: List[Dict[str, Any]]
+) -> Tuple[int, int, int]:
+    base_overhead = 80 if token_budget <= 400 else 160
+    max_symbols = 4 if token_budget <= 400 else 8
+    max_score = scored_candidates[0]["score"] if scored_candidates else 0
+    return base_overhead, max_symbols, max_score
+
+
+def _can_include_normally(selected_count: int, max_symbols: int, fits: bool) -> bool:
+    return selected_count < max_symbols and fits
+
+
+def _should_truncate_under_floor(
+    index: int,
+    is_top_score: bool,
+    has_capacity: bool,
+    fits: bool,
+    token_budget: int,
+) -> bool:
+    if fits or token_budget <= 400:
+        return False
+    if index == 0:
+        return True
+    return is_top_score and has_capacity
+
+
 def _allocate_candidate_symbols(
     scored_candidates: List[Dict[str, Any]],
     token_budget: int,
@@ -599,22 +658,23 @@ def _allocate_candidate_symbols(
     ranking_decisions: List[Dict[str, Any]] = []
     budget_notices: List[str] = []
 
-    base_overhead = 80 if token_budget <= 400 else 160
-    accumulated_tokens = base_overhead
-    max_symbols = 4 if token_budget <= 400 else 8
-    max_score = scored_candidates[0]["score"] if scored_candidates else 0
+    accumulated_tokens, max_symbols, max_score = _budget_allocation_thresholds(
+        token_budget, scored_candidates
+    )
 
     for i, orig_c in enumerate(scored_candidates):
         c = dict(orig_c)
         sym_tokens = estimate_tokens(c["code"])
         fits = (accumulated_tokens + sym_tokens <= token_budget)
+        has_capacity = len(selected_symbols) < max_symbols
+        is_top = c["score"] >= max_score
 
-        if len(selected_symbols) < max_symbols and fits:
+        if _can_include_normally(len(selected_symbols), max_symbols, fits):
             c["included"] = True
             selected_symbols.append(c)
             accumulated_tokens += sym_tokens
             ranking_decisions.append(c)
-        elif (i == 0 or (c["score"] >= max_score and len(selected_symbols) < max_symbols)) and not fits and token_budget > 400:
+        elif _should_truncate_under_floor(i, is_top, has_capacity, fits, token_budget):
             c["code"], sym_tokens = _truncate_code_if_needed(c["code"])
             c["included"] = True
             selected_symbols.append(c)

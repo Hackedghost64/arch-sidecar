@@ -9,7 +9,50 @@ Provides:
 """
 
 import re
-from typing import Dict, List, Any
+import logging
+from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+RUST_USE_PAT = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?use\s+([^;]+);")
+
+RUST_DECL_PATTERNS = [
+    ("struct", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?struct\s+([A-Za-z0-9_]+)")),
+    ("enum", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?enum\s+([A-Za-z0-9_]+)")),
+    ("trait", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?trait\s+([A-Za-z0-9_]+)")),
+    ("impl", re.compile(r"^impl(?:<.*?>)?\s+(?:.*?\s+for\s+)?([A-Za-z0-9_]+)")),
+    ("function", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:(?:async|const|unsafe|extern(?:\s+\"[^\"]+\")?)\s+)*fn\s+([A-Za-z0-9_]+)")),
+    ("type", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?type\s+([A-Za-z0-9_]+)")),
+    ("macro", re.compile(r"^macro_rules!\s+([A-Za-z0-9_]+)")),
+    ("module", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?mod\s+([A-Za-z0-9_]+)\s*;")),
+    ("const", re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:const|static)\s+([A-Za-z0-9_]+)")),
+]
+
+
+def _handle_rust_escape(code: str, i: int, n: int) -> Tuple[str, int]:
+    """Extracts escaped character inside a string literal."""
+    if i + 1 < n:
+        return code[i : i + 2], i + 2
+    return code[i], i + 1
+
+
+def _consume_rust_comment(code: str, i: int, n: int) -> Tuple[Optional[str], int]:
+    """Extracts a comment replacement and advanced index, or (None, i) if not a comment."""
+    if i + 1 >= n or code[i] != "/":
+        return None, i
+    next_c = code[i + 1]
+    if next_c == "/":
+        newline_pos = code.find("\n", i)
+        if newline_pos == -1:
+            return "", n
+        return "\n", newline_pos + 1
+    if next_c == "*":
+        end_pos = code.find("*/", i + 2)
+        if end_pos == -1:
+            return "", n
+        newlines = code[i : end_pos + 2].count("\n")
+        return "\n" * newlines, end_pos + 2
+    return None, i
 
 
 def strip_rust_comments(code: str) -> str:
@@ -18,55 +61,96 @@ def strip_rust_comments(code: str) -> str:
     i = 0
     n = len(code)
     in_string = False
-    in_raw_string = False
 
     while i < n:
         c = code[i]
-        # Check escape sequence inside normal string
-        if in_string and c == "\\":
-            output.append(c)
-            if i + 1 < n:
-                output.append(code[i + 1])
-                i += 2
+        if in_string:
+            if c == "\\":
+                chunk, i = _handle_rust_escape(code, i, n)
+                output.append(chunk)
                 continue
-            i += 1
-            continue
-
-        # Raw string literal r#"..."# or r"..."
-        if not in_string and c == "r" and i + 1 < n and (code[i + 1] in ('"', "#")):
+            if c == '"':
+                in_string = False
             output.append(c)
             i += 1
             continue
 
-        # Double-quoted string "..."
+        rep, next_i = _consume_rust_comment(code, i, n)
+        if rep is not None:
+            output.append(rep)
+            i = next_i
+            continue
+
         if c == '"':
-            in_string = not in_string
-            output.append(c)
-            i += 1
-            continue
-
-        # Outside strings: check comments
-        if not in_string:
-            if c == "/" and i + 1 < n and code[i + 1] == "/":
-                newline_pos = code.find("\n", i)
-                if newline_pos == -1:
-                    break
-                output.append("\n")
-                i = newline_pos + 1
-                continue
-            elif c == "/" and i + 1 < n and code[i + 1] == "*":
-                end_pos = code.find("*/", i + 2)
-                if end_pos == -1:
-                    break
-                comment_newlines = code[i : end_pos + 2].count("\n")
-                output.append("\n" * comment_newlines)
-                i = end_pos + 2
-                continue
+            in_string = True
 
         output.append(c)
         i += 1
 
     return "".join(output)
+
+
+def _match_rust_decl(stripped: str) -> Optional[Tuple[str, str]]:
+    """Matches a stripped line against Rust declaration patterns."""
+    for kind, pat in RUST_DECL_PATTERNS:
+        m = pat.match(stripped)
+        if m:
+            return kind, m.group(1)
+    return None
+
+
+def _find_rust_decl_end(lines: List[str], start_idx: int) -> int:
+    """Finds the ending line index of a Rust declaration block or statement."""
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if not found_brace and ";" in line:
+            return j
+    return start_idx
+
+
+def _find_rust_preceding_attributes(lines: List[str], start_idx: int) -> int:
+    """Finds the top line index including preceding doc comments and attributes."""
+    k = start_idx - 1
+    start_line_idx = start_idx
+    while k >= 0:
+        prev = lines[k].strip()
+        is_attr = prev.startswith(("#[", "///", "//!")) or prev == "]"
+        if not is_attr:
+            break
+        start_line_idx = k
+        k -= 1
+    return start_line_idx
+
+
+def _build_rust_declaration(
+    lines: List[str],
+    idx: int,
+    kind: str,
+    name: str,
+    stripped: str,
+) -> Dict[str, Any]:
+    """Constructs a declaration record dictionary for a matched Rust symbol."""
+    end_idx = _find_rust_decl_end(lines, idx)
+    start_line_idx = _find_rust_preceding_attributes(lines, idx)
+    decl_code = "".join(lines[start_line_idx : end_idx + 1])
+    sig = stripped.split("{")[0].strip().rstrip(";")
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": stripped.startswith("pub"),
+        "signature": sig,
+        "line": idx + 1,
+        "start_line": start_line_idx + 1,
+        "end_line": end_idx + 1,
+        "code": decl_code,
+    }
 
 
 def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
@@ -80,18 +164,6 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
 
     imports: List[Dict[str, Any]] = []
     declarations: List[Dict[str, Any]] = []
-
-    use_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?use\s+([^;]+);")
-    fn_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:(?:async|const|unsafe|extern(?:\s+\"[^\"]+\")?)\s+)*fn\s+([A-Za-z0-9_]+)")
-    struct_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?struct\s+([A-Za-z0-9_]+)")
-    enum_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?enum\s+([A-Za-z0-9_]+)")
-    trait_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?trait\s+([A-Za-z0-9_]+)")
-    impl_pat = re.compile(r"^impl(?:<.*?>)?\s+(?:.*?\s+for\s+)?([A-Za-z0-9_]+)")
-    type_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?type\s+([A-Za-z0-9_]+)")
-    macro_pat = re.compile(r"^macro_rules!\s+([A-Za-z0-9_]+)")
-    mod_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?mod\s+([A-Za-z0-9_]+)\s*;")
-    const_pat = re.compile(r"^(?:pub(?:\([^)]+\))?\s+)?(?:const|static)\s+([A-Za-z0-9_]+)")
-
     current_brace_depth = 0
 
     for idx, line in enumerate(lines):
@@ -99,67 +171,15 @@ def parse_rust_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
         if not stripped:
             continue
 
-        # Track outer brace depth so we only record top-level declarations or impl blocks
-        m_use = use_pat.match(stripped)
-        if m_use and current_brace_depth == 0:
-            imports.append({"module": m_use.group(1).strip(), "line": idx + 1})
+        if current_brace_depth == 0:
+            m_use = RUST_USE_PAT.match(stripped)
+            if m_use:
+                imports.append({"module": m_use.group(1).strip(), "line": idx + 1})
 
-        # Check declarations
-        for kind, pat in [
-            ("struct", struct_pat),
-            ("enum", enum_pat),
-            ("trait", trait_pat),
-            ("impl", impl_pat),
-            ("function", fn_pat),
-            ("type", type_pat),
-            ("macro", macro_pat),
-            ("module", mod_pat),
-            ("const", const_pat),
-        ]:
-            m = pat.match(stripped)
-            if m:
-                name = m.group(1)
-                is_exported = stripped.startswith("pub")
-
-                brace_count = 0
-                found_brace = False
-                end_idx = idx
-                for j in range(idx, len(lines)):
-                    l = lines[j]
-                    brace_count += l.count("{") - l.count("}")
-                    if "{" in l:
-                        found_brace = True
-                    if found_brace and brace_count <= 0:
-                        end_idx = j
-                        break
-                    if not found_brace and ";" in l:
-                        end_idx = j
-                        break
-
-                # Walk backwards to include preceding doc comments (///) and attributes (#[...])
-                start_line_idx = idx
-                k = idx - 1
-                while k >= 0:
-                    prev_line = lines[k].strip()
-                    if prev_line.startswith("#[") or prev_line.startswith("///") or prev_line.startswith("//!") or prev_line == "]":
-                        start_line_idx = k
-                        k -= 1
-                    else:
-                        break
-
-                decl_code = "".join(lines[start_line_idx : end_idx + 1])
-                sig = stripped.split("{")[0].strip().rstrip(";")
-                declarations.append({
-                    "kind": kind,
-                    "name": name,
-                    "is_exported": is_exported,
-                    "signature": sig,
-                    "line": idx + 1,
-                    "start_line": start_line_idx + 1,
-                    "end_line": end_idx + 1,
-                    "code": decl_code,
-                })
-                break
+        decl_info = _match_rust_decl(stripped)
+        if decl_info:
+            kind, name = decl_info
+            declarations.append(_build_rust_declaration(lines, idx, kind, name, stripped))
 
         current_brace_depth += line.count("{") - line.count("}")
         if current_brace_depth < 0:

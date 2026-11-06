@@ -1,6 +1,7 @@
 import os
 import subprocess
 import shutil
+import logging
 from typing import List, Dict, Set, Optional, Any, Tuple
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from .cluster import (
     partition_into_subsystems,
     predict_change_impact,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def is_git_repository(repo_path: str = ".") -> bool:
@@ -24,7 +27,8 @@ def is_git_repository(repo_path: str = ".") -> bool:
             timeout=3,
         )
         return res.returncode == 0 and res.stdout.strip() == "true"
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("is_git_repository check failed: %s", e)
         return False
 
 
@@ -41,8 +45,21 @@ def get_git_root(repo_path: str = ".") -> Optional[str]:
         if res.returncode == 0 and res.stdout.strip():
             return os.path.abspath(res.stdout.strip())
         return None
-    except (OSError, subprocess.SubprocessError):
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("get_git_root failed: %s", e)
         return None
+
+
+def _collect_existing_files(lines: List[str], root: str, extension: str) -> List[str]:
+    out: List[str] = []
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or not stripped.endswith(extension):
+            continue
+        full_p = os.path.join(root, stripped)
+        if os.path.isfile(full_p):
+            out.append(full_p)
+    return out
 
 
 def get_staged_files(repo_path: str = ".", extension: str = ".py") -> List[str]:
@@ -61,17 +78,32 @@ def get_staged_files(repo_path: str = ".", extension: str = ".py") -> List[str]:
         )
         if res.returncode != 0:
             return []
-
-        out = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line and line.endswith(extension):
-                full_p = os.path.join(root, line)
-                if os.path.isfile(full_p):
-                    out.append(full_p)
-        return out
-    except (OSError, subprocess.SubprocessError):
+        return _collect_existing_files(res.stdout.splitlines(), root, extension)
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("get_staged_files failed: %s", e)
         return []
+
+
+def _parse_porcelain_path(line: str) -> Optional[str]:
+    parts = line.strip().split(maxsplit=1)
+    if len(parts) < 2:
+        return None
+    rel_path = parts[1]
+    if " -> " in rel_path:
+        return rel_path.split(" -> ")[1]
+    return rel_path
+
+
+def _collect_porcelain_files(lines: List[str], root: str, extension: str) -> List[str]:
+    out: List[str] = []
+    for line in lines:
+        rel_path = _parse_porcelain_path(line)
+        if not rel_path or not rel_path.endswith(extension):
+            continue
+        full_p = os.path.join(root, rel_path)
+        if os.path.isfile(full_p):
+            out.append(full_p)
+    return sorted(list(set(out)))
 
 
 def get_working_tree_modified_files(repo_path: str = ".", extension: str = ".py") -> List[str]:
@@ -90,64 +122,42 @@ def get_working_tree_modified_files(repo_path: str = ".", extension: str = ".py"
         )
         if res.returncode != 0:
             return []
-
-        out = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            # status format: XY <path> or XY <orig> -> <path>
-            parts = line.split(maxsplit=1)
-            if len(parts) < 2:
-                continue
-            rel_path = parts[1]
-            if " -> " in rel_path:
-                rel_path = rel_path.split(" -> ")[1]
-
-            if rel_path.endswith(extension):
-                full_p = os.path.join(root, rel_path)
-                if os.path.isfile(full_p):
-                    out.append(full_p)
-        return sorted(list(set(out)))
-    except (OSError, subprocess.SubprocessError):
+        return _collect_porcelain_files(res.stdout.splitlines(), root, extension)
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("get_working_tree_modified_files failed: %s", e)
         return []
 
 
-def get_branch_diff_files(base_branch: str = "main", repo_path: str = ".", extension: str = ".py") -> List[str]:
+def _run_git_diff_command(base_branch: str, root: str) -> Optional[List[str]]:
+    cmd = ["git", "diff", f"{base_branch}...HEAD", "--name-only", "--diff-filter=ACM"]
+    res = subprocess.run(cmd, cwd=root, capture_output=True, text=True, timeout=5)
+    if res.returncode == 0:
+        return res.stdout.splitlines()
+
+    fallback_cmd = ["git", "diff", base_branch, "--name-only", "--diff-filter=ACM"]
+    res2 = subprocess.run(fallback_cmd, cwd=root, capture_output=True, text=True, timeout=5)
+    if res2.returncode == 0:
+        return res2.stdout.splitlines()
+    return None
+
+
+def get_branch_diff_files(
+    base_branch: str = "main",
+    repo_path: str = ".",
+    extension: str = ".py",
+) -> List[str]:
     """Returns all files changed between the current branch and base_branch."""
     root = get_git_root(repo_path)
     if not root:
         return []
 
     try:
-        res = subprocess.run(
-            ["git", "diff", f"{base_branch}...HEAD", "--name-only", "--diff-filter=ACM"],
-            cwd=root,
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if res.returncode != 0:
-            # Fallback to single diff without 3 dots if branch ref is detached
-            res = subprocess.run(
-                ["git", "diff", base_branch, "--name-only", "--diff-filter=ACM"],
-                cwd=root,
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if res.returncode != 0:
-                return []
-
-        out = []
-        for line in res.stdout.splitlines():
-            line = line.strip()
-            if line and line.endswith(extension):
-                full_p = os.path.join(root, line)
-                if os.path.isfile(full_p):
-                    out.append(full_p)
-        return out
-    except (OSError, subprocess.SubprocessError):
+        lines = _run_git_diff_command(base_branch, root)
+        if not lines:
+            return []
+        return _collect_existing_files(lines, root, extension)
+    except (OSError, subprocess.SubprocessError) as e:
+        logger.debug("get_branch_diff_files failed: %s", e)
         return []
 
 
@@ -160,11 +170,54 @@ def _resolve_target_files(root: str, staged_only: bool, base_branch: Optional[st
     return get_working_tree_modified_files(repo_path=root)
 
 
+def _tally_git_issue_counts(all_issues: List[QualityIssue]) -> Tuple[int, int, Dict[str, int]]:
+    errors = 0
+    warnings = 0
+    categories = {"complexity": 0, "anti_pattern": 0, "oop_cohesion": 0, "contract": 0}
+    for issue in all_issues:
+        if issue.severity == "error":
+            errors += 1
+        elif issue.severity == "warning":
+            warnings += 1
+        if issue.category in categories:
+            categories[issue.category] += 1
+    return errors, warnings, categories
+
+
+def _determine_git_mode(staged_only: bool, base_branch: Optional[str]) -> str:
+    if staged_only:
+        return "git_staged"
+    if base_branch:
+        return "git_branch"
+    return "git_working_tree"
+
+
+def _build_empty_changeset_report() -> QualityReport:
+    report = QualityReport()
+    report.total_files = 0
+    report.clean = True
+    report.score = 100.0
+    report.metrics = {
+        "mode": "git_changeset",
+        "files_evaluated": 0,
+        "status": "No modified Python files in git changeset",
+    }
+    return report
+
+
+def _calculate_changeset_score(errors: int, warnings: int, total_files: int) -> float:
+    if total_files <= 0:
+        return 100.0
+    penalty = (errors * 10.0) + (warnings * 2.0)
+    penalty_per_file = penalty / total_files
+    return max(0.0, min(100.0, 100.0 - penalty_per_file))
+
+
 def audit_git_changeset(
     repo_path: str = ".",
     staged_only: bool = False,
     base_branch: Optional[str] = None,
-    strict: bool = False
+    strict: bool = False,
 ) -> QualityReport:
     """
     Surgically audits only the files modified in Git (staged, working tree, or branch diff).
@@ -172,46 +225,32 @@ def audit_git_changeset(
     """
     root = get_git_root(repo_path) or repo_path
     files = _resolve_target_files(root, staged_only, base_branch)
-
-    report = QualityReport()
-    report.total_files = len(files)
-
     if not files:
-        report.clean = True
-        report.score = 100.0
-        report.metrics = {
-            "mode": "git_changeset",
-            "files_evaluated": 0,
-            "status": "No modified Python files in git changeset"
-        }
-        return report
+        return _build_empty_changeset_report()
 
     all_issues: List[QualityIssue] = []
     for fpath in files:
         all_issues.extend(audit_file(fpath))
 
+    errors, warnings, categories = _tally_git_issue_counts(all_issues)
+    score_val = _calculate_changeset_score(errors, warnings, len(files))
+    is_clean = len(all_issues) == 0 if strict else (errors == 0)
+    mode = _determine_git_mode(staged_only, base_branch)
+    affected_count = len({i.file_path for i in all_issues})
+
+    report = QualityReport()
+    report.total_files = len(files)
     report.issues = all_issues
     report.total_issues = len(all_issues)
-    report.error_count = sum(1 for i in all_issues if i.severity == "error")
-    report.warning_count = sum(1 for i in all_issues if i.severity == "warning")
-
-    penalty = (report.error_count * 10.0) + (report.warning_count * 2.0)
-    penalty_per_file = penalty / report.total_files if report.total_files > 0 else 0.0
-    report.score = max(0.0, min(100.0, 100.0 - penalty_per_file))
-    report.clean = (report.total_issues == 0) if strict else (report.error_count == 0)
-
-    category_counts = {
-        "complexity": sum(1 for i in all_issues if i.category == "complexity"),
-        "anti_pattern": sum(1 for i in all_issues if i.category == "anti_pattern"),
-        "oop_cohesion": sum(1 for i in all_issues if i.category == "oop_cohesion"),
-        "contract": sum(1 for i in all_issues if i.category == "contract"),
-    }
-    mode = "git_staged" if staged_only else ("git_branch" if base_branch else "git_working_tree")
+    report.error_count = errors
+    report.warning_count = warnings
+    report.score = score_val
+    report.clean = is_clean
     report.metrics = {
         "mode": mode,
-        "categories": category_counts,
-        "clean_files": report.total_files - len({i.file_path for i in all_issues}),
-        "affected_files": len({i.file_path for i in all_issues}),
+        "categories": categories,
+        "clean_files": len(files) - affected_count,
+        "affected_files": affected_count,
     }
     return report
 
@@ -219,20 +258,14 @@ def audit_git_changeset(
 def analyze_git_change_impact(
     repo_path: str = ".",
     staged_only: bool = False,
-    base_branch: Optional[str] = None
+    base_branch: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Computes architectural blast radius and cluster impact for git-modified files.
     Identifies affected subsystems and recommends test suites across the repo.
     """
     root = get_git_root(repo_path) or repo_path
-
-    if base_branch:
-        files = get_branch_diff_files(base_branch, repo_path=root)
-    elif staged_only:
-        files = get_staged_files(repo_path=root)
-    else:
-        files = get_working_tree_modified_files(repo_path=root)
+    files = _resolve_target_files(root, staged_only, base_branch)
 
     if not files:
         return {
@@ -242,7 +275,7 @@ def analyze_git_change_impact(
             "transitive_blast_radius": [],
             "recommended_test_files": [],
             "risk_level": "LOW",
-            "message": "No modified Python files in git changeset."
+            "message": "No modified Python files in git changeset.",
         }
 
     all_blast_radius: Set[str] = set()
@@ -314,6 +347,7 @@ def install_git_hook(repo_path: str = ".", strict: bool = False) -> Tuple[bool, 
         try:
             os.makedirs(hooks_dir, exist_ok=True)
         except OSError as e:
+            logger.debug("Failed creating hooks dir %s: %s", hooks_dir, e)
             return False, f"Could not create hooks directory: {e}"
 
     hook_path = os.path.join(hooks_dir, "pre-commit")
@@ -329,11 +363,11 @@ def install_git_hook(repo_path: str = ".", strict: bool = False) -> Tuple[bool, 
     try:
         with open(hook_path, "w", encoding="utf-8") as f:
             f.write(generate_hook_script(strict=strict))
-        # Make executable
         os.chmod(hook_path, 0o755)
         mode_str = " (strict mode)" if strict else ""
         return True, f"Devrith pre-commit hook successfully installed at: {hook_path}{mode_str}"
     except Exception as e:
+        logger.debug("Failed writing hook file %s: %s", hook_path, e)
         return False, f"Failed to write hook file: {e}"
 
 
@@ -353,13 +387,12 @@ def uninstall_git_hook(repo_path: str = ".") -> Tuple[bool, str]:
 
         if "Devrith Pre-Commit Guard" in existing:
             os.remove(hook_path)
-            # Restore backup if exists
             backup = os.path.join(root, ".git", "hooks", "pre-commit.backup")
             if os.path.isfile(backup):
                 shutil.move(backup, hook_path)
                 return True, "Devrith hook removed, previous pre-commit hook restored."
             return True, "Devrith pre-commit hook uninstalled."
-        else:
-            return False, "Existing pre-commit hook was not installed by Devrith; left untouched."
+        return False, "Existing pre-commit hook was not installed by Devrith; left untouched."
     except Exception as e:
+        logger.debug("Failed to uninstall hook at %s: %s", hook_path, e)
         return False, f"Failed to uninstall hook: {e}"

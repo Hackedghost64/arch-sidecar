@@ -83,6 +83,21 @@ def locate_declarations(
     return matched, missing
 
 
+def _extract_cand_names(name: str, extracted_set: Set[str]) -> List[str]:
+    if not name or name in extracted_set:
+        return []
+    candidates = [name]
+    if "." in name:
+        candidates.append(name.split(".")[0])
+    return candidates
+
+
+def _is_referenced_candidate(cand: str, extracted_set: Set[str], seen: Set[str], code: str) -> bool:
+    if not cand or cand in extracted_set or cand in seen:
+        return False
+    return bool(re.search(rf"\b{re.escape(cand)}\b", code))
+
+
 def find_local_dependencies_referenced(
     all_declarations: List[Dict[str, Any]],
     extracted_symbols: List[str],
@@ -96,17 +111,10 @@ def find_local_dependencies_referenced(
     extracted_set = set(extracted_symbols)
     seen: Set[str] = set()
     for d in all_declarations:
-        name = d.get("name", "")
-        if not name or name in extracted_set:
-            continue
-        candidates = [name]
-        if "." in name:
-            candidates.append(name.split(".")[0])
-        for cand in candidates:
-            if cand and cand not in extracted_set and cand not in seen:
-                if re.search(rf"\b{re.escape(cand)}\b", combined_code):
-                    seen.add(cand)
-                    local_deps.append(cand)
+        for cand in _extract_cand_names(d.get("name", ""), extracted_set):
+            if _is_referenced_candidate(cand, extracted_set, seen, combined_code):
+                seen.add(cand)
+                local_deps.append(cand)
     return local_deps
 
 
@@ -133,6 +141,51 @@ def apply_line_removals(
     return new_from_lines
 
 
+def _build_ts_combined_code(matched_decls: List[Dict[str, Any]], from_lines: List[str]) -> str:
+    blocks: List[str] = []
+    for d in matched_decls:
+        code = "".join(from_lines[d["start_line"] - 1 : d["end_line"]])
+        if not re.match(r"^export\b", code.strip()):
+            code = "export " + code.lstrip()
+        blocks.append(code.strip())
+    return "\n\n".join(blocks) + "\n"
+
+
+def _build_ts_alias_line(to_path: str, from_path: str, symbols_list: List[str]) -> str:
+    rel_import = os.path.relpath(to_path, os.path.dirname(from_path)).replace("\\", "/")
+    if not rel_import.startswith("."):
+        rel_import = "./" + rel_import
+    rel_import_clean = os.path.splitext(rel_import)[0]
+    return f'export {{ {", ".join(symbols_list)} }} from "{rel_import_clean}";\n'
+
+
+def _rewrite_relative_ts_module(mod_p: str, from_path: str, to_path: str) -> str:
+    if not mod_p.startswith("."):
+        return mod_p
+    orig_abs = os.path.normpath(os.path.join(os.path.dirname(from_path), mod_p))
+    new_rel = os.path.relpath(orig_abs, os.path.dirname(to_path)).replace("\\", "/")
+    if not new_rel.startswith("."):
+        return "./" + new_rel
+    return new_rel
+
+
+def _collect_ts_needed_imports(
+    imports: List[Dict[str, Any]],
+    combined_code: str,
+    from_path: str,
+    to_path: str,
+) -> str:
+    needed: List[str] = []
+    for imp in imports:
+        names = imp.get("names", [])
+        used_names = [n for n in names if re.search(rf"\b{re.escape(n)}\b", combined_code)]
+        if not used_names:
+            continue
+        mod_p = _rewrite_relative_ts_module(imp["module"], from_path, to_path)
+        needed.append(f'import {{ {", ".join(used_names)} }} from "{mod_p}";\n')
+    return "".join(needed)
+
+
 def _transform_ts(
     parsed: Dict[str, Any],
     matched_decls: List[Dict[str, Any]],
@@ -143,36 +196,14 @@ def _transform_ts(
     existing_to_content: str,
     add_backward_compat_alias: bool,
 ) -> Tuple[Optional[str], str, str]:
-    blocks: List[str] = []
-    for d in matched_decls:
-        code = "".join(from_lines[d["start_line"] - 1 : d["end_line"]])
-        if not re.match(r"^export\b", code.strip()):
-            code = "export " + code.lstrip()
-        blocks.append(code.strip())
-    combined_code = "\n\n".join(blocks) + "\n"
-
+    combined_code = _build_ts_combined_code(matched_decls, from_lines)
     alias_line = None
     if add_backward_compat_alias:
-        rel_import = os.path.relpath(to_path, os.path.dirname(from_path)).replace("\\", "/")
-        if not rel_import.startswith("."):
-            rel_import = "./" + rel_import
-        rel_import_clean = os.path.splitext(rel_import)[0]
-        alias_line = f'export {{ {", ".join(symbols_list)} }} from "{rel_import_clean}";\n'
+        alias_line = _build_ts_alias_line(to_path, from_path, symbols_list)
 
-    needed_imports: List[str] = []
-    for imp in parsed.get("imports", []):
-        used_names = [n for n in imp.get("names", []) if re.search(rf"\b{re.escape(n)}\b", combined_code)]
-        if used_names:
-            mod_p = imp["module"]
-            if mod_p.startswith("."):
-                orig_abs = os.path.normpath(os.path.join(os.path.dirname(from_path), mod_p))
-                new_rel = os.path.relpath(orig_abs, os.path.dirname(to_path)).replace("\\", "/")
-                if not new_rel.startswith("."):
-                    new_rel = "./" + new_rel
-                mod_p = new_rel
-            needed_imports.append(f'import {{ {", ".join(used_names)} }} from "{mod_p}";\n')
-
-    import_header = "".join(needed_imports)
+    import_header = _collect_ts_needed_imports(
+        parsed.get("imports", []), combined_code, from_path, to_path
+    )
     if existing_to_content:
         new_to_content = existing_to_content.rstrip() + "\n\n" + import_header + combined_code.strip() + "\n"
     else:
@@ -214,6 +245,23 @@ def _transform_go(
     return alias_line, combined_code, new_to_content
 
 
+def _build_rust_combined_code(matched_decls: List[Dict[str, Any]], from_lines: List[str]) -> str:
+    blocks: List[str] = []
+    for d in matched_decls:
+        code = "".join(from_lines[d["start_line"] - 1 : d["end_line"]])
+        if not re.match(r"^pub\b", code.strip()):
+            code = "pub " + code.lstrip()
+        blocks.append(code.strip())
+    return "\n\n".join(blocks) + "\n"
+
+
+def _build_rust_alias_line(to_path: str, symbols_list: List[str]) -> str:
+    mod_name = os.path.splitext(os.path.basename(to_path))[0]
+    if len(symbols_list) == 1:
+        return f"pub use crate::{mod_name}::{symbols_list[0]};\n"
+    return f"pub use crate::{mod_name}::{{{', '.join(symbols_list)}}};\n"
+
+
 def _transform_rust(
     parsed: Dict[str, Any],
     matched_decls: List[Dict[str, Any]],
@@ -224,21 +272,10 @@ def _transform_rust(
     existing_to_content: str,
     add_backward_compat_alias: bool,
 ) -> Tuple[Optional[str], str, str]:
-    blocks: List[str] = []
-    for d in matched_decls:
-        code = "".join(from_lines[d["start_line"] - 1 : d["end_line"]])
-        if not re.match(r"^pub\b", code.strip()):
-            code = "pub " + code.lstrip()
-        blocks.append(code.strip())
-    combined_code = "\n\n".join(blocks) + "\n"
-
+    combined_code = _build_rust_combined_code(matched_decls, from_lines)
     alias_line = None
     if add_backward_compat_alias:
-        mod_name = os.path.splitext(os.path.basename(to_path))[0]
-        if len(symbols_list) == 1:
-            alias_line = f"pub use crate::{mod_name}::{symbols_list[0]};\n"
-        else:
-            alias_line = f"pub use crate::{mod_name}::{{{', '.join(symbols_list)}}};\n"
+        alias_line = _build_rust_alias_line(to_path, symbols_list)
 
     needed_rs_imports: List[str] = []
     for imp in parsed.get("imports", []):
@@ -508,6 +545,103 @@ def _transform_and_write(
     return combined_symbol_code, new_from_lines, new_to_content
 
 
+def _resolve_polyglot_paths(root_abs: str, from_file: str, to_file: str) -> Tuple[str, str]:
+    from_p = from_file if os.path.isabs(from_file) else os.path.join(root_abs, from_file)
+    to_p = to_file if os.path.isabs(to_file) else os.path.join(root_abs, to_file)
+    return from_p, to_p
+
+
+def _load_and_parse_polyglot(
+    ext: str, from_path: str
+) -> Tuple[Optional[str], Optional[Dict[str, Any]], Optional[Any], List[str]]:
+    with open(from_path, "r", encoding="utf-8") as f:
+        from_source = f.read()
+    from_lines = from_source.splitlines(keepends=True)
+    lang, parsed, transform_fn = _get_polyglot_transform(ext, from_source, from_path)
+    return lang, parsed, transform_fn, from_lines
+
+
+def _validate_transform_inputs(transform_fn: Any, parsed: Any, lang: Any) -> bool:
+    return bool(transform_fn and parsed and lang)
+
+
+def _execute_polyglot_tx(
+    ext: str,
+    from_path: str,
+    to_path: str,
+    symbols_list: List[str],
+    options: Dict[str, Any],
+) -> Dict[str, Any]:
+    tx = _TransactionalRollback(from_path, to_path)
+    try:
+        tx.backup()
+    except OSError as e:
+        logger.error("Failed to create rollback backup: %s", e)
+        return {"success": False, "error": f"Failed to create rollback backup: {e}"}
+
+    try:
+        lang, parsed, transform_fn, from_lines = _load_and_parse_polyglot(ext, from_path)
+        if not _validate_transform_inputs(transform_fn, parsed, lang):
+            tx.rollback()
+            return {"success": False, "error": f"Unsupported language for decouple: {ext}"}
+
+        matched_decls, missing_symbols = locate_declarations(parsed.get("declarations", []), symbols_list)
+        if missing_symbols:
+            tx.rollback()
+            return {"success": False, "error": f"Symbol(s) not found in {from_path}: {', '.join(missing_symbols)}"}
+
+        combined_code, new_from_lines, new_to_content = _transform_and_write(
+            parsed, matched_decls, symbols_list, from_lines, from_path, to_path, transform_fn, options["add_backward_compat_alias"]
+        )
+
+        local_deps = find_local_dependencies_referenced(
+            all_declarations=parsed.get("declarations", []),
+            extracted_symbols=symbols_list,
+            combined_code=combined_code,
+        )
+
+        if options["dry_run"]:
+            tx.rollback()
+            return {
+                "success": True,
+                "symbol": options["symbol"],
+                "extracted_symbols": symbols_list,
+                "local_dependencies_referenced": local_deps,
+                "language": lang,
+                "from_file": from_path,
+                "to_file": to_path,
+                "extracted_code": combined_code,
+                "dry_run": True,
+            }
+
+        _write_polyglot_files(from_path, new_from_lines, to_path, new_to_content)
+        ok, err_msg, issues, test_out = _verify_preflight_and_tests(
+            from_path, to_path, options["project_root"], options["test_cmd"], options["root_abs"]
+        )
+        if not ok:
+            tx.rollback()
+            return _format_decouple_failure(err_msg, issues, test_out)
+
+        tx.cleanup()
+        duration_ms = round((time.perf_counter() - options["t_start"]) * 1000, 2)
+        return {
+            "success": True,
+            "symbol": options["symbol"],
+            "extracted_symbols": symbols_list,
+            "local_dependencies_referenced": local_deps,
+            "execution_time_ms": duration_ms,
+            "language": lang,
+            "from_file": os.path.relpath(from_path, options["root_abs"]),
+            "to_file": os.path.relpath(to_path, options["root_abs"]),
+            "duration_ms": duration_ms,
+            "rolled_back": False,
+        }
+    except Exception as e:
+        logger.error("Unexpected error during decoupling: %s", e)
+        tx.rollback()
+        return {"success": False, "error": f"Unexpected error during decoupling: {e}. Rolled back."}
+
+
 def decouple_polyglot_symbol(
     symbol: Union[str, List[str]],
     from_file: str,
@@ -524,8 +658,7 @@ def decouple_polyglot_symbol(
     """
     t_start = time.perf_counter()
     root_abs = os.path.abspath(project_root)
-    from_path = from_file if os.path.isabs(from_file) else os.path.join(root_abs, from_file)
-    to_path = to_file if os.path.isabs(to_file) else os.path.join(root_abs, to_file)
+    from_path, to_path = _resolve_polyglot_paths(root_abs, from_file, to_file)
 
     symbols_list, err_resp = _validate_decouple_args(from_path, symbol, from_file)
     if err_resp:
@@ -537,74 +670,13 @@ def decouple_polyglot_symbol(
             symbols_list, from_path, to_path, project_root, add_backward_compat_alias, test_cmd, dry_run
         )
 
-    tx = _TransactionalRollback(from_path, to_path)
-    try:
-        tx.backup()
-    except OSError as e:
-        logger.error("Failed to create rollback backup: %s", e)
-        return {"success": False, "error": f"Failed to create rollback backup: {e}"}
-
-    try:
-        with open(from_path, "r", encoding="utf-8") as f:
-            from_source = f.read()
-        from_lines = from_source.splitlines(keepends=True)
-
-        lang, parsed, transform_fn = _get_polyglot_transform(ext, from_source, from_path)
-        if not transform_fn or not parsed or not lang:
-            tx.rollback()
-            return {"success": False, "error": f"Unsupported language for decouple: {ext}"}
-
-        matched_decls, missing_symbols = locate_declarations(parsed.get("declarations", []), symbols_list)
-        if missing_symbols:
-            tx.rollback()
-            return {"success": False, "error": f"Symbol(s) not found in {from_path}: {', '.join(missing_symbols)}"}
-
-        combined_code, new_from_lines, new_to_content = _transform_and_write(
-            parsed, matched_decls, symbols_list, from_lines, from_path, to_path, transform_fn, add_backward_compat_alias
-        )
-
-        local_deps = find_local_dependencies_referenced(
-            all_declarations=parsed.get("declarations", []),
-            extracted_symbols=symbols_list,
-            combined_code=combined_code,
-        )
-
-        if dry_run:
-            tx.rollback()
-            return {
-                "success": True,
-                "symbol": symbol,
-                "extracted_symbols": symbols_list,
-                "local_dependencies_referenced": local_deps,
-                "language": lang,
-                "from_file": from_path,
-                "to_file": to_path,
-                "extracted_code": combined_code,
-                "dry_run": True,
-            }
-
-        _write_polyglot_files(from_path, new_from_lines, to_path, new_to_content)
-        ok, err_msg, issues, test_out = _verify_preflight_and_tests(from_path, to_path, project_root, test_cmd, root_abs)
-        if not ok:
-            tx.rollback()
-            return _format_decouple_failure(err_msg, issues, test_out)
-
-        tx.cleanup()
-        duration_ms = round((time.perf_counter() - t_start) * 1000, 2)
-        return {
-            "success": True,
-            "symbol": symbol,
-            "extracted_symbols": symbols_list,
-            "local_dependencies_referenced": local_deps,
-            "execution_time_ms": duration_ms,
-            "language": lang,
-            "from_file": os.path.relpath(from_path, root_abs),
-            "to_file": os.path.relpath(to_path, root_abs),
-            "duration_ms": duration_ms,
-            "rolled_back": False,
-        }
-
-    except Exception as e:
-        logger.error("Unexpected error during decoupling: %s", e)
-        tx.rollback()
-        return {"success": False, "error": f"Unexpected error during decoupling: {e}. Rolled back."}
+    options = {
+        "symbol": symbol,
+        "project_root": project_root,
+        "root_abs": root_abs,
+        "add_backward_compat_alias": add_backward_compat_alias,
+        "test_cmd": test_cmd,
+        "dry_run": dry_run,
+        "t_start": t_start,
+    }
+    return _execute_polyglot_tx(ext, from_path, to_path, symbols_list, options)

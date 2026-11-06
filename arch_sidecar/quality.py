@@ -1,10 +1,13 @@
 import os
 import ast
+import logging
 from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Set, Optional, Any, Tuple
 from pathlib import Path
 
 from .utils import is_ignored_path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -78,11 +81,9 @@ class ComplexityVisitor(ast.NodeVisitor):
         self._current_function = node.name
         self._current_depth = 0
 
-        # Calculate Cyclomatic Complexity
         complexity = self._calculate_complexity(node)
         self.function_complexities[node.name] = complexity
 
-        # For CLI dispatchers and tool routers, adjust complexity limits
         is_dispatcher = node.name in ("main", "cli", "dispatch", "handle_tool_call")
         error_limit = 150 if is_dispatcher else 15
         warn_limit = 50 if is_dispatcher else self.max_complexity
@@ -110,10 +111,8 @@ class ComplexityVisitor(ast.NodeVisitor):
                 suggestion="Simplify branching logic or extract sub-operations."
             ))
 
-        # Check for guard clause opportunity at top of function
         self._check_guard_clause_opportunity(node)
 
-        # Inspect nesting depth within function body
         for stmt in node.body:
             self._check_statement_nesting(stmt, depth=1)
 
@@ -124,9 +123,10 @@ class ComplexityVisitor(ast.NodeVisitor):
         """
         McCabe Cyclomatic Complexity:
         Base = 1
-        +1 for each If, For, AsyncFor, While, ExceptHandler, With
+        +1 for each If, For, AsyncFor, While, ExceptHandler
         +1 for each boolean operator (And, Or)
         +1 for comprehension if clauses
+        +1 for ternary IfExp
         """
         complexity = 1
         for subnode in ast.walk(node):
@@ -136,9 +136,63 @@ class ComplexityVisitor(ast.NodeVisitor):
                 complexity += len(subnode.values) - 1
             elif isinstance(subnode, ast.comprehension):
                 complexity += len(subnode.ifs)
-            elif isinstance(subnode, ast.IfExp):  # ternary
+            elif isinstance(subnode, ast.IfExp):
                 complexity += 1
         return complexity
+
+    def _record_nesting_issue(self, stmt: ast.stmt, depth: int) -> None:
+        if depth >= 5:
+            self.issues.append(QualityIssue(
+                file_path=self.file_path,
+                line=stmt.lineno,
+                symbol=self._current_function or "<module>",
+                category="complexity",
+                severity="error",
+                rule="excessive_nesting_depth",
+                message=f"Block nested {depth} levels deep (limit: 5).",
+                suggestion="Invert conditional guards (early return) or extract inner block into a dedicated function."
+            ))
+        elif depth > self.max_depth:
+            self.issues.append(QualityIssue(
+                file_path=self.file_path,
+                line=stmt.lineno,
+                symbol=self._current_function or "<module>",
+                category="complexity",
+                severity="warning",
+                rule="deep_nesting",
+                message=f"Block nested {depth} levels deep (limit: {self.max_depth}).",
+                suggestion="Use early returns or guard clauses to flatten the control flow."
+            ))
+
+    def _get_loop_if_bodies(self, stmt: ast.stmt, depth: int) -> List[List[ast.stmt]]:
+        bodies = [stmt.body]
+        orelse = getattr(stmt, "orelse", None)
+        if not orelse:
+            return bodies
+        if len(orelse) == 1 and isinstance(orelse[0], ast.If):
+            self._check_statement_nesting(orelse[0], depth)
+        else:
+            bodies.append(orelse)
+        return bodies
+
+    def _get_try_bodies(self, stmt: ast.Try) -> List[List[ast.stmt]]:
+        bodies = [stmt.body]
+        for h in stmt.handlers:
+            bodies.append(h.body)
+        if stmt.orelse:
+            bodies.append(stmt.orelse)
+        if stmt.finalbody:
+            bodies.append(stmt.finalbody)
+        return bodies
+
+    def _get_compound_bodies(self, stmt: ast.stmt, depth: int) -> List[List[ast.stmt]]:
+        if isinstance(stmt, (ast.If, ast.While, ast.For, ast.AsyncFor)):
+            return self._get_loop_if_bodies(stmt, depth)
+        if isinstance(stmt, (ast.With, ast.AsyncWith)):
+            return [stmt.body]
+        if isinstance(stmt, ast.Try):
+            return self._get_try_bodies(stmt)
+        return []
 
     def _check_statement_nesting(self, stmt: ast.stmt, depth: int) -> None:
         if depth > self.max_nesting_found:
@@ -146,52 +200,9 @@ class ComplexityVisitor(ast.NodeVisitor):
 
         is_compound = isinstance(stmt, (ast.If, ast.While, ast.For, ast.AsyncFor, ast.With, ast.AsyncWith, ast.Try))
         if is_compound:
-            if depth >= 5:
-                self.issues.append(QualityIssue(
-                    file_path=self.file_path,
-                    line=stmt.lineno,
-                    symbol=self._current_function or "<module>",
-                    category="complexity",
-                    severity="error",
-                    rule="excessive_nesting_depth",
-                    message=f"Block nested {depth} levels deep (limit: 5).",
-                    suggestion="Invert conditional guards (early return) or extract inner block into a dedicated function."
-                ))
-            elif depth > self.max_depth:
-                self.issues.append(QualityIssue(
-                    file_path=self.file_path,
-                    line=stmt.lineno,
-                    symbol=self._current_function or "<module>",
-                    category="complexity",
-                    severity="warning",
-                    rule="deep_nesting",
-                    message=f"Block nested {depth} levels deep (limit: {self.max_depth}).",
-                    suggestion="Use early returns or guard clauses to flatten the control flow."
-                ))
+            self._record_nesting_issue(stmt, depth)
 
-        # Compound statements that increase indentation/nesting depth
-        compound_bodies: List[List[ast.stmt]] = []
-        if isinstance(stmt, (ast.If, ast.While, ast.For, ast.AsyncFor)):
-            compound_bodies.append(stmt.body)
-            if hasattr(stmt, "orelse") and stmt.orelse:
-                # Elif does not increase cognitive nesting if it's chained, but raw else does
-                if not (len(stmt.orelse) == 1 and isinstance(stmt.orelse[0], ast.If)):
-                    compound_bodies.append(stmt.orelse)
-                else:
-                    # Chained elif: same depth
-                    self._check_statement_nesting(stmt.orelse[0], depth)
-        elif isinstance(stmt, (ast.With, ast.AsyncWith)):
-            compound_bodies.append(stmt.body)
-        elif isinstance(stmt, ast.Try):
-            compound_bodies.append(stmt.body)
-            for h in stmt.handlers:
-                compound_bodies.append(h.body)
-            if stmt.orelse:
-                compound_bodies.append(stmt.orelse)
-            if stmt.finalbody:
-                compound_bodies.append(stmt.finalbody)
-
-        for body in compound_bodies:
+        for body in self._get_compound_bodies(stmt, depth):
             for substate in body:
                 self._check_statement_nesting(substate, depth + 1)
 
@@ -202,7 +213,6 @@ class ComplexityVisitor(ast.NodeVisitor):
         """
         if len(node.body) == 1 and isinstance(node.body[0], ast.If):
             if_stmt = node.body[0]
-            # If the if-block contains multiple statements (>3)
             if len(if_stmt.body) >= 3:
                 self.issues.append(QualityIssue(
                     file_path=self.file_path,
@@ -212,7 +222,7 @@ class ComplexityVisitor(ast.NodeVisitor):
                     severity="warning",
                     rule="missing_guard_clause",
                     message=f"Function '{node.name}' wraps its entire body inside an if-statement.",
-                    suggestion=f"Invert condition `if not (...): return` to flatten function body."
+                    suggestion="Invert condition `if not (...): return` to flatten function body."
                 ))
 
 
@@ -247,13 +257,11 @@ class AntiPatternVisitor(ast.NodeVisitor):
         prev_params = self._current_params
         self._current_function = node.name
 
-        # Collect parameter names (excluding self/cls)
         all_args = [a.arg for a in node.args.args if a.arg not in ("self", "cls")]
         all_args += [a.arg for a in getattr(node.args, "posonlyargs", []) if a.arg not in ("self", "cls")]
         all_args += [a.arg for a in getattr(node.args, "kwonlyargs", [])]
         self._current_params = set(all_args)
 
-        # 1. Dangerous mutable default arguments
         all_defaults = node.args.defaults + [d for d in getattr(node.args, "kw_defaults", []) if d is not None]
         for default in all_defaults:
             if isinstance(default, (ast.List, ast.Dict, ast.Set)):
@@ -277,46 +285,55 @@ class AntiPatternVisitor(ast.NodeVisitor):
             self._check_exception_handler(handler)
         self.generic_visit(node)
 
-    def _check_exception_handler(self, handler: ast.ExceptHandler) -> None:
-        # Check if broad exception
-        is_broad = False
+    @staticmethod
+    def _is_broad_exception(handler: ast.ExceptHandler) -> bool:
         if handler.type is None:
-            is_broad = True  # bare except:
-        elif isinstance(handler.type, ast.Name) and handler.type.id in ("Exception", "BaseException"):
-            is_broad = True
+            return True
+        return isinstance(handler.type, ast.Name) and handler.type.id in ("Exception", "BaseException")
 
-        # Check handler body
-        has_logging_or_print = False
+    @staticmethod
+    def _is_logging_call(expr: ast.Call) -> bool:
+        func = expr.func
+        if isinstance(func, ast.Name):
+            return func.id in ("print", "warn")
+        if isinstance(func, ast.Attribute):
+            return func.attr in ("exception", "error", "warning", "info", "debug")
+        return False
+
+    def _inspect_handler_body(self, handler: ast.ExceptHandler) -> Tuple[bool, bool]:
         has_raise = False
-        returns_value = False
-
+        has_logging = False
         for stmt in handler.body:
             if isinstance(stmt, ast.Raise):
                 has_raise = True
-            elif isinstance(stmt, ast.Return):
-                returns_value = True
             elif isinstance(stmt, ast.Expr) and isinstance(stmt.value, ast.Call):
-                func = stmt.value.func
-                # Detect logger.info, logging.error, print(), etc.
-                if isinstance(func, ast.Name) and func.id in ("print", "warn"):
-                    has_logging_or_print = True
-                elif isinstance(func, ast.Attribute) and func.attr in ("exception", "error", "warning", "info", "debug"):
-                    has_logging_or_print = True
+                if self._is_logging_call(stmt.value):
+                    has_logging = True
+        return has_raise, has_logging
 
-        # If bare pass without logging
-        if len(handler.body) == 1 and isinstance(handler.body[0], ast.Pass):
-            severity = "error" if is_broad else "warning"
-            self.issues.append(QualityIssue(
-                file_path=self.file_path,
-                line=handler.lineno,
-                symbol=self._current_function or "<module>",
-                category="anti_pattern",
-                severity=severity,
-                rule="silent_exception_swallowing",
-                message=f"Exception silently swallowed with 'pass' without logging or re-raising.",
-                suggestion="Log the exception with traceback or re-raise a domain-specific exception."
-            ))
-        elif is_broad and not has_raise and not has_logging_or_print:
+    def _check_silent_swallow(self, handler: ast.ExceptHandler, is_broad: bool) -> bool:
+        if len(handler.body) != 1 or not isinstance(handler.body[0], ast.Pass):
+            return False
+        severity = "error" if is_broad else "warning"
+        self.issues.append(QualityIssue(
+            file_path=self.file_path,
+            line=handler.lineno,
+            symbol=self._current_function or "<module>",
+            category="anti_pattern",
+            severity=severity,
+            rule="silent_exception_swallowing",
+            message="Exception silently swallowed with 'pass' without logging or re-raising.",
+            suggestion="Log the exception with traceback or re-raise a domain-specific exception."
+        ))
+        return True
+
+    def _check_exception_handler(self, handler: ast.ExceptHandler) -> None:
+        is_broad = self._is_broad_exception(handler)
+        if self._check_silent_swallow(handler, is_broad):
+            return
+
+        has_raise, has_logging = self._inspect_handler_body(handler)
+        if is_broad and not has_raise and not has_logging:
             self.issues.append(QualityIssue(
                 file_path=self.file_path,
                 line=handler.lineno,
@@ -324,12 +341,11 @@ class AntiPatternVisitor(ast.NodeVisitor):
                 category="anti_pattern",
                 severity="warning",
                 rule="unlogged_broad_exception",
-                message=f"Broad exception caught without logging or re-raising.",
+                message="Broad exception caught without logging or re-raising.",
                 suggestion="Catch a specific exception type or log the failure before handling."
             ))
 
     def visit_Call(self, node: ast.Call) -> None:
-        # Detect in-place mutation of incoming parameters: param.append(...), param.pop()
         if self._current_function and isinstance(node.func, ast.Attribute):
             target = node.func.value
             method_name = node.func.attr
@@ -347,22 +363,28 @@ class AntiPatternVisitor(ast.NodeVisitor):
                     ))
         self.generic_visit(node)
 
+    def _check_subscript_target_mutation(self, target: ast.AST, lineno: int) -> None:
+        if not (isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name)):
+            return
+        if target.value.id in self._current_params:
+            self.issues.append(QualityIssue(
+                file_path=self.file_path,
+                line=lineno,
+                symbol=self._current_function or "<unknown>",
+                category="anti_pattern",
+                severity="warning",
+                rule="parameter_subscript_mutation",
+                message=f"Parameter '{target.value.id}' mutated in-place via subscript assignment.",
+                suggestion="Create and return a new dictionary/list copy rather than mutating caller's state."
+            ))
+
     def visit_Assign(self, node: ast.Assign) -> None:
-        # Detect parameter subscript assignment: param[k] = v
-        if self._current_function:
-            for target in node.targets:
-                if isinstance(target, ast.Subscript) and isinstance(target.value, ast.Name):
-                    if target.value.id in self._current_params:
-                        self.issues.append(QualityIssue(
-                            file_path=self.file_path,
-                            line=node.lineno,
-                            symbol=self._current_function,
-                            category="anti_pattern",
-                            severity="warning",
-                            rule="parameter_subscript_mutation",
-                            message=f"Parameter '{target.value.id}' mutated in-place via subscript assignment.",
-                            suggestion="Create and return a new dictionary/list copy rather than mutating caller's state."
-                        ))
+        if not self._current_function:
+            self.generic_visit(node)
+            return
+
+        for target in node.targets:
+            self._check_subscript_target_mutation(target, node.lineno)
         self.generic_visit(node)
 
 
@@ -383,7 +405,7 @@ class OOPVisitor(ast.NodeVisitor):
         self.file_path = file_path
         self.issues: List[QualityIssue] = []
         self._current_class: Optional[str] = None
-        self._class_methods: Dict[str, Set[str]] = {}  # method_name -> set of self.attributes used
+        self._class_methods: Dict[str, Set[str]] = {}
         self._ignored_demeter_nodes: Set[int] = set()
 
     def visit_ClassDef(self, node: ast.ClassDef) -> None:
@@ -391,7 +413,6 @@ class OOPVisitor(ast.NodeVisitor):
         self._current_class = node.name
         self._class_methods = {}
 
-        # 1. God Class Detection
         class_lines = (node.end_lineno or node.lineno) - node.lineno
         methods = [stmt for stmt in node.body if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))]
         method_count = len(methods)
@@ -408,13 +429,10 @@ class OOPVisitor(ast.NodeVisitor):
                 suggestion="Decompose this class into smaller, specialized domain objects (Single Responsibility Principle)."
             ))
 
-        # Visit methods and record attribute accesses
         for method in methods:
             self._analyze_method(method)
 
-        # 2. Check Cohesion (LCOM) if class has multiple methods
         self._check_class_cohesion(node)
-
         self._current_class = prev_class
 
     def _analyze_method(self, node: Any) -> None:
@@ -431,7 +449,6 @@ class OOPVisitor(ast.NodeVisitor):
                 suggestion="Extract cohesive subroutines or separate responsibilities."
             ))
 
-        # Record self.attribute usages for cohesion analysis
         accessed_attrs: Set[str] = set()
         for subnode in ast.walk(node):
             if isinstance(subnode, ast.Attribute) and isinstance(subnode.value, ast.Name):
@@ -439,40 +456,49 @@ class OOPVisitor(ast.NodeVisitor):
                     accessed_attrs.add(subnode.attr)
         self._class_methods[node.name] = accessed_attrs
 
-        # Also inspect general statements inside method for Law of Demeter
         self.visit(node)
 
-    def _check_class_cohesion(self, node: ast.ClassDef) -> None:
-        # Filter out dunder methods
-        business_methods = {k: v for k, v in self._class_methods.items() if not (k.startswith("__") and k.endswith("__"))}
-        if len(business_methods) >= 4:
-            # Check how many methods share at least one attribute with another method
-            all_shared_pairs = 0
-            keys = list(business_methods.keys())
-            for i in range(len(keys)):
-                for j in range(i + 1, len(keys)):
-                    if business_methods[keys[i]] & business_methods[keys[j]]:
-                        all_shared_pairs += 1
+    @staticmethod
+    def _count_shared_pairs(methods: Dict[str, Set[str]]) -> int:
+        shared = 0
+        keys = list(methods.keys())
+        for i, k1 in enumerate(keys):
+            for k2 in keys[i + 1:]:
+                if methods[k1] & methods[k2]:
+                    shared += 1
+        return shared
 
-            total_pairs = (len(keys) * (len(keys) - 1)) // 2
-            if total_pairs > 0 and (all_shared_pairs / total_pairs) < 0.15:
-                self.issues.append(QualityIssue(
-                    file_path=self.file_path,
-                    line=node.lineno,
-                    symbol=node.name,
-                    category="oop_cohesion",
-                    severity="warning",
-                    rule="low_method_cohesion",
-                    message=f"Class '{node.name}' exhibits very low method cohesion (methods do not share instance state).",
-                    suggestion="Consider splitting unrelated methods into separate classes or standalone utility modules."
-                ))
+    def _check_class_cohesion(self, node: ast.ClassDef) -> None:
+        business_methods = {
+            k: v for k, v in self._class_methods.items()
+            if not (k.startswith("__") and k.endswith("__"))
+        }
+        if len(business_methods) < 4:
+            return
+
+        keys_len = len(business_methods)
+        total_pairs = (keys_len * (keys_len - 1)) // 2
+        if total_pairs <= 0:
+            return
+
+        all_shared_pairs = self._count_shared_pairs(business_methods)
+        if (all_shared_pairs / total_pairs) < 0.15:
+            self.issues.append(QualityIssue(
+                file_path=self.file_path,
+                line=node.lineno,
+                symbol=node.name,
+                category="oop_cohesion",
+                severity="warning",
+                rule="low_method_cohesion",
+                message=f"Class '{node.name}' exhibits very low method cohesion (methods do not share instance state).",
+                suggestion="Consider splitting unrelated methods into separate classes or standalone utility modules."
+            ))
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
         if id(node) in self._ignored_demeter_nodes:
             self.generic_visit(node)
             return
 
-        # Law of Demeter: count chained attribute depth (e.g. a.b.c.d)
         depth = 0
         curr = node
         chain_nodes = []
@@ -481,13 +507,10 @@ class OOPVisitor(ast.NodeVisitor):
             chain_nodes.append(curr)
             curr = curr.value
 
-        # Depth >= 3 means a.b.c.d (4 levels)
         if depth >= 3:
-            # Mark inner nodes so they are not double-reported
             for inner in chain_nodes[1:]:
                 self._ignored_demeter_nodes.add(id(inner))
 
-            # Skip common fluent builder patterns (e.g., queryset, builder, parser)
             if not isinstance(curr, ast.Call):
                 self.issues.append(QualityIssue(
                     file_path=self.file_path,
@@ -505,6 +528,19 @@ class OOPVisitor(ast.NodeVisitor):
 # =====================================================================
 # 4. Contract & Type Uniformity Sentry
 # =====================================================================
+
+def _is_none_return(ret: ast.Return) -> bool:
+    if ret.value is None:
+        return True
+    return isinstance(ret.value, ast.Constant) and ret.value.value is None
+
+
+def _is_optional_return_annotation(returns_node: Optional[ast.AST]) -> bool:
+    if not returns_node or not hasattr(ast, "unparse"):
+        return False
+    text = ast.unparse(returns_node)
+    return "Optional" in text or "None" in text or "|" in text
+
 
 class ContractVisitor(ast.NodeVisitor):
     """
@@ -526,37 +562,28 @@ class ContractVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def _check_returns(self, node: Any) -> None:
-        returns: List[ast.Return] = []
-        for subnode in ast.walk(node):
-            if isinstance(subnode, ast.Return):
-                returns.append(subnode)
-
+        returns = [s for s in ast.walk(node) if isinstance(s, ast.Return)]
         if len(returns) <= 1:
             return
 
-        has_value_return = any(r.value is not None and not (isinstance(r.value, ast.Constant) and r.value.value is None) for r in returns)
-        has_bare_return = any(r.value is None or (isinstance(r.value, ast.Constant) and r.value.value is None) for r in returns)
+        has_bare = any(_is_none_return(r) for r in returns)
+        has_val = any(not _is_none_return(r) for r in returns)
+        if not (has_bare and has_val):
+            return
 
-        # If a function returns a value in one place and bare None in another, check if Optional is declared
-        if has_value_return and has_bare_return:
-            is_annotated_optional = False
-            if node.returns:
-                # Check for Optional[...] or ... | None or Union[..., None]
-                returns_str = ast.unparse(node.returns) if hasattr(ast, "unparse") else ""
-                if "Optional" in returns_str or "None" in returns_str or "|" in returns_str:
-                    is_annotated_optional = True
+        if _is_optional_return_annotation(getattr(node, "returns", None)):
+            return
 
-            if not is_annotated_optional:
-                self.issues.append(QualityIssue(
-                    file_path=self.file_path,
-                    line=node.lineno,
-                    symbol=node.name,
-                    category="contract",
-                    severity="warning",
-                    rule="inconsistent_return_contract",
-                    message=f"Function '{node.name}' returns values in some branches and bare None in others without Optional type annotation.",
-                    suggestion=f"Annotate return type as `Optional[...]` or ensure all branches return a consistent domain object/error."
-                ))
+        self.issues.append(QualityIssue(
+            file_path=self.file_path,
+            line=node.lineno,
+            symbol=node.name,
+            category="contract",
+            severity="warning",
+            rule="inconsistent_return_contract",
+            message=f"Function '{node.name}' returns values in some branches and bare None in others without Optional type annotation.",
+            suggestion="Annotate return type as `Optional[...]` or ensure all branches return a consistent domain object/error."
+        ))
 
 
 # =====================================================================
@@ -583,22 +610,18 @@ def audit_code_string(code_str: str, file_path: str = "<string>") -> List[Qualit
 
     issues: List[QualityIssue] = []
 
-    # 1. Complexity
     c_visitor = ComplexityVisitor(file_path=file_path)
     c_visitor.visit(tree)
     issues.extend(c_visitor.issues)
 
-    # 2. Anti-Pattern
     ap_visitor = AntiPatternVisitor(file_path=file_path)
     ap_visitor.visit(tree)
     issues.extend(ap_visitor.issues)
 
-    # 3. OOP & Cohesion
     oop_visitor = OOPVisitor(file_path=file_path)
     oop_visitor.visit(tree)
     issues.extend(oop_visitor.issues)
 
-    # 4. Contract
     con_visitor = ContractVisitor(file_path=file_path)
     con_visitor.visit(tree)
     issues.extend(con_visitor.issues)
@@ -614,7 +637,22 @@ def audit_file(file_path: str) -> List[QualityIssue]:
         with open(file_path, "r", encoding="utf-8", errors="replace") as f:
             content = f.read()
         return audit_code_string(content, file_path=file_path)
+    except (OSError, UnicodeDecodeError) as e:
+        logger.debug("Could not read file %s: %s", file_path, e)
+        return [
+            QualityIssue(
+                file_path=file_path,
+                line=1,
+                symbol="<io>",
+                category="contract",
+                severity="error",
+                rule="read_error",
+                message=f"Could not read file: {e}",
+                suggestion="Ensure file exists and has read permissions."
+            )
+        ]
     except Exception as e:
+        logger.debug("Unexpected error reading file %s: %s", file_path, e)
         return [
             QualityIssue(
                 file_path=file_path,
@@ -629,62 +667,85 @@ def audit_file(file_path: str) -> List[QualityIssue]:
         ]
 
 
+def _should_skip_dir(rel_root: str) -> bool:
+    return rel_root != "." and is_ignored_path(rel_root)
+
+
+def _is_target_python_file(filename: str, rel_root: str) -> bool:
+    if not filename.endswith(".py"):
+        return False
+    rel_file = filename if rel_root == "." else os.path.join(rel_root, filename)
+    return not is_ignored_path(rel_file)
+
+
+def _collect_python_files(repo_path: str) -> List[str]:
+    py_files: List[str] = []
+    for root, dirs, files in os.walk(repo_path):
+        rel_root = os.path.relpath(root, repo_path)
+        if _should_skip_dir(rel_root):
+            dirs.clear()
+            continue
+        dirs[:] = [
+            d for d in dirs
+            if not _should_skip_dir(d if rel_root == "." else os.path.join(rel_root, d))
+        ]
+        for f in files:
+            if _is_target_python_file(f, rel_root):
+                py_files.append(os.path.join(root, f))
+    return py_files
+
+
+def _calculate_score(total_files: int, error_count: int, warning_count: int) -> float:
+    if total_files <= 0:
+        return 100.0
+    penalty = (error_count * 10.0) + (warning_count * 2.0)
+    penalty_per_file = penalty / total_files
+    return max(0.0, min(100.0, 100.0 - penalty_per_file))
+
+
+def _build_metrics(issues: List[QualityIssue], total_files: int) -> Dict[str, Any]:
+    categories = ("complexity", "anti_pattern", "oop_cohesion", "contract")
+    category_counts = {cat: 0 for cat in categories}
+    affected_files: Set[str] = set()
+    for issue in issues:
+        affected_files.add(issue.file_path)
+        if issue.category in category_counts:
+            category_counts[issue.category] += 1
+
+    clean_count = max(0, total_files - len(affected_files))
+    clean_pct = (clean_count / total_files * 100.0) if total_files > 0 else 100.0
+    issues_per_file = round(len(issues) / max(1, total_files), 2)
+    return {
+        "categories": category_counts,
+        "clean_files": clean_count,
+        "affected_files": len(affected_files),
+        "clean_files_percentage": round(clean_pct, 1),
+        "issues_per_file": issues_per_file,
+    }
+
+
 def audit_repository(repo_path: str, strict: bool = False) -> QualityReport:
     """
     Recursively scans and audits all Python source files in a repository.
     Computes quality scores and metrics.
     """
-    report = QualityReport()
+    py_files = _collect_python_files(repo_path)
     all_issues: List[QualityIssue] = []
-    py_files: List[str] = []
-
-    for root, dirs, files in os.walk(repo_path):
-        rel_root = os.path.relpath(root, repo_path)
-        if rel_root != "." and is_ignored_path(rel_root):
-            dirs.clear()
-            continue
-        dirs[:] = [d for d in dirs if not is_ignored_path(d if rel_root == "." else os.path.join(rel_root, d))]
-        for f in files:
-            rel_file = f if rel_root == "." else os.path.join(rel_root, f)
-            if f.endswith(".py") and not is_ignored_path(rel_file):
-                py_files.append(os.path.join(root, f))
-
-    report.total_files = len(py_files)
-
     for fpath in py_files:
-        issues = audit_file(fpath)
-        all_issues.extend(issues)
+        all_issues.extend(audit_file(fpath))
 
-    report.issues = all_issues
-    report.total_issues = len(all_issues)
-    report.error_count = sum(1 for i in all_issues if i.severity == "error")
-    report.warning_count = sum(1 for i in all_issues if i.severity == "warning")
+    error_count = sum(1 for i in all_issues if i.severity == "error")
+    warning_count = sum(1 for i in all_issues if i.severity == "warning")
+    score = _calculate_score(len(py_files), error_count, warning_count)
+    clean = (len(all_issues) == 0) if strict else (error_count == 0)
 
-    # Score calculation normalized per file: 100 - (errors * 10 + warnings * 2) / total_files
-    penalty = (report.error_count * 10.0) + (report.warning_count * 2.0)
-    penalty_per_file = (penalty / report.total_files) if report.total_files > 0 else 0.0
-    report.score = max(0.0, min(100.0, 100.0 - penalty_per_file))
-
-    if strict:
-        report.clean = (report.total_issues == 0)
-    else:
-        report.clean = (report.error_count == 0)
-
-    # Category Breakdown Metrics
-    category_counts = {
-        "complexity": sum(1 for i in all_issues if i.category == "complexity"),
-        "anti_pattern": sum(1 for i in all_issues if i.category == "anti_pattern"),
-        "oop_cohesion": sum(1 for i in all_issues if i.category == "oop_cohesion"),
-        "contract": sum(1 for i in all_issues if i.category == "contract"),
-    }
-    clean_files_count = report.total_files - len({i.file_path for i in all_issues})
-    clean_pct = (clean_files_count / report.total_files * 100.0) if report.total_files > 0 else 100.0
-    report.metrics = {
-        "categories": category_counts,
-        "clean_files": clean_files_count,
-        "affected_files": len({i.file_path for i in all_issues}),
-        "clean_files_percentage": round(clean_pct, 1),
-        "issues_per_file": round(report.total_issues / max(1, report.total_files), 2),
-    }
-
-    return report
+    return QualityReport(
+        total_files=len(py_files),
+        total_issues=len(all_issues),
+        warning_count=warning_count,
+        error_count=error_count,
+        clean=clean,
+        score=score,
+        issues=all_issues,
+        metrics=_build_metrics(all_issues, len(py_files)),
+    )

@@ -5,10 +5,14 @@ Grades each run directory purely from the files on disk (no knowledge of which a
 """
 import ast
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
+from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def sh(cmd, cwd, env=None):
@@ -29,20 +33,30 @@ def top_defs(path):
     return out
 
 
-def unused_imports(path):
+def _extract_imported_names(tree: ast.AST) -> List[str]:
+    imported: List[str] = []
+    for n in ast.walk(tree):
+        if isinstance(n, ast.Import):
+            imported.extend((a.asname or a.name).split(".")[0] for a in n.names)
+        elif isinstance(n, ast.ImportFrom):
+            imported.extend(a.asname or a.name for a in n.names if a.name != "*")
+    return imported
+
+
+def _extract_used_names(tree: ast.AST) -> set:
+    used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    used |= {n.value.id for n in ast.walk(tree) if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)}
+    return used
+
+
+def unused_imports(path: str) -> Optional[List[str]]:
     """Count imported names never referenced in the module (simple static check)."""
     if not os.path.exists(path):
         return None
     src = open(path, encoding="utf-8").read()
     tree = ast.parse(src)
-    imported = []
-    for n in ast.walk(tree):
-        if isinstance(n, ast.Import):
-            imported += [(a.asname or a.name).split(".")[0] for a in n.names]
-        elif isinstance(n, ast.ImportFrom):
-            imported += [a.asname or a.name for a in n.names if a.name != "*"]
-    used = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
-    used |= {n.value.id for n in ast.walk(tree) if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name)}
+    imported = _extract_imported_names(tree)
+    used = _extract_used_names(tree)
     # names referenced inside string annotations
     strs = " ".join(n.value for n in ast.walk(tree) if isinstance(n, ast.Constant) and isinstance(n.value, str))
     return sorted({i for i in imported if i not in used and not re.search(rf"\b{re.escape(i)}\b", strs)})
@@ -124,6 +138,7 @@ def main(root):
         try:
             checks, extra = g(d)
         except Exception as e:  # syntax errors etc. count as failure
+            logger.debug("Grading failed for %s: %s", d, e)
             checks, extra = {"grader_crashed": False}, {"error": repr(e)}
         score = sum(checks.values()) / max(1, len(checks))
         if "false_claims" in extra:

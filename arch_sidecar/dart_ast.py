@@ -9,72 +9,321 @@ Provides:
 """
 
 import re
-from typing import Dict, List, Any, Optional
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+_DART_TOKEN_PATTERN = re.compile(
+    r'(r"""[\s\S]*?""")|'
+    r"(r'''[\s\S]*?''')|"
+    r'("""[\s\S]*?""")|'
+    r"('''[\s\S]*?''')|"
+    r'(r"[^\n"]*")|'
+    r"(r'[^\n']*')|"
+    r'("(\\.|[^"\\])*")|'
+    r"('(\\.|[^'\\])*')|"
+    r"(//[^\n]*)|"
+    r"(/\*[\s\S]*?\*/)"
+)
+
+_IMPORT_PAT = re.compile(
+    r"^import\s+['\"]([^'\"]+)['\"](?:\s+as\s+([a-zA-Z0-9_$]+))?(?:\s+(?:show|hide)\s+([^;]+))?;"
+)
+_EXPORT_PAT = re.compile(
+    r"^export\s+['\"]([^'\"]+)['\"](?:\s+(?:show|hide)\s+([^;]+))?;"
+)
+_LIB_PAT = re.compile(r"^library\s+([a-zA-Z0-9_.]+);")
+
+_CLASS_PAT = re.compile(r"^(?:abstract\s+|sealed\s+|base\s+|interface\s+|final\s+)?class\s+([a-zA-Z0-9_$]+)")
+_MIXIN_PAT = re.compile(r"^mixin\s+([a-zA-Z0-9_$]+)")
+_EXTENSION_PAT = re.compile(r"^extension\s+([a-zA-Z0-9_$]+)?\s*on\s+")
+_ENUM_PAT = re.compile(r"^enum\s+([a-zA-Z0-9_$]+)")
+_TYPEDEF_PAT = re.compile(r"^typedef\s+([a-zA-Z0-9_$]+)")
+_FUNC_PAT = re.compile(r"^(?:[a-zA-Z0-9_<>,?\s]+\s+)?([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?:async\s*)?(?:=>|\{)")
+_CONST_PAT = re.compile(r"^(?:const|final|var)\s+(?:[a-zA-Z0-9_<>,?\s]+\s+)?([a-zA-Z0-9_$]+)\s*=")
+
+_DART_CONTROL_FLOW = ("if", "for", "while", "switch", "return")
+_DART_METHOD_EXCLUSIONS = ("if", "for", "while", "switch", "return", "case", "catch", "finally")
+
+_DART_TYPE_PATTERNS = (
+    ("class", _CLASS_PAT),
+    ("mixin", _MIXIN_PAT),
+    ("extension", _EXTENSION_PAT),
+    ("enum", _ENUM_PAT),
+    ("typedef", _TYPEDEF_PAT),
+)
+
+
+@dataclass(frozen=True)
+class _ParseContext:
+    lines: List[str]
+    raw_lines: List[str]
+    idx: int
+    stripped: str
+
+
+def _strip_dart_comment_match(match: re.Match) -> str:
+    text = match.group(0)
+    if text.startswith("//"):
+        return ""
+    if text.startswith("/*"):
+        return "\n" * text.count("\n")
+    return text
 
 
 def strip_dart_comments(code: str) -> str:
     """Strips single-line and multi-line comments from Dart code while preserving string literals."""
-    output: List[str] = []
-    i = 0
-    n = len(code)
-    in_single_quote = False
-    in_double_quote = False
-    in_raw = False
+    return _DART_TOKEN_PATTERN.sub(_strip_dart_comment_match, code)
 
-    while i < n:
-        c = code[i]
-        # Escape sequence inside normal string
-        if (in_single_quote or in_double_quote) and not in_raw and c == "\\":
-            output.append(c)
-            if i + 1 < n:
-                output.append(code[i + 1])
-                i += 2
-                continue
-            i += 1
-            continue
 
-        # Raw string r'...' or r"..."
-        if not in_single_quote and not in_double_quote and c == "r" and i + 1 < n and code[i + 1] in ("'", '"'):
-            output.append(c)
-            i += 1
-            continue
+def _find_dart_decl_start(raw_lines: List[str], idx: int) -> int:
+    k = idx - 1
+    while k >= 0:
+        prev = raw_lines[k].strip()
+        if not (prev.startswith("///") or prev.startswith("@")):
+            break
+        k -= 1
+    return k + 1
 
-        # Single quote '
-        if not in_double_quote and c == "'":
-            in_single_quote = not in_single_quote
-            output.append(c)
-            i += 1
-            continue
 
-        # Double quote "
-        if not in_single_quote and c == '"':
-            in_double_quote = not in_double_quote
-            output.append(c)
-            i += 1
-            continue
+def _find_dart_block_end(lines: List[str], start_idx: int) -> int:
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if not found_brace and ";" in line:
+            return j
+    return start_idx
 
-        # Outside strings: check comments
-        if not in_single_quote and not in_double_quote:
-            if c == "/" and i + 1 < n and code[i + 1] == "/":
-                newline_pos = code.find("\n", i)
-                if newline_pos == -1:
-                    break
-                output.append("\n")
-                i = newline_pos + 1
-                continue
-            elif c == "/" and i + 1 < n and code[i + 1] == "*":
-                end_pos = code.find("*/", i + 2)
-                if end_pos == -1:
-                    break
-                comment_newlines = code[i : end_pos + 2].count("\n")
-                output.append("\n" * comment_newlines)
-                i = end_pos + 2
-                continue
 
-        output.append(c)
-        i += 1
+def _is_dart_func_end_line(line: str, found_brace: bool) -> bool:
+    if found_brace:
+        return False
+    return ";" in line or "=>" in line
 
-    return "".join(output)
+
+def _find_dart_func_end(lines: List[str], start_idx: int) -> int:
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if _is_dart_func_end_line(line, found_brace):
+            return j
+    return start_idx
+
+
+def _extract_span_code(raw_lines: List[str], idx: int, start_idx: int, end_idx: int) -> Tuple[int, int, int, str]:
+    return (idx + 1, start_idx + 1, end_idx + 1, "".join(raw_lines[start_idx : end_idx + 1]))
+
+
+def _build_declaration(
+    kind: str,
+    name: str,
+    is_exported: bool,
+    sig: str,
+    span_and_code: Tuple[int, int, int, str],
+) -> Dict[str, Any]:
+    line, start_line, end_line, code = span_and_code
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": is_exported,
+        "signature": sig,
+        "line": line,
+        "start_line": start_line,
+        "end_line": end_line,
+        "code": code,
+    }
+
+
+def _match_dart_type(stripped: str, idx: int) -> Optional[Tuple[str, str]]:
+    for kind, pat in _DART_TYPE_PATTERNS:
+        m = pat.match(stripped)
+        if m:
+            name = m.group(1) or f"Extension_{idx + 1}"
+            return kind, name
+    return None
+
+
+def _parse_dart_type_decl(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Tuple[Dict[str, Any], Optional[str]]]:
+    matched = _match_dart_type(stripped, idx)
+    if not matched:
+        return None
+    kind, name = matched
+    start_idx = _find_dart_decl_start(raw_lines, idx)
+    end_idx = _find_dart_block_end(lines, idx)
+    sig = stripped.split("{")[0].strip().rstrip(";")
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    decl = _build_declaration(kind, name, not name.startswith("_"), sig, span_code)
+    new_class = name if kind in ("class", "mixin", "extension", "enum") else None
+    return decl, new_class
+
+
+def _parse_dart_function(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Dict[str, Any]]:
+    if stripped.startswith(_DART_CONTROL_FLOW):
+        return None
+    m = _FUNC_PAT.match(stripped)
+    if not m:
+        return None
+    name = m.group(1)
+    if name in _DART_CONTROL_FLOW:
+        return None
+    start_idx = _find_dart_decl_start(raw_lines, idx)
+    end_idx = _find_dart_func_end(lines, idx)
+    sig = stripped.split("{")[0].strip().rstrip(";")
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    return _build_declaration("function", name, not name.startswith("_"), sig, span_code)
+
+
+def _parse_dart_const(
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Dict[str, Any]]:
+    m = _CONST_PAT.match(stripped)
+    if not m:
+        return None
+    name = m.group(1)
+    span_code = (idx + 1, idx + 1, idx + 1, raw_lines[idx])
+    return _build_declaration("const", name, not name.startswith("_"), stripped.rstrip(";"), span_code)
+
+
+def _parse_dart_method(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+    current_class: str,
+) -> Optional[Dict[str, Any]]:
+    if stripped.startswith(_DART_METHOD_EXCLUSIONS):
+        return None
+    m = _FUNC_PAT.match(stripped)
+    if not m:
+        return None
+    name = m.group(1)
+    if name in _DART_METHOD_EXCLUSIONS:
+        return None
+    end_idx = _find_dart_func_end(lines, idx)
+    sig = stripped.split("{")[0].strip().rstrip(";")
+    span_code = (idx + 1, idx + 1, end_idx + 1, "".join(raw_lines[idx : end_idx + 1]))
+    return _build_declaration("method", f"{current_class}.{name}", not name.startswith("_"), sig, span_code)
+
+
+def _parse_dart_directive(
+    stripped: str,
+    idx: int,
+) -> Tuple[Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    m_lib = _LIB_PAT.match(stripped)
+    if m_lib:
+        return m_lib.group(1), None, None
+
+    m_imp = _IMPORT_PAT.match(stripped)
+    if m_imp:
+        imp = {
+            "module": m_imp.group(1),
+            "alias": m_imp.group(2),
+            "filter": m_imp.group(3),
+            "line": idx + 1,
+        }
+        return None, imp, None
+
+    m_exp = _EXPORT_PAT.match(stripped)
+    if m_exp:
+        exp = {
+            "module": m_exp.group(1),
+            "filter": m_exp.group(2),
+            "line": idx + 1,
+        }
+        return None, None, exp
+
+    return None, None, None
+
+
+def _consume_directive(
+    stripped: str,
+    idx: int,
+    brace_depth: int,
+    library_name: Optional[str],
+) -> Tuple[Optional[str], Optional[Dict[str, Any]], Optional[Dict[str, Any]], bool]:
+    if brace_depth != 0:
+        return library_name, None, None, False
+    lib, imp, exp = _parse_dart_directive(stripped, idx)
+    if lib:
+        return (lib if not library_name else library_name), None, None, True
+    if imp:
+        return library_name, imp, None, True
+    if exp:
+        return library_name, None, exp, True
+    return library_name, None, None, False
+
+
+def _dispatch_dart_top_level(
+    ctx: _ParseContext,
+    brace_depth: int,
+    class_depth: int,
+    current_class: Optional[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    type_res = _parse_dart_type_decl(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped)
+    if type_res:
+        decl, new_class = type_res
+        if new_class:
+            return decl, new_class, brace_depth + 1
+        return decl, current_class, class_depth
+
+    func_decl = _parse_dart_function(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped)
+    if func_decl:
+        return func_decl, current_class, class_depth
+
+    const_decl = _parse_dart_const(ctx.raw_lines, ctx.idx, ctx.stripped)
+    if const_decl:
+        return const_decl, current_class, class_depth
+
+    return None, current_class, class_depth
+
+
+def _dispatch_dart_decl(
+    ctx: _ParseContext,
+    brace_depth: int,
+    class_depth: int,
+    current_class: Optional[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    if brace_depth == 0:
+        return _dispatch_dart_top_level(ctx, brace_depth, class_depth, current_class)
+
+    if current_class and brace_depth == class_depth:
+        meth_decl = _parse_dart_method(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped, current_class)
+        if meth_decl:
+            return meth_decl, current_class, class_depth
+
+    return None, current_class, class_depth
+
+
+def _sync_class_scope(current_class: Optional[str], brace_depth: int, class_depth: int) -> Optional[str]:
+    if current_class and brace_depth < class_depth:
+        return None
+    return current_class
 
 
 def parse_dart_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
@@ -92,212 +341,32 @@ def parse_dart_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     declarations: List[Dict[str, Any]] = []
     library_name: Optional[str] = None
 
-    import_pat = re.compile(r"^import\s+['\"]([^'\"]+)['\"](?:\s+as\s+([a-zA-Z0-9_$]+))?(?:\s+(?:show|hide)\s+([^;]+))?;")
-    export_pat = re.compile(r"^export\s+['\"]([^'\"]+)['\"](?:\s+(?:show|hide)\s+([^;]+))?;")
-    lib_pat = re.compile(r"^library\s+([a-zA-Z0-9_.]+);")
-
-    # Declarations patterns
-    class_pat = re.compile(r"^(?:abstract\s+|sealed\s+|base\s+|interface\s+|final\s+)?class\s+([a-zA-Z0-9_$]+)")
-    mixin_pat = re.compile(r"^mixin\s+([a-zA-Z0-9_$]+)")
-    extension_pat = re.compile(r"^extension\s+([a-zA-Z0-9_$]+)?\s*on\s+")
-    enum_pat = re.compile(r"^enum\s+([a-zA-Z0-9_$]+)")
-    typedef_pat = re.compile(r"^typedef\s+([a-zA-Z0-9_$]+)")
-    func_pat = re.compile(r"^(?:[a-zA-Z0-9_<>,?\s]+\s+)?([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?:async\s*)?(?:=>|\{)")
-    const_pat = re.compile(r"^(?:const|final|var)\s+(?:[a-zA-Z0-9_<>,?\s]+\s+)?([a-zA-Z0-9_$]+)\s*=")
-
-    current_brace_depth = 0
+    brace_depth = 0
     current_class: Optional[str] = None
-    class_brace_depth = 0
+    class_depth = 0
 
     for idx, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
             continue
 
-        # 1. Directives
-        m_lib = lib_pat.match(stripped)
-        if m_lib and current_brace_depth == 0:
-            library_name = m_lib.group(1)
+        library_name, imp, exp, handled = _consume_directive(stripped, idx, brace_depth, library_name)
+        if handled:
+            if imp:
+                imports.append(imp)
+            elif exp:
+                exports.append(exp)
             continue
 
-        m_imp = import_pat.match(stripped)
-        if m_imp and current_brace_depth == 0:
-            imports.append({
-                "module": m_imp.group(1),
-                "alias": m_imp.group(2),
-                "filter": m_imp.group(3),
-                "line": idx + 1
-            })
-            continue
+        ctx = _ParseContext(lines=lines, raw_lines=raw_lines, idx=idx, stripped=stripped)
+        decl, current_class, class_depth = _dispatch_dart_decl(
+            ctx, brace_depth, class_depth, current_class
+        )
+        if decl:
+            declarations.append(decl)
 
-        m_exp = export_pat.match(stripped)
-        if m_exp and current_brace_depth == 0:
-            exports.append({
-                "module": m_exp.group(1),
-                "filter": m_exp.group(2),
-                "line": idx + 1
-            })
-            continue
-
-        # 2. Top-level declarations
-        is_top_level = (current_brace_depth == 0)
-        matched = False
-
-        if is_top_level:
-            for kind, pat in [
-                ("class", class_pat),
-                ("mixin", mixin_pat),
-                ("extension", extension_pat),
-                ("enum", enum_pat),
-                ("typedef", typedef_pat),
-            ]:
-                m = pat.match(stripped)
-                if m:
-                    name = m.group(1) or f"Extension_{idx+1}"
-                    # Find doc comments or annotations walking back
-                    start_line_idx = idx
-                    k = idx - 1
-                    while k >= 0:
-                        prev = raw_lines[k].strip()
-                        if prev.startswith("///") or prev.startswith("@"):
-                            start_line_idx = k
-                            k -= 1
-                        else:
-                            break
-
-                    brace_count = 0
-                    found_brace = False
-                    end_idx = idx
-                    for j in range(idx, len(lines)):
-                        l = lines[j]
-                        brace_count += l.count("{") - l.count("}")
-                        if "{" in l:
-                            found_brace = True
-                        if found_brace and brace_count <= 0:
-                            end_idx = j
-                            break
-                        if not found_brace and ";" in l:
-                            end_idx = j
-                            break
-
-                    sig = stripped.split("{")[0].strip().rstrip(";")
-                    decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                    declarations.append({
-                        "kind": kind,
-                        "name": name,
-                        "is_exported": not name.startswith("_"),
-                        "signature": sig,
-                        "line": idx + 1,
-                        "start_line": start_line_idx + 1,
-                        "end_line": end_idx + 1,
-                        "code": decl_code,
-                    })
-
-                    if kind in ("class", "mixin", "extension", "enum"):
-                        current_class = name
-                        class_brace_depth = current_brace_depth + 1
-                    matched = True
-                    break
-
-            if not matched:
-                # Top-level function
-                m_func = func_pat.match(stripped)
-                if m_func and not stripped.startswith(("if", "for", "while", "switch", "return")):
-                    name = m_func.group(1)
-                    if name not in ("if", "for", "while", "switch", "return"):
-                        start_line_idx = idx
-                        k = idx - 1
-                        while k >= 0:
-                            prev = raw_lines[k].strip()
-                            if prev.startswith("///") or prev.startswith("@"):
-                                start_line_idx = k
-                                k -= 1
-                            else:
-                                break
-
-                        brace_count = 0
-                        found_brace = False
-                        end_idx = idx
-                        for j in range(idx, len(lines)):
-                            l = lines[j]
-                            brace_count += l.count("{") - l.count("}")
-                            if "{" in l:
-                                found_brace = True
-                            if found_brace and brace_count <= 0:
-                                end_idx = j
-                                break
-                            if not found_brace and (";" in l or "=>" in l):
-                                end_idx = j
-                                break
-
-                        sig = stripped.split("{")[0].strip().rstrip(";")
-                        decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                        declarations.append({
-                            "kind": "function",
-                            "name": name,
-                            "is_exported": not name.startswith("_"),
-                            "signature": sig,
-                            "line": idx + 1,
-                            "start_line": start_line_idx + 1,
-                            "end_line": end_idx + 1,
-                            "code": decl_code,
-                        })
-                        matched = True
-
-            if not matched:
-                # Top-level const / final
-                m_c = const_pat.match(stripped)
-                if m_c:
-                    name = m_c.group(1)
-                    declarations.append({
-                        "kind": "const",
-                        "name": name,
-                        "is_exported": not name.startswith("_"),
-                        "signature": stripped.rstrip(";"),
-                        "line": idx + 1,
-                        "start_line": idx + 1,
-                        "end_line": idx + 1,
-                        "code": raw_lines[idx],
-                    })
-                    matched = True
-
-        # Class method / getter / setter
-        if not matched and current_class and current_brace_depth == class_brace_depth:
-            m_meth = func_pat.match(stripped)
-            if m_meth and not stripped.startswith(("if", "for", "while", "switch", "return", "case")):
-                name = m_meth.group(1)
-                if name not in ("if", "for", "while", "switch", "return", "catch", "finally"):
-                    brace_count = 0
-                    found_brace = False
-                    end_idx = idx
-                    for j in range(idx, len(lines)):
-                        l = lines[j]
-                        brace_count += l.count("{") - l.count("}")
-                        if "{" in l:
-                            found_brace = True
-                        if found_brace and brace_count <= 0:
-                            end_idx = j
-                            break
-                        if not found_brace and (";" in l or "=>" in l):
-                            end_idx = j
-                            break
-
-                    sig = stripped.split("{")[0].strip().rstrip(";")
-                    declarations.append({
-                        "kind": "method",
-                        "name": f"{current_class}.{name}",
-                        "is_exported": not name.startswith("_"),
-                        "signature": sig,
-                        "line": idx + 1,
-                        "start_line": idx + 1,
-                        "end_line": end_idx + 1,
-                        "code": "".join(raw_lines[idx : end_idx + 1]),
-                    })
-
-        # Update brace depth
-        current_brace_depth += (line.count("{") - line.count("}"))
-        if current_class and current_brace_depth < class_brace_depth:
-            current_class = None
+        brace_depth += line.count("{") - line.count("}")
+        current_class = _sync_class_scope(current_class, brace_depth, class_depth)
 
     return {
         "filename": filename,
@@ -309,35 +378,46 @@ def parse_dart_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     }
 
 
+def _format_dart_imports(imports: List[Dict[str, Any]]) -> List[str]:
+    if not imports:
+        return []
+    summary = [f"  // Imports ({len(imports)}):"]
+    for imp in imports[:8]:
+        alias_str = f" as {imp['alias']}" if imp.get("alias") else ""
+        summary.append(f"  import '{imp['module']}'{alias_str};")
+    if len(imports) > 8:
+        summary.append(f"  // ... and {len(imports) - 8} more imports")
+    return summary
+
+
+def _format_dart_declarations(decls: List[Dict[str, Any]]) -> List[str]:
+    if not decls:
+        return []
+    summary = [f"  // Declarations ({len(decls)}):"]
+    for d in decls:
+        export_flag = "pub " if d.get("is_exported") else "priv"
+        sig = d.get("signature") or d["name"]
+        summary.append(f"  [{export_flag} {d['kind']:8}] L{d['start_line']}-{d['end_line']}: {sig}")
+    return summary
+
+
 def format_dart_digest_skeleton(filepath: str) -> str:
     """Formats an architectural skeleton for a Dart file."""
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
+        logger.debug("Failed to read Dart file %s: %s", filepath, e)
         return f"  [Error reading Dart: {e}]\n"
 
     parsed = parse_dart_ast(content, filename=filepath)
     summary: List[str] = []
 
-    if parsed.get("library"):
-        summary.append(f"  library {parsed['library']};")
+    lib = parsed.get("library")
+    if lib:
+        summary.append(f"  library {lib};")
 
-    imports = parsed.get("imports", [])
-    if imports:
-        summary.append(f"  // Imports ({len(imports)}):")
-        for imp in imports[:8]:
-            alias_str = f" as {imp['alias']}" if imp.get("alias") else ""
-            summary.append(f"  import '{imp['module']}'{alias_str};")
-        if len(imports) > 8:
-            summary.append(f"  // ... and {len(imports) - 8} more imports")
-
-    decls = parsed.get("declarations", [])
-    if decls:
-        summary.append(f"  // Declarations ({len(decls)}):")
-        for d in decls:
-            export_flag = "pub " if d.get("is_exported") else "priv"
-            sig = d.get("signature") or d["name"]
-            summary.append(f"  [{export_flag} {d['kind']:8}] L{d['start_line']}-{d['end_line']}: {sig}")
+    summary.extend(_format_dart_imports(parsed.get("imports", [])))
+    summary.extend(_format_dart_declarations(parsed.get("declarations", [])))
 
     return "\n".join(summary) + "\n"

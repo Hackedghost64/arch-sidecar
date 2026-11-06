@@ -66,6 +66,13 @@ def main():
     worker.start()
 '''
 
+def _print_generated_import(cli_path: str) -> None:
+    with open(cli_path) as f:
+        for line in f:
+            if "import" in line and "daemon" in line:
+                print(f"  {GREEN}{line.strip()}{RESET}")
+
+
 def main():
     print(f"\n{BOLD}{CYAN}========================================================================{RESET}")
     print(f"{BOLD}{CYAN}             ARCH-SIDECAR LIVE DEMONSTRATION & WALKTHROUGH             {RESET}")
@@ -120,10 +127,7 @@ def main():
             print(f"  New file created: {dec_res['to_file']}")
             print(f"  Source file updated: {dec_res['from_file']}")
             print(f"{CYAN}--- Generated Import in cli.py ---{RESET}")
-            with open(cli_path) as f:
-                for line in f:
-                    if "import" in line and "daemon" in line:
-                        print(f"  {GREEN}{line.strip()}{RESET}")
+            _print_generated_import(cli_path)
         print()
 
         # -------------------------------------------------------------

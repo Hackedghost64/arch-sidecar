@@ -264,25 +264,79 @@ def run_experiment_1_latency():
     return results
 
 
-def run_experiment_2_guard_efficacy():
-    print("=" * 80)
-    print("🛡️  EXPERIMENT 2: Pre-Commit Guard Interception & Defense Benchmark")
-    print("=" * 80)
-
-    # Create temporary git workspace
+def _init_temp_git_repo() -> str:
     temp_git_dir = tempfile.mkdtemp(prefix="devrith_git_bench_")
     subprocess.run(["git", "init"], cwd=temp_git_dir, capture_output=True, check=True)
     subprocess.run(["git", "config", "user.name", "BenchmarkUser"], cwd=temp_git_dir, check=True)
     subprocess.run(["git", "config", "user.email", "bench@test.com"], cwd=temp_git_dir, check=True)
 
-    # Initial commit
     init_f = os.path.join(temp_git_dir, "init.txt")
-    with open(init_f, "w") as f: f.write("init")
+    with open(init_f, "w") as f:
+        f.write("init")
     subprocess.run(["git", "add", "."], cwd=temp_git_dir, check=True)
     subprocess.run(["git", "commit", "-m", "init"], cwd=temp_git_dir, check=True)
-
-    # Install Devrith Pre-Commit Hook
     install_git_hook(temp_git_dir)
+    return temp_git_dir
+
+
+def _evaluate_commit_outcome(is_hazard: bool, commit_succeeded: bool) -> Tuple[str, bool, bool]:
+    if is_hazard:
+        if not commit_succeeded:
+            return "✅ BLOCKED (Correctly Intercepted)", True, False
+        return "❌ ESCAPED (False Negative - Defect Entered Git!)", False, False
+
+    if commit_succeeded:
+        return "✅ COMMITTED (Clean Code Accepted)", False, False
+    return "❌ REJECTED (False Positive - Clean Code Blocked!)", False, True
+
+
+def _execute_single_commit_trial(temp_git_dir: str, item: dict) -> Tuple[dict, bool, bool, float]:
+    c_id = item["id"]
+    is_hazard = item["is_hazardous"]
+    filename = item["filename"]
+    code = item["code"]
+
+    target_file = os.path.join(temp_git_dir, filename)
+    with open(target_file, "w", encoding="utf-8") as f:
+        f.write(code)
+
+    subprocess.run(["git", "add", filename], cwd=temp_git_dir, capture_output=True, check=True)
+
+    t0 = time.perf_counter()
+    commit_res = subprocess.run(
+        ["git", "commit", "-m", f"test {c_id}"],
+        cwd=temp_git_dir,
+        capture_output=True,
+        text=True,
+    )
+    guard_dur_ms = (time.perf_counter() - t0) * 1000
+    commit_succeeded = (commit_res.returncode == 0)
+
+    status, blocked, false_rej = _evaluate_commit_outcome(is_hazard, commit_succeeded)
+
+    reset_target = "HEAD~1" if commit_succeeded else "HEAD"
+    subprocess.run(["git", "reset", "--hard", reset_target], cwd=temp_git_dir, capture_output=True)
+    if os.path.exists(target_file):
+        os.remove(target_file)
+
+    trial_result = {
+        "id": c_id,
+        "description": item["description"],
+        "is_hazardous": is_hazard,
+        "commit_succeeded": commit_succeeded,
+        "guard_latency_ms": round(guard_dur_ms, 2),
+        "status": status,
+    }
+    print(f"  [{c_id}] {item['description'][:45]:<45} -> {status} ({guard_dur_ms:.1f}ms)")
+    return trial_result, blocked, false_rej, guard_dur_ms
+
+
+def run_experiment_2_guard_efficacy():
+    print("=" * 80)
+    print("🛡️  EXPERIMENT 2: Pre-Commit Guard Interception & Defense Benchmark")
+    print("=" * 80)
+
+    temp_git_dir = _init_temp_git_repo()
 
     results = []
     blocked_hazards = 0
@@ -292,64 +346,18 @@ def run_experiment_2_guard_efficacy():
     guard_latencies = []
 
     for item in COMMITS_DATASET:
-        c_id = item["id"]
-        is_hazard = item["is_hazardous"]
-        filename = item["filename"]
-        code = item["code"]
-
-        if is_hazard:
+        if item["is_hazardous"]:
             total_hazards += 1
         else:
             total_clean += 1
 
-        target_file = os.path.join(temp_git_dir, filename)
-        with open(target_file, "w", encoding="utf-8") as f:
-            f.write(code)
-
-        subprocess.run(["git", "add", filename], cwd=temp_git_dir, capture_output=True, check=True)
-
-        # Attempt git commit (which triggers Devrith pre-commit hook)
-        t0 = time.perf_counter()
-        commit_res = subprocess.run(
-            ["git", "commit", "-m", f"test {c_id}"],
-            cwd=temp_git_dir,
-            capture_output=True,
-            text=True,
-        )
-        guard_dur_ms = (time.perf_counter() - t0) * 1000
-        guard_latencies.append(guard_dur_ms)
-
-        commit_succeeded = (commit_res.returncode == 0)
-
-        # Audit trial outcome
-        if is_hazard:
-            if not commit_succeeded:
-                blocked_hazards += 1
-                status = "✅ BLOCKED (Correctly Intercepted)"
-            else:
-                status = "❌ ESCAPED (False Negative - Defect Entered Git!)"
-        else:
-            if commit_succeeded:
-                status = "✅ COMMITTED (Clean Code Accepted)"
-            else:
-                false_rejections += 1
-                status = "❌ REJECTED (False Positive - Clean Code Blocked!)"
-
-        results.append({
-            "id": c_id,
-            "description": item["description"],
-            "is_hazardous": is_hazard,
-            "commit_succeeded": commit_succeeded,
-            "guard_latency_ms": round(guard_dur_ms, 2),
-            "status": status,
-        })
-
-        print(f"  [{c_id}] {item['description'][:45]:<45} -> {status} ({guard_dur_ms:.1f}ms)")
-
-        # Reset git state for next trial
-        subprocess.run(["git", "reset", "--hard", "HEAD~1" if commit_succeeded else "HEAD"], cwd=temp_git_dir, capture_output=True)
-        if os.path.exists(target_file):
-            os.remove(target_file)
+        trial_res, blocked, false_rej, lat = _execute_single_commit_trial(temp_git_dir, item)
+        results.append(trial_res)
+        guard_latencies.append(lat)
+        if blocked:
+            blocked_hazards += 1
+        if false_rej:
+            false_rejections += 1
 
     # Clean up workspace
     shutil.rmtree(temp_git_dir, ignore_errors=True)

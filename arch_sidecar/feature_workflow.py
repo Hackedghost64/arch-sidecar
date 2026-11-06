@@ -266,33 +266,45 @@ def build_jvm_analyzer(rel_path: str, lines: List[str]) -> PolyglotFileAnalyzer:
     return PolyglotFileAnalyzer(rel_path, lines, symbols, imports)
 
 
+CATEGORY_KEYWORDS: Tuple[Tuple[str, Tuple[str, ...]], ...] = (
+    ("add_or_update_endpoint", ("endpoint", "route", "@router", "@app", "get ", "post ", "delete ", "put ")),
+    ("add_or_update_cli_feature", ("option", "flag", "argument", "subcommand", "cli", "@click")),
+    ("add_or_extend_class", ("class ", "subclass", "dataclass", "model", "struct", "interface", "trait")),
+    ("validation_or_bugfix", ("fix", "bug", "error", "exception", "handle", "validate")),
+)
+
+
+def _detect_feature_category(task_lower: str) -> str:
+    for category, kw_tuple in CATEGORY_KEYWORDS:
+        if any(k in task_lower for k in kw_tuple):
+            return category
+    return "add_or_extend_function"
+
+
+def _extract_task_keywords(raw_tokens: List[str]) -> List[str]:
+    keywords: List[str] = []
+    seen: Set[str] = set()
+    polyglot_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java")
+    for tok in raw_tokens:
+        tok_low = tok.lower()
+        if tok_low in STOPWORDS or tok in seen:
+            continue
+        if any(tok.endswith(ext) for ext in polyglot_exts):
+            continue
+        keywords.append(tok)
+        seen.add(tok)
+    return keywords
+
+
 def classify_feature_intent(task: str) -> Dict[str, Any]:
     """
     Step 1: Understand the requested change across Python, TypeScript, Go, Rust, Dart, and JVM (Java/Kotlin).
     Extracts intent category, explicit file mentions, identifier tokens, and route/CLI patterns.
     """
-    task_lower = task.lower()
-    if any(k in task_lower for k in ("endpoint", "route", "@router", "@app", "get ", "post ", "delete ", "put ")):
-        category = "add_or_update_endpoint"
-    elif any(k in task_lower for k in ("option", "flag", "argument", "subcommand", "cli", "@click")):
-        category = "add_or_update_cli_feature"
-    elif any(k in task_lower for k in ("class ", "subclass", "dataclass", "model", "struct", "interface", "trait")):
-        category = "add_or_extend_class"
-    elif any(k in task_lower for k in ("fix", "bug", "error", "exception", "handle", "validate")):
-        category = "validation_or_bugfix"
-    else:
-        category = "add_or_extend_function"
-
+    category = _detect_feature_category(task.lower())
     explicit_files = re.findall(r"[\w\-./]+\.(?:py|ts|tsx|js|jsx|go|rs|dart|kt|kts|java)\b", task)
     raw_tokens = re.findall(r"\b[A-Za-z_][A-Za-z0-9_]{2,}\b", task)
-    keywords = []
-    seen = set()
-    polyglot_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java")
-    for tok in raw_tokens:
-        tok_low = tok.lower()
-        if tok_low not in STOPWORDS and not any(tok.endswith(ext) for ext in polyglot_exts) and tok not in seen:
-            keywords.append(tok)
-            seen.add(tok)
+    keywords = _extract_task_keywords(raw_tokens)
 
     return {
         "category": category,
@@ -443,6 +455,26 @@ def _scan_file_boundary_links(
     return file_links
 
 
+def _collect_unique_boundary_links(
+    file_lines_map: Dict[str, List[str]],
+    primary_file: str,
+    routes: Set[str],
+    env_vars: Set[str],
+) -> List[Dict[str, Any]]:
+    links: List[Dict[str, Any]] = []
+    seen: Set[Tuple[str, str, str, int]] = set()
+    for other_path, lines in file_lines_map.items():
+        if other_path == primary_file:
+            continue
+        for link in _scan_file_boundary_links(other_path, lines, routes, env_vars):
+            key = (link["kind"], link["token"], link["file"], link["line"])
+            if key not in seen:
+                seen.add(key)
+                links.append(link)
+    links.sort(key=lambda x: (x["file"], x["line"], x["kind"]))
+    return links
+
+
 def detect_cross_boundary_links(
     primary_file: str,
     primary_lines: List[str],
@@ -460,33 +492,23 @@ def detect_cross_boundary_links(
     if not routes and not env_vars:
         return []
 
-    links: List[Dict[str, Any]] = []
-    seen = set()
-
-    for other_path, lines in file_lines_map.items():
-        if other_path == primary_file:
-            continue
-        for link in _scan_file_boundary_links(other_path, lines, routes, env_vars):
-            key = (link["kind"], link["token"], link["file"], link["line"])
-            if key not in seen:
-                seen.add(key)
-                links.append(link)
-
-    links.sort(key=lambda x: (x["file"], x["line"], x["kind"]))
-    return links
+    return _collect_unique_boundary_links(file_lines_map, primary_file, routes, env_vars)
 
 
 TEST_DIR_PARTS = {"test", "__tests__"}
 
 
-def _is_test_filename(file: str, rel_low: str, ext: str) -> bool:
-    """Check filename patterns for tests across polyglot languages."""
+def _is_scripting_test_file(file: str, ext: str) -> bool:
     if ext == ".py":
         return file.startswith("test_") or file.endswith("_test.py")
     if ext in (".ts", ".tsx", ".js", ".jsx"):
         return ".test." in file or ".spec." in file
     if ext == ".go":
         return file.endswith("_test.go")
+    return False
+
+
+def _is_compiled_test_file(file: str, rel_low: str, ext: str) -> bool:
     if ext == ".rs":
         return file.endswith("_test.rs") or rel_low.startswith("tests/")
     if ext == ".dart":
@@ -498,6 +520,13 @@ def _is_test_filename(file: str, rel_low: str, ext: str) -> bool:
     return False
 
 
+def _is_test_filename(file: str, rel_low: str, ext: str) -> bool:
+    """Check filename patterns for tests across polyglot languages."""
+    if _is_scripting_test_file(file, ext):
+        return True
+    return _is_compiled_test_file(file, rel_low, ext)
+
+
 def _is_test_file(file: str, rel_path: str, ext: str) -> bool:
     """Determine whether a file path corresponds to a test suite file."""
     rel_low = rel_path.lower()
@@ -507,6 +536,16 @@ def _is_test_file(file: str, rel_path: str, ext: str) -> bool:
     return _is_test_filename(file, rel_low, ext)
 
 
+def _is_valid_candidate_file(full_path: str, rel_path: str, ext: str, valid_exts: Tuple[str, ...]) -> bool:
+    if ext not in valid_exts:
+        return False
+    return not (is_ignored_path(rel_path) or is_minified_or_binary(full_path))
+
+
+def _filter_walk_dirs(dirs: List[str]) -> List[str]:
+    return [d for d in dirs if d not in DEFAULT_IGNORED_DIRS and not d.startswith(".")]
+
+
 def _discover_repo_files(root_abs: str) -> Tuple[List[Tuple[str, str]], List[Tuple[str, str]]]:
     """Walk project directory and collect valid source and test files."""
     source_files: List[Tuple[str, str]] = []
@@ -514,14 +553,12 @@ def _discover_repo_files(root_abs: str) -> Tuple[List[Tuple[str, str]], List[Tup
     valid_source_exts = (".py", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".go", ".rs", ".dart", ".java", ".kt", ".kts")
 
     for current_root, dirs, files in os.walk(root_abs):
-        dirs[:] = [d for d in dirs if d not in DEFAULT_IGNORED_DIRS and not d.startswith(".")]
+        dirs[:] = _filter_walk_dirs(dirs)
         for file in sorted(files):
             ext = os.path.splitext(file)[1].lower()
-            if ext not in valid_source_exts:
-                continue
             full_path = os.path.join(current_root, file)
             rel_path = os.path.relpath(full_path, root_abs)
-            if is_ignored_path(rel_path) or is_minified_or_binary(full_path):
+            if not _is_valid_candidate_file(full_path, rel_path, ext, valid_source_exts):
                 continue
             if _is_test_file(file, rel_path, ext):
                 test_files.append((rel_path, full_path))
@@ -580,6 +617,12 @@ def _analyze_source_files(
     return file_analyzers, file_lines_map, file_trees_map
 
 
+def _score_substring_match(kw_low: str, target_low: str, high_score: float, low_score: float) -> Optional[float]:
+    if len(kw_low) >= 3 and kw_low in target_low:
+        return high_score if kw_low not in GENERIC_SUBTOKENS else low_score
+    return None
+
+
 def _score_keyword_match(kw: str, sym_name: str, short_name: str, code_low: str) -> float:
     """Score match of a single keyword against symbol name and code."""
     kw_low = kw.lower()
@@ -588,11 +631,14 @@ def _score_keyword_match(kw: str, sym_name: str, short_name: str, code_low: str)
         return 80.0
     if kw_low == short_low:
         return 65.0
-    is_rare = kw_low not in GENERIC_SUBTOKENS
-    if len(kw_low) >= 3 and kw_low in short_low:
-        return 40.0 if is_rare else 10.0
-    if len(kw_low) >= 3 and kw_low in code_low:
-        return 18.0 if is_rare else 3.0
+
+    name_match = _score_substring_match(kw_low, short_low, 40.0, 10.0)
+    if name_match is not None:
+        return name_match
+
+    code_match = _score_substring_match(kw_low, code_low, 18.0, 3.0)
+    if code_match is not None:
+        return code_match
     return 0.0
 
 
@@ -621,6 +667,59 @@ def _score_symbol(
     return s_score
 
 
+def _matches_explicit_file(rel_path: str, base_name: str, exp_f: str) -> bool:
+    return rel_path == exp_f or rel_path.endswith("/" + exp_f) or base_name == os.path.basename(exp_f)
+
+
+def _compute_explicit_file_boost(rel_path: str, explicit_files: List[str]) -> float:
+    base_name = os.path.basename(rel_path)
+    boost = 0.0
+    for exp_f in explicit_files:
+        if _matches_explicit_file(rel_path, base_name, exp_f):
+            boost += 120.0
+    return boost
+
+
+def _compute_stem_keyword_boost(stem: str, query_keywords: List[str]) -> float:
+    boost = 0.0
+    for kw in query_keywords:
+        kw_low = kw.lower()
+        if kw_low == stem:
+            boost += 45.0
+        elif len(kw_low) >= 4 and (kw_low in stem or stem in kw_low):
+            boost += 25.0
+    return boost
+
+
+def _collect_file_symbols(
+    analyzer_symbols: Dict[str, Any],
+    query_keywords: List[str],
+    target_symbols: Optional[List[str]],
+    rel_path: str,
+    explicit_files: List[str],
+) -> Tuple[float, List[Dict[str, Any]]]:
+    file_sym_boost = 0.0
+    symbols: List[Dict[str, Any]] = []
+    for sym_name, sym_info in analyzer_symbols.items():
+        s_score = _score_symbol(
+            sym_name, sym_info, query_keywords, target_symbols, rel_path, explicit_files
+        )
+        if s_score > 0:
+            file_sym_boost += min(s_score * 0.5, 60.0)
+            symbols.append({
+                "name": sym_name,
+                "short_name": sym_name.split(".")[-1],
+                "file": rel_path,
+                "type": sym_info["type"],
+                "start_line": sym_info["start_line"],
+                "end_line": sym_info["end_line"],
+                "signature": sym_info["signature"],
+                "score": round(s_score, 1),
+                "info": sym_info,
+            })
+    return file_sym_boost, symbols
+
+
 def _score_files_and_symbols(
     file_analyzers: Dict[str, Any],
     intent: Dict[str, Any],
@@ -628,47 +727,55 @@ def _score_files_and_symbols(
     target_symbols: Optional[List[str]],
 ) -> Tuple[Dict[str, float], List[Dict[str, Any]]]:
     """Score all files and their contained symbols against feature query terms."""
-    file_scores: Dict[str, float] = {rel: 0.0 for rel in file_analyzers}
+    file_scores: Dict[str, float] = {}
     scored_symbols: List[Dict[str, Any]] = []
 
     for rel_path, analyzer in file_analyzers.items():
-        base_name = os.path.basename(rel_path)
-        stem = os.path.splitext(base_name)[0].lower()
-
-        # Boost explicitly named files
-        for exp_f in intent["explicit_files"]:
-            if rel_path == exp_f or rel_path.endswith("/" + exp_f) or base_name == os.path.basename(exp_f):
-                file_scores[rel_path] += 120.0
-
-        # Boost filename keyword matches
-        for kw in query_keywords:
-            kw_low = kw.lower()
-            if kw_low == stem:
-                file_scores[rel_path] += 45.0
-            elif len(kw_low) >= 4 and (kw_low in stem or stem in kw_low):
-                file_scores[rel_path] += 25.0
-
-        # Score symbols inside file
-        for sym_name, sym_info in analyzer.symbols.items():
-            s_score = _score_symbol(
-                sym_name, sym_info, query_keywords, target_symbols, rel_path, intent["explicit_files"]
-            )
-            if s_score > 0:
-                file_scores[rel_path] += min(s_score * 0.5, 60.0)
-                scored_symbols.append({
-                    "name": sym_name,
-                    "short_name": sym_name.split(".")[-1],
-                    "file": rel_path,
-                    "type": sym_info["type"],
-                    "start_line": sym_info["start_line"],
-                    "end_line": sym_info["end_line"],
-                    "signature": sym_info["signature"],
-                    "score": round(s_score, 1),
-                    "info": sym_info,
-                })
+        stem = os.path.splitext(os.path.basename(rel_path))[0].lower()
+        exp_boost = _compute_explicit_file_boost(rel_path, intent["explicit_files"])
+        stem_boost = _compute_stem_keyword_boost(stem, query_keywords)
+        sym_boost, symbols = _collect_file_symbols(
+            analyzer.symbols, query_keywords, target_symbols, rel_path, intent["explicit_files"]
+        )
+        file_scores[rel_path] = exp_boost + stem_boost + sym_boost
+        scored_symbols.extend(symbols)
 
     scored_symbols.sort(key=lambda x: (-x["score"], x["file"], x["start_line"]))
     return file_scores, scored_symbols
+
+
+def _choose_primary_file(ranked_files: List[Tuple[str, float]]) -> Optional[str]:
+    if not ranked_files:
+        return None
+    positive = [f for f, sc in ranked_files[:2] if sc > 0]
+    if positive:
+        return positive[0]
+    return ranked_files[0][0]
+
+
+def _build_fallback_anchors(primary_file: str, file_analyzers: Dict[str, Any]) -> List[Dict[str, Any]]:
+    if primary_file not in file_analyzers:
+        return []
+    anchors = []
+    for sym_name, sym_info in list(file_analyzers[primary_file].symbols.items())[:3]:
+        anchors.append({
+            "name": sym_name,
+            "short_name": sym_name.split(".")[-1],
+            "file": primary_file,
+            "type": sym_info["type"],
+            "start_line": sym_info["start_line"],
+            "end_line": sym_info["end_line"],
+            "signature": sym_info["signature"],
+            "score": 10.0,
+            "info": sym_info,
+        })
+    return anchors
+
+
+def _filter_primary_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    if any(s["score"] >= 45.0 for s in candidates):
+        return [s for s in candidates if s["score"] > 20.0]
+    return candidates
 
 
 def _select_primary_and_anchors(
@@ -679,28 +786,14 @@ def _select_primary_and_anchors(
 ) -> Tuple[Optional[str], List[str], List[Dict[str, Any]]]:
     """Select the primary implementation file and up to 4 top anchor symbols."""
     ranked_files = sorted(file_scores.items(), key=lambda x: (-x[1], len(file_lines_map.get(x[0], []))))
-    primary_files = [f for f, sc in ranked_files[:2] if sc > 0] or ([ranked_files[0][0]] if ranked_files else [])
-
-    primary_file = primary_files[0] if primary_files else None
+    primary_file = _choose_primary_file(ranked_files)
     primary_lines = file_lines_map.get(primary_file, []) if primary_file else []
 
     primary_candidates = [s for s in scored_symbols if s["file"] == primary_file]
-    if any(s["score"] >= 45.0 for s in primary_candidates):
-        primary_candidates = [s for s in primary_candidates if s["score"] > 20.0]
+    primary_candidates = _filter_primary_candidates(primary_candidates)
     anchor_symbols = primary_candidates[:4]
-    if not anchor_symbols and primary_file and primary_file in file_analyzers:
-        for sym_name, sym_info in list(file_analyzers[primary_file].symbols.items())[:3]:
-            anchor_symbols.append({
-                "name": sym_name,
-                "short_name": sym_name.split(".")[-1],
-                "file": primary_file,
-                "type": sym_info["type"],
-                "start_line": sym_info["start_line"],
-                "end_line": sym_info["end_line"],
-                "signature": sym_info["signature"],
-                "score": 10.0,
-                "info": sym_info,
-            })
+    if not anchor_symbols and primary_file:
+        anchor_symbols = _build_fallback_anchors(primary_file, file_analyzers)
 
     return primary_file, primary_lines, anchor_symbols
 
@@ -720,45 +813,113 @@ def _should_include_imported_symbol(
     return has_fallback
 
 
-def _inspect_import_from_node(
+def _format_import_from_module_name(node: ast.ImportFrom) -> str:
+    mod = node.module or ""
+    if node.level > 0:
+        return ("." * node.level) + mod
+    return mod
+
+
+def _resolve_import_from_rel_path(
     node: ast.ImportFrom,
     primary_abs: str,
     root_abs: str,
     primary_file: str,
+) -> Optional[str]:
+    mod_name = _format_import_from_module_name(node)
+    resolved_abs = resolve_local_module_path(primary_abs, mod_name, root_abs)
+    if not resolved_abs:
+        return None
+    resolved_rel = os.path.relpath(resolved_abs, root_abs)
+    if resolved_rel == primary_file:
+        return None
+    return resolved_rel
+
+
+def _build_imported_dep(sym_target: str, resolved_rel: str, s_info: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "symbol": sym_target,
+        "file": resolved_rel,
+        "lines": f"{s_info['start_line']}-{s_info['end_line']}",
+        "signature": s_info["signature"],
+        "numbered_code": s_info["numbered_code"],
+    }
+
+
+def _get_alias_names(alias: ast.alias) -> Tuple[str, str]:
+    target = alias.name
+    local = alias.asname if alias.asname else target
+    return target, local
+
+
+def _is_unseen_analyzer_symbol(sym_target: str, imp_analyzer: Any, seen: Set[str]) -> bool:
+    return sym_target in imp_analyzer.symbols and sym_target not in seen
+
+
+def _inspect_import_from_node(
+    node: ast.ImportFrom,
+    ctx: Dict[str, Any],
     file_analyzers: Dict[str, Any],
-    anchor_combined_code: str,
-    query_keywords: List[str],
     seen_dep_names: Set[str],
     has_existing_deps: bool,
 ) -> List[Dict[str, Any]]:
     """Inspect local symbols imported by primary file and return matching dependencies."""
-    mod_name = ("." * node.level) + (node.module or "") if node.level > 0 else (node.module or "")
-    resolved_abs = resolve_local_module_path(primary_abs, mod_name, root_abs)
-    if not resolved_abs:
-        return []
-    resolved_rel = os.path.relpath(resolved_abs, root_abs)
-    if resolved_rel not in file_analyzers or resolved_rel == primary_file:
+    resolved_rel = _resolve_import_from_rel_path(
+        node, ctx["primary_abs"], ctx["root_abs"], ctx["primary_file"]
+    )
+    if not resolved_rel or resolved_rel not in file_analyzers:
         return []
 
     new_deps: List[Dict[str, Any]] = []
     imp_analyzer = file_analyzers[resolved_rel]
     for alias in node.names:
-        sym_target = alias.name
-        local_alias = alias.asname or alias.name
-        if sym_target not in imp_analyzer.symbols or sym_target in seen_dep_names:
+        sym_target, local_alias = _get_alias_names(alias)
+        if not _is_unseen_analyzer_symbol(sym_target, imp_analyzer, seen_dep_names):
             continue
         has_fallback = not (has_existing_deps or new_deps)
-        if _should_include_imported_symbol(local_alias, sym_target, anchor_combined_code, query_keywords, has_fallback):
-            s_info = imp_analyzer.symbols[sym_target]
-            new_deps.append({
-                "symbol": sym_target,
-                "file": resolved_rel,
-                "lines": f"{s_info['start_line']}-{s_info['end_line']}",
-                "signature": s_info["signature"],
-                "numbered_code": s_info["numbered_code"],
-            })
+        if _should_include_imported_symbol(local_alias, sym_target, ctx["anchor_code"], ctx["keywords"], has_fallback):
+            new_deps.append(_build_imported_dep(sym_target, resolved_rel, imp_analyzer.symbols[sym_target]))
             seen_dep_names.add(sym_target)
     return new_deps
+
+
+def _collect_top_scored_deps(
+    scored_symbols: List[Dict[str, Any]],
+    primary_file: Optional[str],
+    seen_dep_names: Set[str],
+) -> List[Dict[str, Any]]:
+    deps: List[Dict[str, Any]] = []
+    for s in scored_symbols:
+        if s["file"] == primary_file or s["name"] in seen_dep_names or s["score"] < 35.0:
+            continue
+        deps.append({
+            "symbol": s["name"],
+            "file": s["file"],
+            "lines": f"{s['start_line']}-{s['end_line']}",
+            "signature": s["signature"],
+            "numbered_code": s["info"]["numbered_code"],
+        })
+        seen_dep_names.add(s["name"])
+        if len(deps) >= 3:
+            break
+    return deps
+
+
+def _collect_ast_import_deps(
+    primary_tree: ast.Module,
+    ctx: Dict[str, Any],
+    file_analyzers: Dict[str, Any],
+    seen_dep_names: Set[str],
+    has_existing: bool,
+) -> List[Dict[str, Any]]:
+    imported_deps: List[Dict[str, Any]] = []
+    for node in primary_tree.body:
+        if isinstance(node, ast.ImportFrom):
+            new_deps = _inspect_import_from_node(
+                node, ctx, file_analyzers, seen_dep_names, has_existing or bool(imported_deps)
+            )
+            imported_deps.extend(new_deps)
+    return imported_deps
 
 
 def _find_cross_file_dependencies(
@@ -771,39 +932,27 @@ def _find_cross_file_dependencies(
     query_keywords: List[str],
 ) -> List[Dict[str, Any]]:
     """Identify cross-file helper and type dependencies needed by anchor symbols."""
-    cross_file_dependencies: List[Dict[str, Any]] = []
     seen_dep_names: Set[str] = set()
-    anchor_combined_code = "\n".join(a["info"]["code"] for a in anchor_symbols)
-
-    for s in scored_symbols:
-        if s["file"] != primary_file and s["name"] not in seen_dep_names and s["score"] >= 35.0:
-            cross_file_dependencies.append({
-                "symbol": s["name"],
-                "file": s["file"],
-                "lines": f"{s['start_line']}-{s['end_line']}",
-                "signature": s["signature"],
-                "numbered_code": s["info"]["numbered_code"],
-            })
-            seen_dep_names.add(s["name"])
-            if len(cross_file_dependencies) >= 3:
-                break
+    cross_file_dependencies = _collect_top_scored_deps(
+        scored_symbols, primary_file, seen_dep_names
+    )
 
     if primary_file and primary_file in file_trees_map:
-        primary_abs = os.path.join(root_abs, primary_file)
-        for node in file_trees_map[primary_file].body:
-            if isinstance(node, ast.ImportFrom):
-                new_deps = _inspect_import_from_node(
-                    node,
-                    primary_abs,
-                    root_abs,
-                    primary_file,
-                    file_analyzers,
-                    anchor_combined_code,
-                    query_keywords,
-                    seen_dep_names,
-                    bool(cross_file_dependencies),
-                )
-                cross_file_dependencies.extend(new_deps)
+        ctx = {
+            "primary_abs": os.path.join(root_abs, primary_file),
+            "root_abs": root_abs,
+            "primary_file": primary_file,
+            "anchor_code": "\n".join(a["info"]["code"] for a in anchor_symbols),
+            "keywords": query_keywords,
+        }
+        imported = _collect_ast_import_deps(
+            file_trees_map[primary_file],
+            ctx,
+            file_analyzers,
+            seen_dep_names,
+            bool(cross_file_dependencies),
+        )
+        cross_file_dependencies.extend(imported)
 
     return cross_file_dependencies
 
@@ -944,17 +1093,7 @@ def _infer_rust_test_cmd(test_file: str) -> str:
     return f"cargo test --test {stem}"
 
 
-def _infer_test_command(
-    test_file: Optional[str],
-    root_abs: str,
-    test_command: Optional[str],
-) -> Optional[str]:
-    """Infer the appropriate unit test runner command for the primary test file."""
-    if test_command:
-        return test_command
-    if not test_file:
-        return None
-    t_ext = os.path.splitext(test_file)[1].lower()
+def _dispatch_language_test_cmd(t_ext: str, test_file: str, root_abs: str) -> Optional[str]:
     if t_ext == ".py":
         return _infer_python_test_cmd(test_file, root_abs)
     if t_ext in (".ts", ".tsx", ".js", ".jsx"):
@@ -970,154 +1109,232 @@ def _infer_test_command(
     return None
 
 
-def _build_implementation_plan(
-    primary_file: Optional[str],
-    primary_lines: List[str],
-    anchor_symbols: List[Dict[str, Any]],
-    cross_file_dependencies: List[Dict[str, Any]],
-    downstream_callers: List[Dict[str, Any]],
-    file_analyzers: Dict[str, Any],
-    task: str,
-    project_root: str,
-    inferred_test_cmd: Optional[str],
-) -> List[str]:
-    """Generate ordered, actionable implementation steps."""
-    if not primary_file:
-        return []
-    implementation_plan: List[str] = []
-    total_lines = len(primary_lines)
+def _infer_test_command(
+    test_file: Optional[str],
+    root_abs: str,
+    test_command: Optional[str],
+) -> Optional[str]:
+    """Infer the appropriate unit test runner command for the primary test file."""
+    if test_command:
+        return test_command
+    if not test_file:
+        return None
+    t_ext = os.path.splitext(test_file)[1].lower()
+    return _dispatch_language_test_cmd(t_ext, test_file, root_abs)
+
+
+def _plan_target_location_step(primary_file: str, total_lines: int, anchor_symbols: List[Dict[str, Any]]) -> str:
     if anchor_symbols:
         top_anc = anchor_symbols[0]
-        implementation_plan.append(
+        return (
             f"1. **Target Location:** Edit `{primary_file}` ({total_lines} lines) near `{top_anc['name']}` "
             f"(lines {top_anc['start_line']}–{top_anc['end_line']}), following its existing signature and return convention."
         )
-    else:
-        implementation_plan.append(
-            f"1. **Target Location:** Implement the requested change in `{primary_file}` ({total_lines} lines)."
-        )
+    return f"1. **Target Location:** Implement the requested change in `{primary_file}` ({total_lines} lines)."
 
+
+def _plan_dependency_step(
+    primary_file: str,
+    cross_file_dependencies: List[Dict[str, Any]],
+    file_analyzers: Dict[str, Any],
+) -> Optional[str]:
     if cross_file_dependencies:
         dep_summary = ", ".join(f"`{d['symbol']}` ({d['file']}:{d['lines']})" for d in cross_file_dependencies[:3])
-        implementation_plan.append(
-            f"2. **Reuse Existing Dependencies:** Call verified project helpers/types: {dep_summary}."
-        )
-    else:
-        imports_preview = ", ".join(f"`{imp}`" for imp in (file_analyzers[primary_file].imports[:3] if primary_file in file_analyzers else []))
+        return f"2. **Reuse Existing Dependencies:** Call verified project helpers/types: {dep_summary}."
+    if primary_file in file_analyzers:
+        imports_preview = ", ".join(f"`{imp}`" for imp in file_analyzers[primary_file].imports[:3])
         if imports_preview:
-            implementation_plan.append(
-                f"2. **Module Imports Available:** `{primary_file}` already imports {imports_preview}."
-            )
-
-    if primary_file in file_analyzers and file_analyzers[primary_file].exports_all is not None:
-        implementation_plan.append(
-            f"3. **Export Contract:** `{primary_file}` defines `__all__`; add any new public symbol to `__all__` if it must be exported."
-        )
-    elif downstream_callers:
-        caller_files = ", ".join(f"`{c['file']}`" for c in downstream_callers[:3])
-        implementation_plan.append(
-            f"3. **Downstream Impact:** Preserving existing signatures in `{primary_file}` keeps callers ({caller_files}) compatible."
-        )
-
-    verify_cmd_str = f'arch-sidecar feature "{task}" {project_root} --verify'
-    if inferred_test_cmd:
-        verify_cmd_str += f' --test "{inferred_test_cmd}"'
-    implementation_plan.append(
-        f"4. **Preflight & Verification:** After editing, run `{verify_cmd_str}` to execute AST scope/import preflight + test verification."
-    )
-    return implementation_plan
+            return f"2. **Module Imports Available:** `{primary_file}` already imports {imports_preview}."
+    return None
 
 
-def _build_overview_context_blocks(
-    intent: Dict[str, Any],
-    primary_file: Optional[str],
-    implementation_plan: List[str],
-    anchor_symbols: List[Dict[str, Any]],
-    cross_file_dependencies: List[Dict[str, Any]],
-    cross_boundary_links: List[Dict[str, Any]],
+def _plan_contract_step(
+    primary_file: str,
     downstream_callers: List[Dict[str, Any]],
-    related_tests: List[str],
-    inferred_test_cmd: Optional[str],
-) -> List[str]:
+    file_analyzers: Dict[str, Any],
+) -> Optional[str]:
+    analyzer = file_analyzers.get(primary_file)
+    if analyzer and analyzer.exports_all is not None:
+        return f"3. **Export Contract:** `{primary_file}` defines `__all__`; add any new public symbol to `__all__` if it must be exported."
+    if downstream_callers:
+        caller_files = ", ".join(f"`{c['file']}`" for c in downstream_callers[:3])
+        return f"3. **Downstream Impact:** Preserving existing signatures in `{primary_file}` keeps callers ({caller_files}) compatible."
+    return None
+
+
+def _plan_verification_step(task: str, project_root: str, inferred_test_cmd: Optional[str]) -> str:
+    verify_cmd = f'arch-sidecar feature "{task}" {project_root} --verify'
+    if inferred_test_cmd:
+        verify_cmd += f' --test "{inferred_test_cmd}"'
+    return f"4. **Preflight & Verification:** After editing, run `{verify_cmd}` to execute AST scope/import preflight + test verification."
+
+
+def _build_implementation_plan(plan_ctx: Dict[str, Any]) -> List[str]:
+    """Generate ordered, actionable implementation steps."""
+    primary_file = plan_ctx.get("primary_file")
+    if not primary_file:
+        return []
+
+    plan: List[str] = [
+        _plan_target_location_step(
+            primary_file,
+            len(plan_ctx.get("primary_lines", [])),
+            plan_ctx.get("anchor_symbols", []),
+        )
+    ]
+
+    step2 = _plan_dependency_step(
+        primary_file,
+        plan_ctx.get("cross_file_dependencies", []),
+        plan_ctx.get("file_analyzers", {}),
+    )
+    if step2:
+        plan.append(step2)
+
+    step3 = _plan_contract_step(
+        primary_file,
+        plan_ctx.get("downstream_callers", []),
+        plan_ctx.get("file_analyzers", {}),
+    )
+    if step3:
+        plan.append(step3)
+
+    plan.append(
+        _plan_verification_step(
+            plan_ctx.get("task", ""),
+            plan_ctx.get("project_root", "."),
+            plan_ctx.get("inferred_test_cmd"),
+        )
+    )
+    return plan
+
+
+def _format_impact_map_items(ctx: Dict[str, Any]) -> List[str]:
+    lines: List[str] = []
+    if ctx.get("anchor_symbols"):
+        anc_str = ", ".join(f"`{a['name']}` (L{a['start_line']}-{a['end_line']})" for a in ctx["anchor_symbols"])
+        lines.append(f"- **Relevant Existing Symbols:** {anc_str}")
+    if ctx.get("cross_file_dependencies"):
+        dep_str = ", ".join(f"`{d['symbol']}` in `{d['file']}` (L{d['lines']})" for d in ctx["cross_file_dependencies"][:4])
+        lines.append(f"- **Cross-File Dependencies:** {dep_str}")
+    if ctx.get("cross_boundary_links"):
+        cb_str = ", ".join(f"`{c['token']}` in `{c['file']}:L{c['line']}`" for c in ctx["cross_boundary_links"][:4])
+        lines.append(f"- **Cross-Boundary Links (Routes / Env):** {cb_str}")
+    if ctx.get("downstream_callers"):
+        cal_str = ", ".join(f"`{c['file']}` ({c['reference_count']} refs)" for c in ctx["downstream_callers"][:4])
+        lines.append(f"- **Downstream Callers / Blast Radius:** {cal_str}")
+    else:
+        lines.append("- **Downstream Callers / Blast Radius:** Local to target module (0 external callers matched)")
+    if ctx.get("related_tests"):
+        lines.append(f"- **Related Test Suite:** {', '.join(f'`{t}`' for t in ctx['related_tests'][:3])}")
+    if ctx.get("inferred_test_cmd"):
+        lines.append(f"- **Verification Command:** `{ctx['inferred_test_cmd']}`")
+    return lines
+
+
+def _build_overview_context_blocks(overview_ctx: Dict[str, Any]) -> List[str]:
     """Build high-level context blocks: header, plan, and impact map."""
+    primary_target = overview_ctx.get("primary_file") if overview_ctx.get("primary_file") else "N/A"
     blocks: List[str] = [
         "# Devrith Feature Workflow Plan & Context",
         "> **Principle:** Understand before changing. Check before trusting. Verify before claiming success.",
-        f"> **Detected Intent:** `{intent['category']}` | **Primary Target:** `{primary_file or 'N/A'}`\n",
+        f"> **Detected Intent:** `{overview_ctx['intent']['category']}` | **Primary Target:** `{primary_target}`\n",
         "## 1. Actionable Implementation Plan",
     ]
-    for step_line in implementation_plan:
+    for step_line in overview_ctx.get("implementation_plan", []):
         blocks.append(step_line)
 
     blocks.append("\n## 2. Dependency & Impact Map")
-    if anchor_symbols:
-        anc_str = ", ".join(f"`{a['name']}` (L{a['start_line']}-{a['end_line']})" for a in anchor_symbols)
-        blocks.append(f"- **Relevant Existing Symbols:** {anc_str}")
-    if cross_file_dependencies:
-        dep_str = ", ".join(f"`{d['symbol']}` in `{d['file']}` (L{d['lines']})" for d in cross_file_dependencies[:4])
-        blocks.append(f"- **Cross-File Dependencies:** {dep_str}")
-    if cross_boundary_links:
-        cb_str = ", ".join(f"`{c['token']}` in `{c['file']}:L{c['line']}`" for c in cross_boundary_links[:4])
-        blocks.append(f"- **Cross-Boundary Links (Routes / Env):** {cb_str}")
-    if downstream_callers:
-        cal_str = ", ".join(f"`{c['file']}` ({c['reference_count']} refs)" for c in downstream_callers[:4])
-        blocks.append(f"- **Downstream Callers / Blast Radius:** {cal_str}")
-    else:
-        blocks.append("- **Downstream Callers / Blast Radius:** Local to target module (0 external callers matched)")
-    if related_tests:
-        blocks.append(f"- **Related Test Suite:** {', '.join(f'`{t}`' for t in related_tests[:3])}")
-    if inferred_test_cmd:
-        blocks.append(f"- **Verification Command:** `{inferred_test_cmd}`")
-
+    blocks.extend(_format_impact_map_items(overview_ctx))
     return blocks
+
+
+def _compute_import_end_line(primary_file: str, file_analyzers: Dict[str, Any]) -> int:
+    if primary_file not in file_analyzers:
+        return 25
+    analyzer = file_analyzers[primary_file]
+    val = analyzer.import_end_line if analyzer.import_end_line is not None else 25
+    return min(val, 45)
+
+
+def _build_module_header_slice(
+    primary_file: str,
+    primary_lines: List[str],
+    file_analyzers: Dict[str, Any],
+) -> Tuple[List[str], int, int]:
+    total_lines = len(primary_lines)
+    imp_end = _compute_import_end_line(primary_file, file_analyzers)
+    header_numbered = "".join(f"{i + 1}: {primary_lines[i]}" for i in range(min(imp_end, total_lines))).rstrip()
+    blocks = [
+        f"### Module Header & Imports (`{primary_file}:1-{imp_end}`)",
+        "```python",
+        header_numbered,
+        "```",
+    ]
+    return blocks, imp_end, estimate_tokens(header_numbered)
+
+
+def _format_large_class_slice(
+    anc: Dict[str, Any],
+    primary_file: str,
+    primary_lines: List[str],
+) -> Tuple[List[str], List[Tuple[int, int]], int]:
+    s_line, e_line = anc["start_line"], anc["end_line"]
+    head_end = min(s_line + 19, e_line)
+    cls_tail_start = max(head_end + 1, e_line - 14)
+    head_code = "".join(f"{i}: {primary_lines[i - 1]}" for i in range(s_line, head_end + 1)).rstrip()
+    tail_code = "".join(f"{i}: {primary_lines[i - 1]}" for i in range(cls_tail_start, e_line + 1)).rstrip()
+    blocks = [
+        f"### Class Header & Tail: `{anc['name']}` (`{primary_file}:{s_line}-{head_end}` & `{cls_tail_start}-{e_line}`)",
+        "```python",
+        head_code,
+        "# ... (intermediate methods omitted; see matched method anchors below) ...",
+        tail_code,
+        "```",
+    ]
+    ranges = [(s_line, head_end), (cls_tail_start, e_line)]
+    tokens = estimate_tokens(head_code + tail_code)
+    return blocks, ranges, tokens
+
+
+def _is_covered_by_emitted_ranges(s_line: int, e_line: int, emitted_ranges: List[Tuple[int, int]]) -> bool:
+    for r_start, r_end in emitted_ranges:
+        if r_start <= s_line and e_line <= r_end:
+            return True
+    return False
 
 
 def _build_surgical_target_slices(
     primary_file: str,
     primary_lines: List[str],
-    total_lines: int,
     file_analyzers: Dict[str, Any],
     anchor_symbols: List[Dict[str, Any]],
-    token_budget: int,
-    initial_used_tokens: int,
+    budget_params: Tuple[int, int],
 ) -> List[str]:
     """Build targeted 1-indexed code slices for large target modules."""
+    token_budget, initial_used_tokens = budget_params
+    total_lines = len(primary_lines)
     blocks: List[str] = [
         f"\n## 3. Surgical Target Context: `{primary_file}` ({total_lines} lines total, 1-indexed slices)",
         "> ⚡ **Fast-Path Ready:** Exact 1-indexed line numbers are included below so you can edit directly around these lines.",
     ]
-    imp_end = min(file_analyzers[primary_file].import_end_line or 25, 45) if primary_file in file_analyzers else 25
-    header_numbered = "".join(f"{i + 1}: {primary_lines[i]}" for i in range(min(imp_end, total_lines))).rstrip()
-    blocks.extend([
-        f"### Module Header & Imports (`{primary_file}:1-{imp_end}`)",
-        "```python",
-        header_numbered,
-        "```",
-    ])
-    used_tokens = initial_used_tokens + estimate_tokens(header_numbered)
+    header_blocks, imp_end, header_tokens = _build_module_header_slice(
+        primary_file, primary_lines, file_analyzers
+    )
+    blocks.extend(header_blocks)
+    used_tokens = initial_used_tokens + header_tokens
     emitted_ranges: List[Tuple[int, int]] = [(1, imp_end)]
 
     for anc in anchor_symbols:
         s_line, e_line = anc["start_line"], anc["end_line"]
-        if any(r_start <= s_line and e_line <= r_end for r_start, r_end in emitted_ranges):
+        if _is_covered_by_emitted_ranges(s_line, e_line, emitted_ranges):
             continue
 
         if anc["type"] == "class" and (e_line - s_line) > 70:
-            head_end = min(s_line + 19, e_line)
-            cls_tail_start = max(head_end + 1, e_line - 14)
-            head_code = "".join(f"{i}: {primary_lines[i - 1]}" for i in range(s_line, head_end + 1)).rstrip()
-            tail_code = "".join(f"{i}: {primary_lines[i - 1]}" for i in range(cls_tail_start, e_line + 1)).rstrip()
-            blocks.extend([
-                f"### Class Header & Tail: `{anc['name']}` (`{primary_file}:{s_line}-{head_end}` & `{cls_tail_start}-{e_line}`)",
-                "```python",
-                head_code,
-                "# ... (intermediate methods omitted; see matched method anchors below) ...",
-                tail_code,
-                "```",
-            ])
-            emitted_ranges.append((s_line, head_end))
-            emitted_ranges.append((cls_tail_start, e_line))
-            used_tokens += estimate_tokens(head_code + tail_code)
+            cls_blocks, ranges, cls_tokens = _format_large_class_slice(anc, primary_file, primary_lines)
+            blocks.extend(cls_blocks)
+            emitted_ranges.extend(ranges)
+            used_tokens += cls_tokens
             continue
 
         anc_code = anc["info"]["numbered_code"].rstrip()
@@ -1134,7 +1351,7 @@ def _build_surgical_target_slices(
         used_tokens += anc_tokens
 
     tail_start = max(1, total_lines - 14)
-    if not any(r_start <= tail_start and total_lines <= r_end for r_start, r_end in emitted_ranges):
+    if not _is_covered_by_emitted_ranges(tail_start, total_lines, emitted_ranges):
         tail_numbered = "".join(
             f"{i}: {primary_lines[i - 1]}" for i in range(tail_start, total_lines + 1)
         ).rstrip()
@@ -1152,8 +1369,7 @@ def _build_target_context_blocks(
     primary_lines: List[str],
     file_analyzers: Dict[str, Any],
     anchor_symbols: List[Dict[str, Any]],
-    token_budget: int,
-    initial_used_tokens: int,
+    budget_params: Tuple[int, int],
 ) -> List[str]:
     """Format full or surgical 1-indexed target file context."""
     if not primary_file:
@@ -1171,11 +1387,9 @@ def _build_target_context_blocks(
     return _build_surgical_target_slices(
         primary_file,
         primary_lines,
-        total_lines,
         file_analyzers,
         anchor_symbols,
-        token_budget,
-        initial_used_tokens,
+        budget_params,
     )
 
 
@@ -1225,46 +1439,22 @@ def _build_test_context_blocks(
         return []
 
 
-def _build_context_markdown(
-    intent: Dict[str, Any],
-    primary_file: Optional[str],
-    primary_lines: List[str],
-    implementation_plan: List[str],
-    anchor_symbols: List[Dict[str, Any]],
-    cross_file_dependencies: List[Dict[str, Any]],
-    cross_boundary_links: List[Dict[str, Any]],
-    downstream_callers: List[Dict[str, Any]],
-    related_tests: List[str],
-    inferred_test_cmd: Optional[str],
-    file_analyzers: Dict[str, Any],
-    root_abs: str,
-    token_budget: int,
-) -> str:
+def _build_context_markdown(ctx: Dict[str, Any]) -> str:
     """Compose complete 1-indexed context markdown for the coding agent."""
-    blocks = _build_overview_context_blocks(
-        intent,
-        primary_file,
-        implementation_plan,
-        anchor_symbols,
-        cross_file_dependencies,
-        cross_boundary_links,
-        downstream_callers,
-        related_tests,
-        inferred_test_cmd,
-    )
+    blocks = _build_overview_context_blocks(ctx)
     initial_used_tokens = estimate_tokens("\n".join(blocks))
+    budget_params = (ctx["token_budget"], initial_used_tokens)
     blocks.extend(
         _build_target_context_blocks(
-            primary_file,
-            primary_lines,
-            file_analyzers,
-            anchor_symbols,
-            token_budget,
-            initial_used_tokens,
+            ctx.get("primary_file"),
+            ctx.get("primary_lines", []),
+            ctx.get("file_analyzers", {}),
+            ctx.get("anchor_symbols", []),
+            budget_params,
         )
     )
-    blocks.extend(_build_dependency_context_blocks(cross_file_dependencies))
-    blocks.extend(_build_test_context_blocks(related_tests, root_abs))
+    blocks.extend(_build_dependency_context_blocks(ctx.get("cross_file_dependencies", [])))
+    blocks.extend(_build_test_context_blocks(ctx.get("related_tests", []), ctx["root_abs"]))
     return "\n".join(blocks)
 
 
@@ -1482,6 +1672,55 @@ def _format_feature_workflow_output(
     }
 
 
+def _normalize_feature_intent(
+    task: str,
+    root_abs: str,
+    target_files: Optional[List[str]],
+) -> Tuple[str, Optional[str], Dict[str, Any]]:
+    explicit_single_file: Optional[str] = None
+    if os.path.isfile(root_abs):
+        explicit_single_file = os.path.basename(root_abs)
+        root_abs = os.path.dirname(root_abs)
+
+    intent = classify_feature_intent(task)
+    if explicit_single_file and explicit_single_file not in intent["explicit_files"]:
+        intent["explicit_files"].insert(0, explicit_single_file)
+    if target_files:
+        for tf in target_files:
+            if tf not in intent["explicit_files"]:
+                intent["explicit_files"].append(tf)
+
+    return root_abs, explicit_single_file, intent
+
+
+def _scan_uncertainty_findings(primary_file: Optional[str], root_abs: str) -> List[Dict[str, Any]]:
+    if not primary_file:
+        return []
+    u_list = scan_file_uncertainty(os.path.join(root_abs, primary_file), primary_file)
+    return [u.to_dict() for u in u_list]
+
+
+def _record_feature_session(
+    task: str,
+    root_abs: str,
+    session_params: Dict[str, Any],
+) -> Optional[str]:
+    return record_session(
+        command="feature",
+        task=task,
+        project_root=root_abs,
+        success=session_params["overall_success"],
+        duration_ms=session_params["duration_ms"],
+        mode="verify" if session_params["verify"] else "plan_and_context",
+        target_files=session_params["target_files"],
+        target_symbols=session_params["target_symbols"],
+        estimated_tokens=session_params["estimated_tokens"],
+        preflight=session_params["preflight_results"],
+        test_run=session_params["test_verification"],
+        verification_ledger=session_params["ledger"],
+    )
+
+
 def run_feature_workflow(
     task: str,
     project_root: str = ".",
@@ -1505,22 +1744,11 @@ def run_feature_workflow(
     8. Clearly report what is and isn't verified (`verification_ledger`)
     """
     t0 = time.perf_counter()
-    root_abs = os.path.abspath(project_root)
-    explicit_single_file: Optional[str] = None
-    if os.path.isfile(root_abs):
-        explicit_single_file = os.path.basename(root_abs)
-        root_abs = os.path.dirname(root_abs)
+    root_abs, explicit_single_file, intent = _normalize_feature_intent(
+        task, os.path.abspath(project_root), target_files
+    )
 
-    # 1. Understand Intent
-    intent = classify_feature_intent(task)
-    if explicit_single_file and explicit_single_file not in intent["explicit_files"]:
-        intent["explicit_files"].insert(0, explicit_single_file)
-    if target_files:
-        for tf in target_files:
-            if tf not in intent["explicit_files"]:
-                intent["explicit_files"].append(tf)
-
-    query_keywords = list(dict.fromkeys((target_symbols or []) + intent["keywords"]))
+    query_keywords = list(dict.fromkeys((target_symbols if target_symbols else []) + intent["keywords"]))
 
     # 2. Discovery & Scoring
     source_files, test_files = _discover_repo_files(root_abs)
@@ -1538,35 +1766,48 @@ def run_feature_workflow(
     )
     downstream_callers = _find_downstream_callers(primary_file, anchor_symbols, source_files)
     related_tests = _find_related_tests(primary_file, anchor_symbols, test_files)
-    inferred_test_cmd = _infer_test_command(
-        related_tests[0] if related_tests else None, root_abs, test_command
-    )
+    primary_test = related_tests[0] if related_tests else None
+    inferred_test_cmd = _infer_test_command(primary_test, root_abs, test_command)
 
-    uncertainty_findings = []
-    if primary_file:
-        u_list = scan_file_uncertainty(os.path.join(root_abs, primary_file), primary_file)
-        uncertainty_findings = [u.to_dict() for u in u_list]
-
+    uncertainty_findings = _scan_uncertainty_findings(primary_file, root_abs)
     cross_boundary_links = detect_cross_boundary_links(
-        primary_file=primary_file or "",
+        primary_file=primary_file if primary_file else "",
         primary_lines=primary_lines,
         anchor_symbols=anchor_symbols,
         file_lines_map=file_lines_map,
     )
 
     # 4. Actionable Implementation Plan
-    implementation_plan = _build_implementation_plan(
-        primary_file, primary_lines, anchor_symbols, cross_file_dependencies,
-        downstream_callers, file_analyzers, task, project_root, inferred_test_cmd
-    )
+    plan_ctx = {
+        "primary_file": primary_file,
+        "primary_lines": primary_lines,
+        "anchor_symbols": anchor_symbols,
+        "cross_file_dependencies": cross_file_dependencies,
+        "downstream_callers": downstream_callers,
+        "file_analyzers": file_analyzers,
+        "task": task,
+        "project_root": project_root,
+        "inferred_test_cmd": inferred_test_cmd,
+    }
+    implementation_plan = _build_implementation_plan(plan_ctx)
 
     # 5. Targeted 1-Indexed Context
-    context_markdown = _build_context_markdown(
-        intent, primary_file, primary_lines, implementation_plan,
-        anchor_symbols, cross_file_dependencies, cross_boundary_links,
-        downstream_callers, related_tests, inferred_test_cmd, file_analyzers,
-        root_abs, token_budget
-    )
+    context_data = {
+        "intent": intent,
+        "primary_file": primary_file,
+        "primary_lines": primary_lines,
+        "implementation_plan": implementation_plan,
+        "anchor_symbols": anchor_symbols,
+        "cross_file_dependencies": cross_file_dependencies,
+        "cross_boundary_links": cross_boundary_links,
+        "downstream_callers": downstream_callers,
+        "related_tests": related_tests,
+        "inferred_test_cmd": inferred_test_cmd,
+        "file_analyzers": file_analyzers,
+        "root_abs": root_abs,
+        "token_budget": token_budget,
+    }
+    context_markdown = _build_context_markdown(context_data)
 
     # 6, 7, 8. Verification & Ledger
     preflight_results, test_verification, statically_verified, runtime_verified, unverified_risks, overall_success = _run_verification_stage(
@@ -1575,25 +1816,23 @@ def run_feature_workflow(
     )
 
     duration_ms = round((time.perf_counter() - t0) * 1000, 2)
-
-    session_id = record_session(
-        command="feature",
-        task=task,
-        project_root=root_abs,
-        success=overall_success,
-        duration_ms=duration_ms,
-        mode="verify" if verify else "plan_and_context",
-        target_files=[primary_file] if primary_file else (target_files or []),
-        target_symbols=[a["name"] for a in anchor_symbols[:3]],
-        estimated_tokens=estimate_tokens(context_markdown),
-        preflight=preflight_results,
-        test_run=test_verification,
-        verification_ledger={
+    session_target_files = [primary_file] if primary_file else (target_files if target_files else [])
+    session_params = {
+        "overall_success": overall_success,
+        "duration_ms": duration_ms,
+        "verify": verify,
+        "target_files": session_target_files,
+        "target_symbols": [a["name"] for a in anchor_symbols[:3]],
+        "estimated_tokens": estimate_tokens(context_markdown),
+        "preflight_results": preflight_results,
+        "test_verification": test_verification,
+        "ledger": {
             "statically_verified": statically_verified,
             "runtime_verified": runtime_verified,
             "unverified_or_residual_risks": unverified_risks,
         },
-    )
+    }
+    session_id = _record_feature_session(task, root_abs, session_params)
 
     return _format_feature_workflow_output(
         session_id, overall_success, verify, task, intent, primary_file,

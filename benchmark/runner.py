@@ -12,8 +12,11 @@ import time
 import json
 import shutil
 import argparse
+import logging
 import subprocess
 from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 BENCHMARK_DIR = os.path.abspath(os.path.dirname(__file__))
 PROJECT_ROOT = os.path.abspath(os.path.join(BENCHMARK_DIR, ".."))
@@ -57,8 +60,8 @@ def cleanup_worktree(repo_path: str, worktree_path: str):
     """Safely cleans up the temporary worktree."""
     try:
         subprocess.run(["git", "-C", repo_path, "worktree", "remove", "--force", worktree_path], capture_output=True)
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("Failed removing git worktree %s: %s", worktree_path, e)
     if os.path.exists(worktree_path):
         shutil.rmtree(worktree_path, ignore_errors=True)
 
@@ -87,6 +90,7 @@ def run_external_acceptance_test(repo_info: Dict[str, Any], worktree: str) -> Tu
         output_summary = (res.stdout + res.stderr)[-300:].strip()
         return passed, output_summary
     except Exception as e:
+        logger.debug("External acceptance test execution failed: %s", e)
         return False, str(e)
 
 
@@ -245,97 +249,127 @@ def run_repowise_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, A
         }
 
 
+def _devrith_context_query(task: Dict[str, Any], worktree: str, t0: float) -> Dict[str, Any]:
+    symbol = task.get("symbol")
+    res = locate_surgical_context(
+        task=task["description"],
+        root_dir=worktree,
+        target_symbols=[symbol] if symbol else None
+    )
+    duration_ms = int((time.time() - t0) * 1000)
+    tokens = estimate_tokens(res.get("context", ""))
+    return {
+        "status": "PASSED",
+        "preflight_catches": 0,
+        "regressions": 0,
+        "rollback_executed": False,
+        "tokens_estimated": tokens,
+        "tool_duration_ms": duration_ms,
+        "wall_clock_ms": duration_ms,
+        "external_test_passed": True,
+        "details": f"Devrith extracted surgical context slice in {duration_ms}ms ({tokens} tokens)."
+    }
+
+
+def _collect_hazards(res: Dict[str, Any]) -> List[Any]:
+    hazard_keys = ("circular_hazards", "state_desync_hazards", "global_state_hazards", "framework_hazards", "hazards")
+    collected: List[Any] = []
+    for k in hazard_keys:
+        val = res.get(k)
+        if val:
+            collected.extend(val)
+    return collected
+
+
+def _devrith_unsafe_extraction(task: Dict[str, Any], worktree: str, t0: float) -> Dict[str, Any]:
+    file_path = os.path.join(worktree, task["file_path"])
+    target_file = os.path.join(worktree, task["target_file"]) if task.get("target_file") else None
+    symbol = task.get("symbol")
+
+    res = prefactor_decouple(
+        symbol=symbol,
+        from_file=file_path,
+        to_file=target_file,
+        project_root=worktree,
+        dry_run=True
+    )
+    duration_ms = int((time.time() - t0) * 1000)
+    hazards = _collect_hazards(res)
+    is_blocked = not res.get("success", False) or len(hazards) > 0
+
+    return {
+        "status": "BLOCKED_AS_EXPECTED" if is_blocked else "FAILED_TO_BLOCK",
+        "preflight_catches": len(hazards),
+        "regressions": 0,
+        "rollback_executed": False,
+        "tokens_estimated": 180,
+        "tool_duration_ms": duration_ms,
+        "wall_clock_ms": duration_ms,
+        "external_test_passed": True,
+        "details": f"Devrith detected {len(hazards)} hazard(s)."
+    }
+
+
+def _devrith_safe_extraction(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any], t0: float) -> Dict[str, Any]:
+    file_path = os.path.join(worktree, task["file_path"])
+    target_file = os.path.join(worktree, task["target_file"]) if task.get("target_file") else None
+    symbol = task.get("symbol")
+
+    res = prefactor_decouple(
+        symbol=symbol,
+        from_file=file_path,
+        to_file=target_file,
+        project_root=worktree,
+        add_backward_compat_alias=task.get("add_backward_compat_alias", True),
+        share_state=task.get("share_state", False),
+        dry_run=False
+    )
+    duration_ms = int((time.time() - t0) * 1000)
+
+    # 1. Verify health score of generated file
+    health = check_code_health(target_file, project_root=worktree)
+    is_healthy = health.get("success", False)
+
+    # 2. Run repository-native external acceptance test suite
+    test_passed, _ = run_external_acceptance_test(repo_info, worktree)
+    passed_all = is_healthy and test_passed
+
+    return {
+        "status": "PASSED" if passed_all else "REGRESSION_DETECTED",
+        "preflight_catches": 0,
+        "regressions": 0 if passed_all else 1,
+        "rollback_executed": False,
+        "tokens_estimated": 220,
+        "tool_duration_ms": duration_ms,
+        "wall_clock_ms": duration_ms,
+        "external_test_passed": test_passed,
+        "details": f"Deterministic AST extraction completed in {duration_ms}ms; health: {health.get('health_score', 0)}; test_passed: {test_passed}."
+    }
+
+
 def run_devrith_arm(task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
     """Arm D: Devrith engine."""
     t0 = time.time()
     category = task["category"]
-    file_path = os.path.join(worktree, task["file_path"])
-    target_file = os.path.join(worktree, task["target_file"]) if task.get("target_file") else None
-    symbol = task.get("symbol")
-    
+
     if category == "ambiguous_context_query":
-        res = locate_surgical_context(
-            task=task["description"],
-            root_dir=worktree,
-            target_symbols=[symbol] if symbol else None
-        )
-        duration_ms = int((time.time() - t0) * 1000)
-        tokens = estimate_tokens(res.get("context", ""))
-        return {
-            "status": "PASSED",
-            "preflight_catches": 0,
-            "regressions": 0,
-            "rollback_executed": False,
-            "tokens_estimated": tokens,
-            "tool_duration_ms": duration_ms,
-            "wall_clock_ms": duration_ms,
-            "external_test_passed": True,
-            "details": f"Devrith extracted surgical context slice in {duration_ms}ms ({tokens} tokens)."
-        }
-        
-    elif category == "unsafe_extraction":
-        # Run prefactor_decouple to test hazard interception
-        res = prefactor_decouple(
-            symbol=symbol,
-            from_file=file_path,
-            to_file=target_file,
-            project_root=worktree,
-            dry_run=True
-        )
-        duration_ms = int((time.time() - t0) * 1000)
-        hazards = (
-            (res.get("circular_hazards") or [])
-            + (res.get("state_desync_hazards") or [])
-            + (res.get("global_state_hazards") or [])
-            + (res.get("framework_hazards") or [])
-            + (res.get("hazards") or [])
-        )
-        is_blocked = not res.get("success", False) or len(hazards) > 0
-        
-        return {
-            "status": "BLOCKED_AS_EXPECTED" if is_blocked else "FAILED_TO_BLOCK",
-            "preflight_catches": len(hazards),
-            "regressions": 0,
-            "rollback_executed": False,
-            "tokens_estimated": 180,
-            "tool_duration_ms": duration_ms,
-            "wall_clock_ms": duration_ms,
-            "external_test_passed": True,
-            "details": f"Devrith detected {len(hazards)} hazard(s)."
-        }
-        
-    else:
-        # Safe or multi-file extraction
-        res = prefactor_decouple(
-            symbol=symbol,
-            from_file=file_path,
-            to_file=target_file,
-            project_root=worktree,
-            add_backward_compat_alias=task.get("add_backward_compat_alias", True),
-            share_state=task.get("share_state", False),
-            dry_run=False
-        )
-        duration_ms = int((time.time() - t0) * 1000)
-        
-        # 1. Verify health score of generated file
-        health = check_code_health(target_file, project_root=worktree)
-        is_healthy = health.get("success", False)
-        
-        # 2. Run repository-native external acceptance test suite
-        test_passed, test_out = run_external_acceptance_test(repo_info, worktree)
-        passed_all = is_healthy and test_passed
-        
-        return {
-            "status": "PASSED" if passed_all else "REGRESSION_DETECTED",
-            "preflight_catches": 0,
-            "regressions": 0 if passed_all else 1,
-            "rollback_executed": False,
-            "tokens_estimated": 220,
-            "tool_duration_ms": duration_ms,
-            "wall_clock_ms": duration_ms,
-            "external_test_passed": test_passed,
-            "details": f"Deterministic AST extraction completed in {duration_ms}ms; health: {health.get('health_score', 0)}; test_passed: {test_passed}."
-        }
+        return _devrith_context_query(task, worktree, t0)
+    if category == "unsafe_extraction":
+        return _devrith_unsafe_extraction(task, worktree, t0)
+    return _devrith_safe_extraction(task, worktree, repo_info, t0)
+
+
+def _dispatch_arm(arm: str, task: Dict[str, Any], worktree: str, repo_info: Dict[str, Any]) -> Dict[str, Any]:
+    dispatch_table = {
+        "baseline": run_baseline_arm,
+        "serena": run_serena_arm,
+        "repowise": run_repowise_arm,
+        "devrith": run_devrith_arm,
+    }
+    handler = dispatch_table.get(arm)
+    if not handler:
+        raise ValueError(f"Unknown arm {arm}")
+    return handler(task, worktree, repo_info)
 
 
 def execute_run(task_id: str, arm: str, repetitions: int = 5) -> Dict[str, Any]:
@@ -351,17 +385,7 @@ def execute_run(task_id: str, arm: str, repetitions: int = 5) -> Dict[str, Any]:
     for r in range(repetitions):
         worktree = setup_worktree(repo_path, task_id, arm)
         try:
-            if arm == "baseline":
-                run_data = run_baseline_arm(task, worktree, repo_info)
-            elif arm == "serena":
-                run_data = run_serena_arm(task, worktree, repo_info)
-            elif arm == "repowise":
-                run_data = run_repowise_arm(task, worktree, repo_info)
-            elif arm == "devrith":
-                run_data = run_devrith_arm(task, worktree, repo_info)
-            else:
-                raise ValueError(f"Unknown arm {arm}")
-                
+            run_data = _dispatch_arm(arm, task, worktree, repo_info)
             run_data["run_index"] = r + 1
             runs.append(run_data)
         finally:

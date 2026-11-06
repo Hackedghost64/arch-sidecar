@@ -10,73 +10,343 @@ Provides:
 """
 
 import re
-from typing import Dict, List, Any, Optional
+import logging
+from dataclasses import dataclass
+from typing import Dict, List, Any, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+_JVM_TOKEN_PATTERN = re.compile(
+    r'("""[\s\S]*?""")|'
+    r'("(\\.|[^"\\])*")|'
+    r"('(\\.|[^'\\])*')|"
+    r"(//[^\n]*)|"
+    r"(/\*[\s\S]*?\*/)"
+)
+
+_PACKAGE_PAT = re.compile(r"^package\s+([a-zA-Z0-9_.]+);?")
+_IMPORT_PAT = re.compile(r"^import\s+(?:static\s+)?([a-zA-Z0-9_.*]+);?")
+
+_KT_CLASS_PAT = re.compile(
+    r"^(?:(?:public|private|protected|internal|abstract|final|open|sealed|data|enum|annotation|value|inner)\s+)*"
+    r"(class|interface|object|enum\s+class)\s+([a-zA-Z0-9_$]+)"
+)
+_KT_FUN_PAT = re.compile(
+    r"^(?:(?:public|private|protected|internal|abstract|final|open|override|suspend|inline|operator|infix)\s+)*"
+    r"fun\s+(?:<[^>]+>\s+)?(?:([a-zA-Z0-9_$<>.]+)\.)?([a-zA-Z0-9_$]+)\s*\("
+)
+_KT_TYPEALIAS_PAT = re.compile(r"^(?:(?:public|private|internal)\s+)?typealias\s+([a-zA-Z0-9_$]+)")
+
+_JAVA_CLASS_PAT = re.compile(
+    r"^(?:(?:public|private|protected|static|abstract|final|sealed|non-sealed)\s+)*"
+    r"(class|interface|enum|record|@interface)\s+([a-zA-Z0-9_$]+)"
+)
+_JAVA_METHOD_PAT = re.compile(
+    r"^(?:(?:public|private|protected|static|final|synchronized|abstract|default|native)\s+)*"
+    r"(?:<[^>]+>\s+)?([a-zA-Z0-9_$<>,?\[\]]+)\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?:throws\s+[^{;]+)?\s*(\{|;)"
+)
+_JAVA_CONTROL_KEYWORDS = ("if", "for", "while", "switch", "return", "throw", "new")
+
+
+@dataclass(frozen=True)
+class _ParseContext:
+    lines: List[str]
+    raw_lines: List[str]
+    idx: int
+    stripped: str
+
+
+def _strip_jvm_comment_match(match: re.Match) -> str:
+    text = match.group(0)
+    if text.startswith("//"):
+        return ""
+    if text.startswith("/*"):
+        return "\n" * text.count("\n")
+    return text
 
 
 def strip_jvm_comments(code: str) -> str:
     """Strips single-line (//) and multi-line (/* */) comments while preserving string and char literals."""
-    output: List[str] = []
-    i = 0
-    n = len(code)
-    in_string = False
-    in_char = False
-    in_triple_string = False
+    return _JVM_TOKEN_PATTERN.sub(_strip_jvm_comment_match, code)
 
-    while i < n:
-        # Kotlin triple quoted string """..."""
-        if not in_string and not in_char and i + 2 < n and code[i : i + 3] == '"""':
-            in_triple_string = not in_triple_string
-            output.append('"""')
-            i += 3
-            continue
 
-        c = code[i]
-        # Escape sequence inside normal string or char
-        if (in_string or in_char) and not in_triple_string and c == "\\":
-            output.append(c)
-            if i + 1 < n:
-                output.append(code[i + 1])
-                i += 2
-                continue
-            i += 1
-            continue
+def _find_decl_start(raw_lines: List[str], idx: int) -> int:
+    k = idx - 1
+    while k >= 0:
+        prev = raw_lines[k].strip()
+        if not (prev.startswith("@") or prev.startswith("/**") or prev.startswith("*")):
+            break
+        k -= 1
+    return k + 1
 
-        # Normal string "
-        if not in_triple_string and not in_char and c == '"':
-            in_string = not in_string
-            output.append(c)
-            i += 1
-            continue
 
-        # Char literal '
-        if not in_triple_string and not in_string and c == "'":
-            in_char = not in_char
-            output.append(c)
-            i += 1
-            continue
+def _is_kt_class_exit_line(line: str, j: int, start_idx: int, found_brace: bool) -> bool:
+    if found_brace or j <= start_idx:
+        return False
+    return not line.startswith(("\t", " "))
 
-        # Outside strings: check comments
-        if not in_string and not in_char and not in_triple_string:
-            if c == "/" and i + 1 < n and code[i + 1] == "/":
-                newline_pos = code.find("\n", i)
-                if newline_pos == -1:
-                    break
-                output.append("\n")
-                i = newline_pos + 1
-                continue
-            elif c == "/" and i + 1 < n and code[i + 1] == "*":
-                end_pos = code.find("*/", i + 2)
-                if end_pos == -1:
-                    break
-                comment_newlines = code[i : end_pos + 2].count("\n")
-                output.append("\n" * comment_newlines)
-                i = end_pos + 2
-                continue
 
-        output.append(c)
-        i += 1
+def _find_kt_class_end(lines: List[str], start_idx: int) -> int:
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if _is_kt_class_exit_line(line, j, start_idx, found_brace):
+            return j - 1
+    return start_idx
 
-    return "".join(output)
+
+def _is_single_line_fun(line: str, found_brace: bool) -> bool:
+    return not found_brace and "=" in line and ";" in line
+
+
+def _find_kt_fun_end(lines: List[str], start_idx: int) -> int:
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+        if _is_single_line_fun(line, found_brace):
+            return j
+    return start_idx
+
+
+def _find_standard_brace_end(lines: List[str], start_idx: int) -> int:
+    brace_count = 0
+    found_brace = False
+    for j in range(start_idx, len(lines)):
+        line = lines[j]
+        brace_count += line.count("{") - line.count("}")
+        if "{" in line:
+            found_brace = True
+        if found_brace and brace_count <= 0:
+            return j
+    return start_idx
+
+
+def _extract_span_code(raw_lines: List[str], idx: int, start_idx: int, end_idx: int) -> Tuple[int, int, int, str]:
+    return (idx + 1, start_idx + 1, end_idx + 1, "".join(raw_lines[start_idx : end_idx + 1]))
+
+
+def _build_declaration(
+    kind: str,
+    name: str,
+    is_exported: bool,
+    sig: str,
+    span_and_code: Tuple[int, int, int, str],
+) -> Dict[str, Any]:
+    line, start_line, end_line, code = span_and_code
+    return {
+        "kind": kind,
+        "name": name,
+        "is_exported": is_exported,
+        "signature": sig,
+        "line": line,
+        "start_line": start_line,
+        "end_line": end_line,
+        "code": code,
+    }
+
+
+def _parse_kt_class(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Tuple[Dict[str, Any], str]]:
+    m = _KT_CLASS_PAT.match(stripped)
+    if not m:
+        return None
+    kind = m.group(1).replace(" ", "_")
+    name = m.group(2)
+    start_idx = _find_decl_start(raw_lines, idx)
+    end_idx = _find_kt_class_end(lines, idx)
+    sig = stripped.split("{")[0].strip()
+    is_exported = not ("private" in stripped or "internal" in stripped)
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    decl = _build_declaration(kind, name, is_exported, sig, span_code)
+    return decl, name
+
+
+def _parse_kt_typealias(
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Dict[str, Any]]:
+    m = _KT_TYPEALIAS_PAT.match(stripped)
+    if not m:
+        return None
+    name = m.group(1)
+    span_code = (idx + 1, idx + 1, idx + 1, raw_lines[idx])
+    return _build_declaration(
+        kind="typealias",
+        name=name,
+        is_exported=("private" not in stripped),
+        sig=stripped.rstrip(";"),
+        span_and_code=span_code,
+    )
+
+
+def _resolve_kt_fun_name(current_class: Optional[str], ext_receiver: Optional[str], fun_name: str) -> str:
+    if current_class:
+        return f"{current_class}.{fun_name}"
+    if ext_receiver:
+        return f"{ext_receiver}.{fun_name}"
+    return fun_name
+
+
+def _parse_kt_fun(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+    current_class: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    m = _KT_FUN_PAT.match(stripped)
+    if not m:
+        return None
+    ext_receiver = m.group(1)
+    fun_name = m.group(2)
+    full_name = _resolve_kt_fun_name(current_class, ext_receiver, fun_name)
+    kind = "method" if current_class else "function"
+    start_idx = _find_decl_start(raw_lines, idx)
+    end_idx = _find_kt_fun_end(lines, idx)
+    sig = stripped.split("{")[0].strip()
+    is_exported = not ("private" in stripped or "internal" in stripped)
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    return _build_declaration(kind, full_name, is_exported, sig, span_code)
+
+
+def _dispatch_kt_decl(
+    ctx: _ParseContext,
+    brace_depth: int,
+    class_depth: int,
+    current_class: Optional[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    if brace_depth == 0:
+        class_res = _parse_kt_class(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped)
+        if class_res:
+            decl, name = class_res
+            return decl, name, brace_depth + 1
+        alias_decl = _parse_kt_typealias(ctx.raw_lines, ctx.idx, ctx.stripped)
+        if alias_decl:
+            return alias_decl, current_class, class_depth
+
+    fun_decl = _parse_kt_fun(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped, current_class)
+    if fun_decl:
+        return fun_decl, current_class, class_depth
+
+    return None, current_class, class_depth
+
+
+def _parse_java_class(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+) -> Optional[Tuple[Dict[str, Any], str]]:
+    m = _JAVA_CLASS_PAT.match(stripped)
+    if not m:
+        return None
+    kind = m.group(1).replace("@", "")
+    name = m.group(2)
+    start_idx = _find_decl_start(raw_lines, idx)
+    end_idx = _find_standard_brace_end(lines, idx)
+    sig = stripped.split("{")[0].strip()
+    is_exported = ("public" in stripped or "protected" in stripped)
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    decl = _build_declaration(kind, name, is_exported, sig, span_code)
+    return decl, name
+
+
+def _parse_java_method(
+    lines: List[str],
+    raw_lines: List[str],
+    idx: int,
+    stripped: str,
+    current_class: str,
+) -> Optional[Dict[str, Any]]:
+    if stripped.startswith(_JAVA_CONTROL_KEYWORDS):
+        return None
+    m = _JAVA_METHOD_PAT.match(stripped)
+    if not m:
+        return None
+    meth_name = m.group(2)
+    is_abstract = (m.group(4) == ";" or "abstract" in stripped)
+    start_idx = _find_decl_start(raw_lines, idx)
+    end_idx = idx if is_abstract else _find_standard_brace_end(lines, idx)
+    sig = stripped.split("{")[0].strip().rstrip(";")
+    is_exported = ("public" in stripped or "protected" in stripped)
+    span_code = _extract_span_code(raw_lines, idx, start_idx, end_idx)
+    return _build_declaration("method", f"{current_class}.{meth_name}", is_exported, sig, span_code)
+
+
+def _dispatch_java_decl(
+    ctx: _ParseContext,
+    brace_depth: int,
+    class_depth: int,
+    current_class: Optional[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    if brace_depth == 0:
+        class_res = _parse_java_class(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped)
+        if class_res:
+            decl, name = class_res
+            return decl, name, brace_depth + 1
+
+    if current_class and brace_depth == class_depth:
+        meth_decl = _parse_java_method(ctx.lines, ctx.raw_lines, ctx.idx, ctx.stripped, current_class)
+        if meth_decl:
+            return meth_decl, current_class, class_depth
+
+    return None, current_class, class_depth
+
+
+def _process_jvm_decl(
+    is_kotlin: bool,
+    ctx: _ParseContext,
+    brace_depth: int,
+    class_depth: int,
+    current_class: Optional[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str], int]:
+    if is_kotlin:
+        return _dispatch_kt_decl(ctx, brace_depth, class_depth, current_class)
+    return _dispatch_java_decl(ctx, brace_depth, class_depth, current_class)
+
+
+def _detect_jvm_language(filename: str) -> str:
+    return "kotlin" if filename.endswith((".kt", ".kts")) else "java"
+
+
+def _extract_jvm_header(
+    stripped: str,
+    idx: int,
+    brace_depth: int,
+    current_pkg: str,
+) -> Tuple[str, Optional[Dict[str, Any]]]:
+    if brace_depth != 0:
+        return current_pkg, None
+    m_pkg = _PACKAGE_PAT.match(stripped)
+    if m_pkg and not current_pkg:
+        return m_pkg.group(1).rstrip(";"), None
+    m_imp = _IMPORT_PAT.match(stripped)
+    if m_imp:
+        return current_pkg, {"module": m_imp.group(1).rstrip(";"), "line": idx + 1}
+    return current_pkg, None
+
+
+def _sync_class_scope(current_class: Optional[str], brace_depth: int, class_depth: int) -> Optional[str]:
+    if current_class and brace_depth < class_depth:
+        return None
+    return current_class
 
 
 def parse_jvm_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
@@ -86,7 +356,8 @@ def parse_jvm_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     - imports
     - declarations: classes, interfaces, records, enums, objects, functions, methods
     """
-    is_kotlin = filename.endswith((".kt", ".kts"))
+    language = _detect_jvm_language(filename)
+    is_kotlin = (language == "kotlin")
     clean_code = strip_jvm_comments(source_text)
     lines = clean_code.splitlines(keepends=True)
     raw_lines = source_text.splitlines(keepends=True)
@@ -95,264 +366,33 @@ def parse_jvm_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     imports: List[Dict[str, Any]] = []
     declarations: List[Dict[str, Any]] = []
 
-    package_pat = re.compile(r"^package\s+([a-zA-Z0-9_.]+);?")
-    import_pat = re.compile(r"^import\s+(?:static\s+)?([a-zA-Z0-9_.*]+);?")
-
-    # Kotlin patterns
-    kt_class_pat = re.compile(
-        r"^(?:(?:public|private|protected|internal|abstract|final|open|sealed|data|enum|annotation|value|inner)\s+)*"
-        r"(class|interface|object|enum\s+class)\s+([a-zA-Z0-9_$]+)"
-    )
-    kt_fun_pat = re.compile(
-        r"^(?:(?:public|private|protected|internal|abstract|final|open|override|suspend|inline|operator|infix)\s+)*"
-        r"fun\s+(?:<[^>]+>\s+)?(?:([a-zA-Z0-9_$<>.]+)\.)?([a-zA-Z0-9_$]+)\s*\("
-    )
-    kt_typealias_pat = re.compile(r"^(?:(?:public|private|internal)\s+)?typealias\s+([a-zA-Z0-9_$]+)")
-
-    # Java patterns
-    java_class_pat = re.compile(
-        r"^(?:(?:public|private|protected|static|abstract|final|sealed|non-sealed)\s+)*"
-        r"(class|interface|enum|record|@interface)\s+([a-zA-Z0-9_$]+)"
-    )
-    java_method_pat = re.compile(
-        r"^(?:(?:public|private|protected|static|final|synchronized|abstract|default|native)\s+)*"
-        r"(?:<[^>]+>\s+)?([a-zA-Z0-9_$<>,?\[\]]+)\s+([a-zA-Z0-9_$]+)\s*\(([^)]*)\)\s*(?:throws\s+[^{;]+)?\s*(\{|;)"
-    )
-
-    current_brace_depth = 0
+    brace_depth = 0
     current_class: Optional[str] = None
-    class_brace_depth = 0
+    class_depth = 0
 
     for idx, line in enumerate(lines):
         stripped = line.strip()
         if not stripped:
             continue
 
-        # 1. Package
-        m_pkg = package_pat.match(stripped)
-        if m_pkg and current_brace_depth == 0 and not package_name:
-            package_name = m_pkg.group(1).rstrip(";")
+        package_name, imp = _extract_jvm_header(stripped, idx, brace_depth, package_name)
+        if imp:
+            imports.append(imp)
             continue
 
-        # 2. Imports
-        m_imp = import_pat.match(stripped)
-        if m_imp and current_brace_depth == 0:
-            imports.append({"module": m_imp.group(1).rstrip(";"), "line": idx + 1})
-            continue
+        ctx = _ParseContext(lines=lines, raw_lines=raw_lines, idx=idx, stripped=stripped)
+        decl, current_class, class_depth = _process_jvm_decl(
+            is_kotlin, ctx, brace_depth, class_depth, current_class
+        )
+        if decl:
+            declarations.append(decl)
 
-        # 3. Declarations
-        is_top_level = (current_brace_depth == 0)
-        matched = False
-
-        if is_kotlin:
-            # Kotlin declaration check
-            m_class = kt_class_pat.match(stripped)
-            if m_class and is_top_level:
-                kind = m_class.group(1).replace(" ", "_")
-                name = m_class.group(2)
-
-                # Include annotations (@...) and doc comments
-                start_line_idx = idx
-                k = idx - 1
-                while k >= 0:
-                    prev = raw_lines[k].strip()
-                    if prev.startswith("@") or prev.startswith("/**") or prev.startswith("*"):
-                        start_line_idx = k
-                        k -= 1
-                    else:
-                        break
-
-                brace_count = 0
-                found_brace = False
-                end_idx = idx
-                for j in range(idx, len(lines)):
-                    l = lines[j]
-                    brace_count += l.count("{") - l.count("}")
-                    if "{" in l:
-                        found_brace = True
-                    if found_brace and brace_count <= 0:
-                        end_idx = j
-                        break
-                    if not found_brace and j > idx and not lines[j].startswith(("\t", " ")):
-                        end_idx = j - 1
-                        break
-
-                sig = stripped.split("{")[0].strip()
-                decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                declarations.append({
-                    "kind": kind,
-                    "name": name,
-                    "is_exported": not ("private" in stripped or "internal" in stripped),
-                    "signature": sig,
-                    "line": idx + 1,
-                    "start_line": start_line_idx + 1,
-                    "end_line": end_idx + 1,
-                    "code": decl_code,
-                })
-                current_class = name
-                class_brace_depth = current_brace_depth + 1
-                matched = True
-
-            elif is_top_level:
-                m_alias = kt_typealias_pat.match(stripped)
-                if m_alias:
-                    name = m_alias.group(1)
-                    declarations.append({
-                        "kind": "typealias",
-                        "name": name,
-                        "is_exported": "private" not in stripped,
-                        "signature": stripped.rstrip(";"),
-                        "line": idx + 1,
-                        "start_line": idx + 1,
-                        "end_line": idx + 1,
-                        "code": raw_lines[idx],
-                    })
-                    matched = True
-
-            # Kotlin Function (top-level or inside class)
-            m_fun = kt_fun_pat.match(stripped)
-            if not matched and m_fun:
-                ext_receiver = m_fun.group(1)
-                fun_name = m_fun.group(2)
-                full_name = f"{current_class}.{fun_name}" if current_class else (f"{ext_receiver}.{fun_name}" if ext_receiver else fun_name)
-                kind = "method" if current_class else "function"
-
-                start_line_idx = idx
-                k = idx - 1
-                while k >= 0:
-                    prev = raw_lines[k].strip()
-                    if prev.startswith("@") or prev.startswith("/**") or prev.startswith("*"):
-                        start_line_idx = k
-                        k -= 1
-                    else:
-                        break
-
-                brace_count = 0
-                found_brace = False
-                end_idx = idx
-                for j in range(idx, len(lines)):
-                    l = lines[j]
-                    brace_count += l.count("{") - l.count("}")
-                    if "{" in l:
-                        found_brace = True
-                    if found_brace and brace_count <= 0:
-                        end_idx = j
-                        break
-                    if not found_brace and "=" in l and ";" in l:
-                        end_idx = j
-                        break
-
-                sig = stripped.split("{")[0].strip()
-                decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                declarations.append({
-                    "kind": kind,
-                    "name": full_name,
-                    "is_exported": not ("private" in stripped or "internal" in stripped),
-                    "signature": sig,
-                    "line": idx + 1,
-                    "start_line": start_line_idx + 1,
-                    "end_line": end_idx + 1,
-                    "code": decl_code,
-                })
-                matched = True
-
-        else:
-            # Java declaration check
-            m_class = java_class_pat.match(stripped)
-            if m_class and is_top_level:
-                kind = m_class.group(1).replace("@", "")
-                name = m_class.group(2)
-
-                start_line_idx = idx
-                k = idx - 1
-                while k >= 0:
-                    prev = raw_lines[k].strip()
-                    if prev.startswith("@") or prev.startswith("/**") or prev.startswith("*"):
-                        start_line_idx = k
-                        k -= 1
-                    else:
-                        break
-
-                brace_count = 0
-                found_brace = False
-                end_idx = idx
-                for j in range(idx, len(lines)):
-                    l = lines[j]
-                    brace_count += l.count("{") - l.count("}")
-                    if "{" in l:
-                        found_brace = True
-                    if found_brace and brace_count <= 0:
-                        end_idx = j
-                        break
-
-                sig = stripped.split("{")[0].strip()
-                decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                declarations.append({
-                    "kind": kind,
-                    "name": name,
-                    "is_exported": "public" in stripped or "protected" in stripped,
-                    "signature": sig,
-                    "line": idx + 1,
-                    "start_line": start_line_idx + 1,
-                    "end_line": end_idx + 1,
-                    "code": decl_code,
-                })
-                current_class = name
-                class_brace_depth = current_brace_depth + 1
-                matched = True
-
-            elif not matched and current_class and current_brace_depth == class_brace_depth:
-                m_meth = java_method_pat.match(stripped)
-                if m_meth and not stripped.startswith(("if", "for", "while", "switch", "return", "throw", "new")):
-                    ret_type = m_meth.group(1)
-                    meth_name = m_meth.group(2)
-                    is_abstract = m_meth.group(4) == ";" or "abstract" in stripped
-
-                    start_line_idx = idx
-                    k = idx - 1
-                    while k >= 0:
-                        prev = raw_lines[k].strip()
-                        if prev.startswith("@") or prev.startswith("/**") or prev.startswith("*"):
-                            start_line_idx = k
-                            k -= 1
-                        else:
-                            break
-
-                    end_idx = idx
-                    if not is_abstract:
-                        brace_count = 0
-                        found_brace = False
-                        for j in range(idx, len(lines)):
-                            l = lines[j]
-                            brace_count += l.count("{") - l.count("}")
-                            if "{" in l:
-                                found_brace = True
-                            if found_brace and brace_count <= 0:
-                                end_idx = j
-                                break
-
-                    sig = stripped.split("{")[0].strip().rstrip(";")
-                    decl_code = "".join(raw_lines[start_line_idx : end_idx + 1])
-                    declarations.append({
-                        "kind": "method",
-                        "name": f"{current_class}.{meth_name}",
-                        "is_exported": "public" in stripped or "protected" in stripped,
-                        "signature": sig,
-                        "line": idx + 1,
-                        "start_line": start_line_idx + 1,
-                        "end_line": end_idx + 1,
-                        "code": decl_code,
-                    })
-                    matched = True
-
-        # Update brace depth
-        current_brace_depth += (line.count("{") - line.count("}"))
-        if current_class and current_brace_depth < class_brace_depth:
-            current_class = None
+        brace_depth += line.count("{") - line.count("}")
+        current_class = _sync_class_scope(current_class, brace_depth, class_depth)
 
     return {
         "filename": filename,
-        "language": "kotlin" if is_kotlin else "java",
+        "language": language,
         "package": package_name,
         "imports": imports,
         "declarations": declarations,
@@ -360,34 +400,45 @@ def parse_jvm_ast(source_text: str, filename: str = "") -> Dict[str, Any]:
     }
 
 
+def _format_jvm_imports(imports: List[Dict[str, Any]]) -> List[str]:
+    if not imports:
+        return []
+    summary = [f"  // Imports ({len(imports)}):"]
+    for imp in imports[:8]:
+        summary.append(f"  import {imp['module']};")
+    if len(imports) > 8:
+        summary.append(f"  // ... and {len(imports) - 8} more imports")
+    return summary
+
+
+def _format_jvm_declarations(decls: List[Dict[str, Any]]) -> List[str]:
+    if not decls:
+        return []
+    summary = [f"  // Declarations ({len(decls)}):"]
+    for d in decls:
+        export_flag = "pub " if d.get("is_exported") else "priv"
+        sig = d.get("signature") or d["name"]
+        summary.append(f"  [{export_flag} {d['kind']:8}] L{d['start_line']}-{d['end_line']}: {sig}")
+    return summary
+
+
 def format_jvm_digest_skeleton(filepath: str) -> str:
     """Formats an architectural skeleton for a Java or Kotlin file."""
     try:
         with open(filepath, "r", encoding="utf-8", errors="ignore") as f:
             content = f.read()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
+        logger.debug("Failed to read JVM file %s: %s", filepath, e)
         return f"  [Error reading JVM: {e}]\n"
 
     parsed = parse_jvm_ast(content, filename=filepath)
     summary: List[str] = []
 
-    if parsed.get("package"):
-        summary.append(f"  package {parsed['package']};")
+    pkg = parsed.get("package")
+    if pkg:
+        summary.append(f"  package {pkg};")
 
-    imports = parsed.get("imports", [])
-    if imports:
-        summary.append(f"  // Imports ({len(imports)}):")
-        for imp in imports[:8]:
-            summary.append(f"  import {imp['module']};")
-        if len(imports) > 8:
-            summary.append(f"  // ... and {len(imports) - 8} more imports")
-
-    decls = parsed.get("declarations", [])
-    if decls:
-        summary.append(f"  // Declarations ({len(decls)}):")
-        for d in decls:
-            export_flag = "pub " if d.get("is_exported") else "priv"
-            sig = d.get("signature") or d["name"]
-            summary.append(f"  [{export_flag} {d['kind']:8}] L{d['start_line']}-{d['end_line']}: {sig}")
+    summary.extend(_format_jvm_imports(parsed.get("imports", [])))
+    summary.extend(_format_jvm_declarations(parsed.get("declarations", [])))
 
     return "\n".join(summary) + "\n"

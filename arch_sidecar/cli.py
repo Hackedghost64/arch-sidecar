@@ -4,11 +4,12 @@ import sys
 import os
 import re
 import subprocess
+import logging
 from typing import Tuple, List, Dict, Any, Optional
 
 from . import __version__
 from .digest import generate_digest
-from .quality import audit_file, audit_repository, QualityReport
+from .quality import audit_file, audit_repository, QualityReport, QualityIssue
 from .git_ops import (
     audit_git_changeset,
     analyze_git_change_impact,
@@ -39,6 +40,12 @@ from .session_logger import (
     format_session_report_terminal,
     clear_sessions,
 )
+
+logger = logging.getLogger(__name__)
+
+POLYGLOT_EXTENSIONS = frozenset({
+    ".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java"
+})
 
 
 def parse_semver(tag: str) -> Tuple[int, ...]:
@@ -76,7 +83,8 @@ def fetch_remote_tags(
         proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         if proc.returncode == 0 and proc.stdout:
             return parse_git_tags(proc.stdout)
-    except (subprocess.SubprocessError, OSError):
+    except (subprocess.SubprocessError, OSError) as e:
+        logger.debug("Failed fetching remote tags from %s: %s", repo_url, e)
         return []
     return []
 
@@ -209,20 +217,7 @@ def run_self_update(
     return _report_update_result(ok, msg, status["current_version"], target_ver, as_json)
 
 
-def main():
-    parser = argparse.ArgumentParser(
-        prog="arch-sidecar",
-        description="Universal Architectural Sidecar & Decoupling Engine (MCP Server + CLI)"
-    )
-    parser.add_argument(
-        "--version", "-v",
-        action="version",
-        version=f"arch-sidecar {__version__} (Devrith Engine)",
-        help="Show version and exit"
-    )
-    subparsers = parser.add_subparsers(dest="command", help="Subcommand to execute")
-
-    # Command: feature (Evidence-Backed Feature Implementation Workflow)
+def _add_feature_and_workflow_subparsers(subparsers: Any) -> None:
     feat_parser = subparsers.add_parser(
         "feature",
         help="Evidence-Backed Feature Workflow: Intent -> Anchor Discovery -> Impact Map -> Actionable Plan -> 1-Indexed Context -> Preflight & Test Verification"
@@ -236,7 +231,6 @@ def main():
     feat_parser.add_argument("--budget", "-b", type=int, default=3200, help="Token budget for targeted context (default: 3200)")
     feat_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
 
-    # Command: workflow (End-to-End Orchestrated Pipeline)
     wf_parser = subparsers.add_parser(
         "workflow",
         help="End-to-End Pipeline: Task -> Context Plan -> Reflection Audit -> Preflight -> Transform -> Test Verification"
@@ -252,8 +246,12 @@ def main():
     wf_parser.add_argument("--budget", "-b", type=int, default=3000, help="Max token budget for context planning")
     wf_parser.add_argument("--json", action="store_true", help="Output full JSON telemetry payload")
 
-    # Command: plan (Adaptive Task-Aware Retrieval Engine)
-    plan_parser = subparsers.add_parser("plan", help="Task-aware adaptive retrieval: dynamically select whole-file vs AST slice vs callers with candidate ranking and uncertainty analysis")
+
+def _add_plan_and_context_subparsers(subparsers: Any) -> None:
+    plan_parser = subparsers.add_parser(
+        "plan",
+        help="Task-aware adaptive retrieval: dynamically select whole-file vs AST slice vs callers with candidate ranking and uncertainty analysis"
+    )
     plan_parser.add_argument("task", help="Task description or symbol to plan context for")
     plan_parser.add_argument("path", nargs="?", default=".", help="Root directory of the codebase (default: .)")
     plan_parser.add_argument("--budget", "-b", type=int, default=3000, help="Maximum token budget (default: 3000)")
@@ -266,25 +264,23 @@ def main():
     plan_parser.add_argument("--symbols", "-s", help="Comma-separated explicit symbol names (optional)")
     plan_parser.add_argument("--json", action="store_true", help="Output full structured JSON plan")
 
-    # Command: uncertainty
     uncert_parser = subparsers.add_parser("uncertainty", help="Scan codebase for dynamic reflection (getattr, importlib, eval, exec)")
     uncert_parser.add_argument("path", nargs="?", default=".", help="Root directory of the codebase (default: .)")
     uncert_parser.add_argument("--json", action="store_true", help="Output findings as JSON")
 
-    # Command: digest
     digest_parser = subparsers.add_parser("digest", help="Generate an AST skeleton digest of a codebase")
     digest_parser.add_argument("path", nargs="?", default=".", help="Root directory of the codebase (default: .)")
     digest_parser.add_argument("--max-tokens", type=int, default=4000, help="Max token budget (default: 4000)")
     digest_parser.add_argument("--output", "-o", help="File path to save the digest (optional)")
 
-    # Command: locate
     locate_parser = subparsers.add_parser("locate", help="Locate surgical context for a specific task")
     locate_parser.add_argument("task", help="Task description or symbol to locate")
     locate_parser.add_argument("path", nargs="?", default=".", help="Root directory of the codebase (default: .)")
     locate_parser.add_argument("--symbols", "-s", help="Comma-separated explicit symbol names (optional)")
     locate_parser.add_argument("--adaptive", action="store_true", help="Use adaptive retrieval planner instead of raw surgical slice")
 
-    # Command: decouple
+
+def _add_decouple_and_check_subparsers(subparsers: Any) -> None:
     decouple_parser = subparsers.add_parser("decouple", help="Deterministically decouple symbols into a new/existing module")
     decouple_parser.add_argument("symbols", help="Comma-separated symbol names to decouple (e.g. SleepInhibitor,start_cloudflared_tunnel)")
     decouple_parser.add_argument("from_file", help="Source file (e.g. cli.py)")
@@ -295,24 +291,6 @@ def main():
     decouple_parser.add_argument("--share-state", action="store_true", help="Automatically bind shared mutable globals and host symbols across modules")
     decouple_parser.add_argument("--ruff", action="store_true", help="Auto-clean dead imports and format decoupled modules via Ruff ($0.00 cost)")
 
-    # Command: cluster (Architectural Subsystem Cluster Map)
-    cluster_parser = subparsers.add_parser(
-        "cluster",
-        help="Discover repository subsystem clusters, cohesion, instability, and coupling metrics"
-    )
-    cluster_parser.add_argument("path", nargs="?", default=".", help="Root directory to analyze (default: .)")
-    cluster_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
-
-    # Command: impact (Pre-Change Architectural Impact Predictor)
-    impact_parser = subparsers.add_parser(
-        "impact",
-        help="Predict change blast radius, downstream callers, crossed clusters, and test recommendations before modifying code"
-    )
-    impact_parser.add_argument("target", help="Target file or symbol to analyze")
-    impact_parser.add_argument("path", nargs="?", default=".", help="Root directory of the project (default: .)")
-    impact_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
-
-    # Command: check (Compiler-Grade Preflight & Architecture Health Guard)
     check_parser = subparsers.add_parser(
         "check",
         help="Sub-15ms preflight check: detects undefined/hallucinated symbols, circular import cycles, and coupling leaks"
@@ -323,7 +301,23 @@ def main():
     check_parser.add_argument("--ruff", action="store_true", help="Enable high-speed Ruff lint & unused import diagnostics")
     check_parser.add_argument("--fix", action="store_true", help="Automatically clean unused imports and format via Ruff ($0.00 cost)")
 
-    # Command: audit (Code Quality, OOP & Contract Guard)
+    cluster_parser = subparsers.add_parser(
+        "cluster",
+        help="Discover repository subsystem clusters, cohesion, instability, and coupling metrics"
+    )
+    cluster_parser.add_argument("path", nargs="?", default=".", help="Root directory to analyze (default: .)")
+    cluster_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
+
+    impact_parser = subparsers.add_parser(
+        "impact",
+        help="Predict change blast radius, downstream callers, crossed clusters, and test recommendations before modifying code"
+    )
+    impact_parser.add_argument("target", help="Target file or symbol to analyze")
+    impact_parser.add_argument("path", nargs="?", default=".", help="Root directory of the project (default: .)")
+    impact_parser.add_argument("--json", action="store_true", help="Output structured JSON payload")
+
+
+def _add_audit_and_tools_subparsers(subparsers: Any) -> None:
     audit_parser = subparsers.add_parser(
         "audit",
         help="Audit code quality, OOP cohesion, nesting complexity, anti-patterns, and contract consistency"
@@ -334,468 +328,616 @@ def main():
     audit_parser.add_argument("--diff", help="Audit only files modified against a base branch (e.g. --diff main)")
     audit_parser.add_argument("--json", action="store_true", help="Output raw structured JSON")
 
-    # Command: git (Git Integration & Hooks)
     git_parser = subparsers.add_parser(
         "git",
         help="Devrith Git integration: pre-commit hooks, staged audits, and PR blast radius"
     )
-    git_parser.add_argument("action", choices=["hook", "impact"], help="Git action: 'hook' to manage pre-commit guard, or 'impact' to predict PR blast radius")
-    git_parser.add_argument("subaction", nargs="?", choices=["install", "uninstall"], default="install", help="For hook action: 'install' or 'uninstall'")
+    git_parser.add_argument("action", choices=["hook", "impact"], help="Git action: 'hook' or 'impact'")
+    git_parser.add_argument("subaction", nargs="?", choices=["install", "uninstall"], default="install")
     git_parser.add_argument("--path", default=".", help="Repository root path (default: .)")
     git_parser.add_argument("--base", default="main", help="Base branch for impact comparison (default: main)")
     git_parser.add_argument("--staged", action="store_true", help="Target only staged files for impact analysis")
     git_parser.add_argument("--json", action="store_true", help="Output raw JSON payload")
 
-    # Command: serve (MCP server)
     subparsers.add_parser("serve", help="Run as stdio Model Context Protocol (MCP) server")
 
-    # Command: report (Real-World Test & Execution Telemetry Dashboard)
     report_parser = subparsers.add_parser(
         "report",
         aliases=["sessions"],
         help="View real-world execution telemetry and test session report collected automatically by Devrith"
     )
-    report_parser.add_argument("path", nargs="?", default=None, help="Optional project directory to filter sessions by (default: all)")
+    report_parser.add_argument("path", nargs="?", default=None, help="Optional project directory filter")
     report_parser.add_argument("--json", action="store_true", help="Output raw telemetry summary JSON")
     report_parser.add_argument("--markdown", "-m", action="store_true", help="Output GitHub Markdown format")
-    report_parser.add_argument("--export", "-o", help="Save the Markdown report to a file on disk (e.g. REAL_WORLD_REPORT.md)")
-    report_parser.add_argument("--limit", "-l", type=int, default=20, help="Maximum number of recent sessions to include (default: 20)")
+    report_parser.add_argument("--export", "-o", help="Save Markdown report to disk")
+    report_parser.add_argument("--limit", "-l", type=int, default=20, help="Maximum recent sessions (default: 20)")
     report_parser.add_argument("--clear", action="store_true", help="Clear local session logs")
 
-    # Command: update (Self-Update arch-sidecar / Devrith)
-    p_update = subparsers.add_parser(
-        "update",
-        help="Self-update arch-sidecar (Devrith) to the latest release from GitHub",
-    )
-    p_update.add_argument(
-        "--check",
-        action="store_true",
-        help="Only check for latest version on GitHub without installing",
-    )
-    p_update.add_argument(
-        "--tag",
-        type=str,
-        default=None,
-        help="Install a specific git tag or branch (e.g., v0.4.0, main)",
-    )
-    p_update.add_argument(
-        "--json",
-        action="store_true",
-        help="Output update status as JSON",
-    )
+    p_update = subparsers.add_parser("update", help="Self-update arch-sidecar (Devrith) to latest release from GitHub")
+    p_update.add_argument("--check", action="store_true", help="Only check for latest version on GitHub")
+    p_update.add_argument("--tag", type=str, default=None, help="Install specific git tag or branch")
+    p_update.add_argument("--json", action="store_true", help="Output update status as JSON")
 
-    args = parser.parse_args()
 
-    if args.command == "feature":
-        files_list = [f.strip() for f in args.files.split(",")] if args.files else None
-        syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
-        res = run_feature_workflow(
-            task=args.task,
-            project_root=args.path,
-            target_files=files_list,
-            target_symbols=syms_list,
-            verify=args.verify,
-            test_command=args.test,
-            token_budget=args.budget,
+def build_cli_parser() -> argparse.ArgumentParser:
+    """Builds and configures the complete CLI argument parser."""
+    parser = argparse.ArgumentParser(
+        prog="arch-sidecar",
+        description="Universal Architectural Sidecar & Decoupling Engine (MCP Server + CLI)"
+    )
+    parser.add_argument(
+        "--version", "-v",
+        action="version",
+        version=f"arch-sidecar {__version__} (Devrith Engine)",
+        help="Show version and exit"
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Subcommand to execute")
+    _add_feature_and_workflow_subparsers(subparsers)
+    _add_plan_and_context_subparsers(subparsers)
+    _add_decouple_and_check_subparsers(subparsers)
+    _add_audit_and_tools_subparsers(subparsers)
+    return parser
+
+
+def _print_feature_ledger(ledger: Dict[str, Any]) -> None:
+    print("\n📋 Verification & Evidence Ledger:")
+    print("  [Statically Verified]")
+    for item in ledger.get("statically_verified", []):
+        print(f"    ✓ {item}")
+    if not ledger.get("statically_verified"):
+        print("    - None (preflight failed)")
+
+    print("  [Runtime Verified]")
+    for item in ledger.get("runtime_verified", []):
+        print(f"    ✓ {item}")
+    if not ledger.get("runtime_verified"):
+        print("    - None")
+
+    print("  [Unverified / Residual Risks]")
+    for item in ledger.get("unverified_or_residual_risks", []):
+        print(f"    ⚠️  {item}")
+    if not ledger.get("unverified_or_residual_risks"):
+        print("    ℹ️  No issues identified by configured AST & test checks; runtime behavior not covered by tests remains unverified.")
+
+
+def _handle_feature_verify_output(res: Dict[str, Any]) -> None:
+    status_icon = "✅" if res.get("success") else "❌"
+    status_str = "VERIFIED" if res.get("success") else "FAILED"
+    duration = res.get("duration_ms", 0)
+    print(f"{status_icon} [arch-sidecar feature --verify] Status: {status_str} ({duration}ms)")
+    _print_feature_ledger(res.get("verification_ledger", {}))
+
+    if not res.get("success"):
+        tv = res.get("test_verification")
+        if tv and tv.get("output"):
+            print(f"\n--- Test Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
+        sys.exit(1)
+
+
+def _handle_feature(args: argparse.Namespace) -> None:
+    files_list = [f.strip() for f in args.files.split(",")] if args.files else None
+    syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+    res = run_feature_workflow(
+        task=args.task,
+        project_root=args.path,
+        target_files=files_list,
+        target_symbols=syms_list,
+        verify=args.verify,
+        test_command=args.test,
+        token_budget=args.budget,
+    )
+    if args.json:
+        print(json.dumps(res, indent=2))
+    elif not args.verify:
+        print(res["context"])
+        print(
+            f"\n# [arch-sidecar feature] Target: {res.get('primary_file')} | "
+            f"Context Tokens: ~{res.get('estimated_tokens')} | Duration: {res.get('duration_ms')}ms",
+            file=sys.stderr,
         )
-        if args.json:
-            print(json.dumps(res, indent=2))
-        elif not args.verify:
-            print(res["context"])
-            print(
-                f"\n# [arch-sidecar feature] Target: {res.get('primary_file')} | "
-                f"Context Tokens: ~{res.get('estimated_tokens')} | Duration: {res.get('duration_ms')}ms",
-                file=sys.stderr,
-            )
-        else:
-            status_icon = "✅" if res.get("success") else "❌"
-            print(f"{status_icon} [arch-sidecar feature --verify] Status: {'VERIFIED' if res.get('success') else 'FAILED'} ({res.get('duration_ms')}ms)")
-            ledger = res.get("verification_ledger", {})
-            print("\n📋 Verification & Evidence Ledger:")
-            print("  [Statically Verified]")
-            for item in ledger.get("statically_verified", []):
-                print(f"    ✓ {item}")
-            if not ledger.get("statically_verified"):
-                print("    - None (preflight failed)")
+    else:
+        _handle_feature_verify_output(res)
 
-            print("  [Runtime Verified]")
-            for item in ledger.get("runtime_verified", []):
-                print(f"    ✓ {item}")
-            if not ledger.get("runtime_verified"):
-                print("    - None")
 
-            print("  [Unverified / Residual Risks]")
-            for item in ledger.get("unverified_or_residual_risks", []):
-                print(f"    ⚠️  {item}")
-            if not ledger.get("unverified_or_residual_risks"):
-                print("    ℹ️  No issues identified by configured AST & test checks; runtime behavior not covered by tests remains unverified.")
+def _print_workflow_success(res: Dict[str, Any]) -> None:
+    print(f"✅ Extracted: {', '.join(res.get('extracted_symbols', []))}")
+    print(f"   From: {res.get('from_file')} -> To: {res.get('to_file')}")
+    if res.get("share_state_bound"):
+        print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
+    rg = res.get("ruff_gate")
+    if rg and rg.get("available"):
+        print(
+            f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues "
+            f"({rg.get('suppressed_legacy_count')} pre-existing suppressed)"
+        )
+    if res.get("diff"):
+        print("\n--- Diff ---")
+        print(res["diff"])
+    tv = res.get("test_verification")
+    if tv:
+        gate = "PASSED" if tv.get("passed") else "FAILED"
+        print(f"\n🧪 Verification Gate: {gate} ({tv.get('command')}) in {tv.get('duration_ms')}ms")
 
-            if not res.get("success"):
-                tv = res.get("test_verification")
-                if tv and tv.get("output"):
-                    print(f"\n--- Test Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
-                sys.exit(1)
 
-    elif args.command == "workflow":
-        syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
-        res = run_workflow(
-            task=args.task,
-            project_root=args.path,
+def _print_workflow_hazards(res: Dict[str, Any]) -> None:
+    for h in res.get("state_desync_hazards", []):
+        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+    for h in res.get("circular_hazards", []):
+        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+    for h in res.get("global_state_hazards", []):
+        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
+        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+
+
+def _print_workflow_failure(res: Dict[str, Any]) -> None:
+    print(f"❌ Workflow Blocked/Failed: {res.get('error')}", file=sys.stderr)
+    _print_workflow_hazards(res)
+    if res.get("minimal_safe_closure"):
+        print(f"   💡 Minimal self-contained symbol closure: --symbols {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
+    has_hazards = res.get("state_desync_hazards") or res.get("circular_hazards") or res.get("global_state_hazards")
+    if has_hazards:
+        print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
+    if res.get("rolled_back"):
+        print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
+    tv = res.get("test_verification")
+    if tv and tv.get("output"):
+        print(f"\n--- Verification Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _print_workflow_terminal(res: Dict[str, Any]) -> None:
+    tel = res.get("telemetry", {})
+    status = tel.get("status", "UNKNOWN")
+    stages = " -> ".join(res.get("stages_executed", []))
+    print(f"🚀 [arch-sidecar workflow] Pipeline: {res.get('pipeline')} | Status: {status}")
+    print(f"   Stages: {stages}")
+    print(f"   Total Latency: {tel.get('total_latency_ms', 0)}ms | Total Tokens: ~{tel.get('total_tokens', 0)}")
+
+    pipeline = res.get("pipeline")
+    if pipeline == "retrieval_only":
+        print(f"\n{res.get('context')}")
+    elif pipeline == "bypass_recommended":
+        print("\n⚡ [arch-sidecar notice] Compact file detected (<120 lines).")
+        print(f"   Reason: {res.get('strategy_reason')}")
+        print("   Recommendation: Direct edit with native tools has lower complexity than AST slicing. Decoupling bypassed.")
+    elif res.get("success"):
+        _print_workflow_success(res)
+    else:
+        _print_workflow_failure(res)
+
+
+def _handle_workflow(args: argparse.Namespace) -> None:
+    syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+    res = run_workflow(
+        task=args.task,
+        project_root=args.path,
+        from_file=args.from_file,
+        to_file=args.to_file,
+        symbols=syms_list,
+        test_command=args.test,
+        dry_run=args.dry_run,
+        token_budget=args.budget,
+        share_state=args.share_state,
+    )
+    if args.json:
+        print(json.dumps(res, indent=2))
+    else:
+        _print_workflow_terminal(res)
+
+
+def _handle_plan(args: argparse.Namespace) -> None:
+    syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+    strategy = args.strategy if args.strategy != "auto" else None
+    res = plan_adaptive_retrieval(
+        task=args.task,
+        root_dir=args.path,
+        target_symbols=syms_list,
+        token_budget=args.budget,
+        strategy_override=strategy,
+    )
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return
+
+    print(res["context"])
+    notice = ""
+    if res.get("recommendation") == "BYPASS_DECOUPLING":
+        notice = "\n⚡ [arch-sidecar advisory] Compact target detected (<120 lines). Direct file editing via native tools is recommended over AST decoupling."
+    tb = res["token_breakdown"]
+    print(
+        f"\n# [arch-sidecar plan] Strategy: {res['strategy']} | Budget: {tb['token_budget']} | "
+        f"Context Tokens: ~{res['estimated_tokens']} | Savings vs Whole Codebase: {tb['savings_vs_codebase_pct']}%{notice}",
+        file=sys.stderr,
+    )
+
+
+def _handle_uncertainty(args: argparse.Namespace) -> None:
+    res = scan_codebase_uncertainty(root_dir=args.path)
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return
+
+    print(f"# Codebase Dynamic Uncertainty Report ({args.path})")
+    print(f"Total dynamic reflection points: {res['total_uncertainties']}")
+    print(f"  - Potential (literal dynamic calls): {res['potential_count']}")
+    print(f"  - Unknown (dynamic variable reflection/eval): {res['unknown_count']}\n")
+    for f in res["findings"]:
+        icon = "⚠️" if f["confidence"] == "Unknown" else "ℹ️"
+        print(f"{icon} {f['file']}:{f['line']} [{f['confidence']} - {f['pattern']}]")
+        print(f"   Code: {f['code']}")
+        print(f"   Note: {f['description']}\n")
+
+
+def _handle_digest(args: argparse.Namespace) -> None:
+    res = generate_digest(root_dir=args.path, max_tokens=args.max_tokens)
+    if args.output:
+        with open(args.output, "w", encoding="utf-8") as f:
+            f.write(res["digest"])
+        print(f"Digest generated ({res['files_indexed']} files, ~{res['estimated_tokens']} tokens) -> {args.output}")
+    else:
+        print(res["digest"])
+        print(
+            f"\n# Summary: {res['files_indexed']} files indexed, ~{res['estimated_tokens']} estimated tokens.",
+            file=sys.stderr,
+        )
+
+
+def _handle_locate(args: argparse.Namespace) -> None:
+    symbols_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
+    if getattr(args, "adaptive", False):
+        res = plan_adaptive_retrieval(task=args.task, root_dir=args.path, target_symbols=symbols_list)
+        print(res["context"])
+        print(f"\n# Adaptive Strategy: {res['strategy']} | Estimated Tokens: ~{res['estimated_tokens']}", file=sys.stderr)
+    else:
+        res = locate_surgical_context(task=args.task, root_dir=args.path, target_symbols=symbols_list)
+        print(res["context"])
+        print(f"\n# Estimated Tokens: ~{res['estimated_tokens']}", file=sys.stderr)
+
+
+def _execute_cli_decouple(args: argparse.Namespace, sym_list: List[str]) -> Dict[str, Any]:
+    ext = os.path.splitext(args.from_file)[1].lower()
+    if ext in POLYGLOT_EXTENSIONS:
+        return decouple_polyglot_symbol(
+            symbol=sym_list[0],
             from_file=args.from_file,
             to_file=args.to_file,
-            symbols=syms_list,
-            test_command=args.test,
+            project_root=args.root,
+            test_cmd=args.test,
             dry_run=args.dry_run,
-            token_budget=args.budget,
-            share_state=args.share_state,
         )
-        if args.json:
-            print(json.dumps(res, indent=2))
-        else:
-            tel = res.get("telemetry", {})
-            status = tel.get("status", "UNKNOWN")
-            stages = " -> ".join(res.get("stages_executed", []))
-            print(f"🚀 [arch-sidecar workflow] Pipeline: {res.get('pipeline')} | Status: {status}")
-            print(f"   Stages: {stages}")
-            print(f"   Total Latency: {tel.get('total_latency_ms', 0)}ms | Total Tokens: ~{tel.get('total_tokens', 0)}")
-            
-            if res.get("pipeline") == "retrieval_only":
-                print(f"\n{res.get('context')}")
-            elif res.get("pipeline") == "bypass_recommended":
-                print(f"\n⚡ [arch-sidecar notice] Compact file detected (<120 lines).")
-                print(f"   Reason: {res.get('strategy_reason')}")
-                print(f"   Recommendation: Direct edit with native tools has lower complexity than AST slicing. Decoupling bypassed.")
-            else:
-                if res.get("success"):
-                    print(f"✅ Extracted: {', '.join(res.get('extracted_symbols', []))}")
-                    print(f"   From: {res.get('from_file')} -> To: {res.get('to_file')}")
-                    if res.get("share_state_bound"):
-                        print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
-                    rg = res.get("ruff_gate")
-                    if rg and rg.get("available"):
-                        print(f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues ({rg.get('suppressed_legacy_count')} pre-existing suppressed)")
-                    if res.get("diff"):
-                        print("\n--- Diff ---")
-                        print(res["diff"])
-                    tv = res.get("test_verification")
-                    if tv:
-                        gate = "PASSED" if tv.get("passed") else "FAILED"
-                        print(f"\n🧪 Verification Gate: {gate} ({tv.get('command')}) in {tv.get('duration_ms')}ms")
-                else:
-                    print(f"❌ Workflow Blocked/Failed: {res.get('error')}", file=sys.stderr)
-                    for h in res.get("state_desync_hazards", []):
-                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-                    for h in res.get("circular_hazards", []):
-                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-                    for h in res.get("global_state_hazards", []):
-                        print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                        print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-                    if res.get("minimal_safe_closure"):
-                        print(f"   💡 Minimal self-contained symbol closure: --symbols {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
-                    if res.get("state_desync_hazards") or res.get("circular_hazards") or res.get("global_state_hazards"):
-                        print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
-                    if res.get("rolled_back"):
-                        print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
-                    tv = res.get("test_verification")
-                    if tv and tv.get("output"):
-                        print(f"\n--- Verification Output ({tv.get('command')}) ---\n{tv.get('output')}", file=sys.stderr)
-                    sys.exit(1)
+    return prefactor_decouple(
+        symbol=sym_list,
+        from_file=args.from_file,
+        to_file=args.to_file,
+        project_root=args.root,
+        run_tests=args.test,
+        dry_run=args.dry_run,
+        share_state=args.share_state,
+        ruff_cleanup=getattr(args, "ruff", False),
+    )
 
-    elif args.command == "plan":
-        syms_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
-        res = plan_adaptive_retrieval(
-            task=args.task,
-            root_dir=args.path,
-            target_symbols=syms_list,
-            token_budget=args.budget,
-            strategy_override=args.strategy if args.strategy != "auto" else None
-        )
-        if args.json:
-            print(json.dumps(res, indent=2))
-        else:
-            print(res["context"])
-            notice = ""
-            if res.get("recommendation") == "BYPASS_DECOUPLING":
-                notice = "\n⚡ [arch-sidecar advisory] Compact target detected (<120 lines). Direct file editing via native tools is recommended over AST decoupling."
-            print(
-                f"\n# [arch-sidecar plan] Strategy: {res['strategy']} | Budget: {res['token_breakdown']['token_budget']} | "
-                f"Context Tokens: ~{res['estimated_tokens']} | Savings vs Whole Codebase: {res['token_breakdown']['savings_vs_codebase_pct']}%{notice}",
-                file=sys.stderr
-            )
 
-    elif args.command == "uncertainty":
-        res = scan_codebase_uncertainty(root_dir=args.path)
-        if args.json:
-            print(json.dumps(res, indent=2))
-        else:
-            print(f"# Codebase Dynamic Uncertainty Report ({args.path})")
-            print(f"Total dynamic reflection points: {res['total_uncertainties']}")
-            print(f"  - Potential (literal dynamic calls): {res['potential_count']}")
-            print(f"  - Unknown (dynamic variable reflection/eval): {res['unknown_count']}\n")
-            for f in res["findings"]:
-                icon = "⚠️" if f["confidence"] == "Unknown" else "ℹ️"
-                print(f"{icon} {f['file']}:{f['line']} [{f['confidence']} - {f['pattern']}]")
-                print(f"   Code: {f['code']}")
-                print(f"   Note: {f['description']}\n")
+def _print_decouple_ruff_gate(rg: Optional[Dict[str, Any]]) -> None:
+    if not rg or not rg.get("available"):
+        return
+    print(
+        f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues "
+        f"({rg.get('suppressed_legacy_count')} pre-existing suppressed)"
+    )
+    for ni in rg.get("new_issues", []):
+        print(f"      ⚠️  [{ni.get('code')}] {ni.get('file')}:{ni.get('line')} - {ni.get('message')}")
 
-    elif args.command == "digest":
-        res = generate_digest(root_dir=args.path, max_tokens=args.max_tokens)
-        if args.output:
-            with open(args.output, "w", encoding="utf-8") as f:
-                f.write(res["digest"])
-            print(f"Digest generated ({res['files_indexed']} files, ~{res['estimated_tokens']} tokens) -> {args.output}")
-        else:
-            print(res["digest"])
-            print(f"\n# Summary: {res['files_indexed']} files indexed, ~{res['estimated_tokens']} estimated tokens.", file=sys.stderr)
 
-    elif args.command == "locate":
-        symbols_list = [s.strip() for s in args.symbols.split(",")] if args.symbols else None
-        if getattr(args, "adaptive", False):
-            res = plan_adaptive_retrieval(task=args.task, root_dir=args.path, target_symbols=symbols_list)
-            print(res["context"])
-            print(f"\n# Adaptive Strategy: {res['strategy']} | Estimated Tokens: ~{res['estimated_tokens']}", file=sys.stderr)
-        else:
-            res = locate_surgical_context(task=args.task, root_dir=args.path, target_symbols=symbols_list)
-            print(res["context"])
-            print(f"\n# Estimated Tokens: ~{res['estimated_tokens']}", file=sys.stderr)
+def _print_decouple_test_gate(tv: Optional[Dict[str, Any]]) -> None:
+    if not tv:
+        return
+    status = "PASSED" if tv.get("passed") else "FAILED"
+    print(f"\n🧪 Verification Gate ({tv.get('command')}): {status}")
+    if tv.get("output"):
+        print(tv["output"])
 
-    elif args.command == "decouple":
-        sym_list = [s.strip() for s in args.symbols.split(",")]
-        ext = os.path.splitext(args.from_file)[1].lower()
-        if ext in (".ts", ".tsx", ".js", ".jsx", ".go", ".rs", ".dart", ".kt", ".kts", ".java"):
-            res = decouple_polyglot_symbol(
-                symbol=sym_list[0],
-                from_file=args.from_file,
-                to_file=args.to_file,
-                project_root=args.root,
-                test_cmd=args.test,
-                dry_run=args.dry_run,
-            )
-        else:
-            res = prefactor_decouple(
-                symbol=sym_list,
-                from_file=args.from_file,
-                to_file=args.to_file,
-                project_root=args.root,
-                run_tests=args.test,
-                dry_run=args.dry_run,
-                share_state=args.share_state,
-                ruff_cleanup=getattr(args, "ruff", False),
-            )
-        if res.get("success"):
-            print(f"✅ Decoupled successfully in {res['execution_time_ms']}ms:")
-            print(f"   Symbols: {', '.join(res['extracted_symbols'])}")
-            print(f"   From: {res['from_file']}")
-            print(f"   To:   {res['to_file']} (import target: {res.get('import_target')})")
-            if res.get("share_state_bound"):
-                print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
-            rg = res.get("ruff_gate")
-            if rg and rg.get("available"):
-                print(f"   🧹 Differential Ruff Gate: {rg.get('new_issues_count')} new issues ({rg.get('suppressed_legacy_count')} pre-existing suppressed)")
-                for ni in rg.get("new_issues", []):
-                    print(f"      ⚠️  [{ni.get('code')}] {ni.get('file')}:{ni.get('line')} - {ni.get('message')}")
-            for w in res.get("secret_warnings", []):
-                print(f"   ⚠️  [SECRET DETECTED] {w.get('hazard')}")
-                print(f"       ↳ {w.get('recommendation')}")
-            if res.get("diff"):
-                print("\n--- Diff Generated ---")
-                print(res["diff"])
-            if res.get("test_verification"):
-                tv = res["test_verification"]
-                status = "PASSED" if tv.get("passed") else "FAILED"
-                print(f"\n🧪 Verification Gate ({tv.get('command')}): {status}")
-                if tv.get("output"):
-                    print(tv["output"])
-        else:
-            print(f"❌ Decoupling failed: {res.get('error')}", file=sys.stderr)
-            for h in res.get("state_desync_hazards", []):
-                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-            for h in res.get("framework_hazards", []):
-                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-            for h in res.get("circular_hazards", []):
-                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-            for h in res.get("global_state_hazards", []):
-                print(f"   ⚠️  {h.get('hazard')}", file=sys.stderr)
-                print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
-            for w in res.get("secret_warnings", []):
-                print(f"   ⚠️  {w.get('hazard')}", file=sys.stderr)
-                print(f"       ↳ {w.get('recommendation')}", file=sys.stderr)
-            if res.get("minimal_safe_closure"):
-                print(f"   💡 Minimal self-contained symbol closure: {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
-            if res.get("state_desync_hazards") or res.get("circular_hazards") or res.get("global_state_hazards"):
-                print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
-            if res.get("rolled_back"):
-                print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
-            if res.get("test_verification") and res["test_verification"].get("output"):
-                print(f"Test failure output:\n{res['test_verification'].get('output')}", file=sys.stderr)
-            sys.exit(1)
 
-    elif args.command == "check":
-        if getattr(args, "fix", False):
-            run_ruff_autofix([args.file], project_root=args.root)
+def _print_decouple_success(res: Dict[str, Any]) -> None:
+    print(f"✅ Decoupled successfully in {res['execution_time_ms']}ms:")
+    print(f"   Symbols: {', '.join(res['extracted_symbols'])}")
+    print(f"   From: {res['from_file']}")
+    print(f"   To:   {res['to_file']} (import target: {res.get('import_target')})")
+    if res.get("share_state_bound"):
+        print(f"   🔗 Shared State Bound: {', '.join(res['share_state_bound'])}")
+    _print_decouple_ruff_gate(res.get("ruff_gate"))
+    for w in res.get("secret_warnings", []):
+        print(f"   ⚠️  [SECRET DETECTED] {w.get('hazard')}")
+        print(f"       ↳ {w.get('recommendation')}")
+    if res.get("diff"):
+        print("\n--- Diff Generated ---")
+        print(res["diff"])
+    _print_decouple_test_gate(res.get("test_verification"))
 
-        enable_ruff = getattr(args, "ruff", False) or getattr(args, "fix", False)
-        res = check_code_health(args.file, project_root=args.root, enable_ruff=enable_ruff)
-        if args.json:
-            print(json.dumps(res, indent=2))
-        else:
-            if res.get("success"):
-                print(f"✅ [arch-sidecar check] Clean! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)")
-                print(f"   Target: {res.get('file')} | 0 errors | {res.get('warnings', 0)} warnings")
-                for issue in res.get("issues", []):
-                    if issue.get("severity") != "WARNING":
-                        continue
-                    print(f"   [WARN] Line {issue.get('line')}: {issue.get('message')}")
-                    if issue.get("recommendation"):
-                        print(f"          ↳ Fix: {issue.get('recommendation')}")
-            else:
-                print(f"❌ [arch-sidecar check] Preflight Issues Found! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)", file=sys.stderr)
-                print(f"   Target: {res.get('file')} | {res.get('errors')} error(s) | {res.get('warnings')} warning(s)", file=sys.stderr)
-                for issue in res.get("issues", []):
-                    sev = issue.get("severity")
-                    print(f"   [{sev}] Line {issue.get('line')}: {issue.get('message')}", file=sys.stderr)
-                    if issue.get("recommendation"):
-                        print(f"          ↳ Fix: {issue.get('recommendation')}", file=sys.stderr)
-                sys.exit(1)
 
-    elif args.command == "cluster":
-        graph = build_repository_dependency_graph(args.path)
-        clusters = partition_into_subsystems(graph)
-        if args.json:
-            print(json.dumps(clusters, indent=2))
-        else:
-            repo_name = os.path.basename(os.path.abspath(args.path))
-            print(format_cluster_map_terminal(clusters, repo_name))
+def _print_decouple_hazard_items(res: Dict[str, Any]) -> bool:
+    hazard_keys = ["state_desync_hazards", "framework_hazards", "circular_hazards", "global_state_hazards", "secret_warnings"]
+    has_any = False
+    for hk in hazard_keys:
+        for h in res.get(hk, []):
+            has_any = True
+            tag = " [SECRET DETECTED]" if hk == "secret_warnings" else ""
+            print(f"   ⚠️{tag} {h.get('hazard')}", file=sys.stderr)
+            print(f"       ↳ {h.get('recommendation')}", file=sys.stderr)
+    return has_any
 
-    elif args.command == "impact":
-        impact = predict_change_impact(args.target, root_dir=args.path)
-        if args.json:
-            print(json.dumps(impact, indent=2))
-        else:
-            if not impact.get("success"):
-                print(f"❌ Impact analysis failed: {impact.get('error')}", file=sys.stderr)
-                sys.exit(1)
-            print(format_change_impact_terminal(impact))
 
-    elif args.command == "audit":
-        target = os.path.abspath(args.path)
-        if args.staged or args.diff:
-            report = audit_git_changeset(target, staged_only=args.staged, base_branch=args.diff, strict=args.strict)
-        elif os.path.isfile(target):
-            issues = audit_file(target)
-            report = QualityReport(
-                total_files=1,
-                total_issues=len(issues),
-                error_count=sum(1 for i in issues if i.severity == "error"),
-                warning_count=sum(1 for i in issues if i.severity == "warning"),
-                clean=(len(issues) == 0 if args.strict else not any(i.severity == "error" for i in issues)),
-                score=max(0.0, 100.0 - sum(10 if i.severity == "error" else 2 for i in issues)),
-                issues=issues,
-                metrics={
-                    "categories": {
-                        "complexity": sum(1 for i in issues if i.category == "complexity"),
-                        "anti_pattern": sum(1 for i in issues if i.category == "anti_pattern"),
-                        "oop_cohesion": sum(1 for i in issues if i.category == "oop_cohesion"),
-                        "contract": sum(1 for i in issues if i.category == "contract"),
-                    }
-                }
-            )
-        else:
-            report = audit_repository(target, strict=args.strict)
+def _print_decouple_failure(res: Dict[str, Any]) -> None:
+    print(f"❌ Decoupling failed: {res.get('error')}", file=sys.stderr)
+    has_hazards = _print_decouple_hazard_items(res)
+    if res.get("minimal_safe_closure"):
+        print(f"   💡 Minimal self-contained symbol closure: {','.join(res['minimal_safe_closure'])}", file=sys.stderr)
+    if has_hazards:
+        print("   🔧 Tip: Re-run with --share-state to automatically bind shared mutable globals and host symbols across modules.", file=sys.stderr)
+    if res.get("rolled_back"):
+        print("🔄 Transactional Rollback applied: disk restored to original pristine state.", file=sys.stderr)
+    tv = res.get("test_verification")
+    if tv and tv.get("output"):
+        print(f"Test failure output:\n{tv.get('output')}", file=sys.stderr)
+    sys.exit(1)
 
-        if args.json:
-            print(json.dumps(report.to_dict(), indent=2))
-        else:
-            status_icon = "✅" if report.clean else "⚠️"
-            print(f"\n{status_icon} [Devrith Code Craft Audit] Score: {report.score}/100 | Files: {report.total_files} | Issues: {report.total_issues} (Errors: {report.error_count}, Warnings: {report.warning_count})")
-            if report.metrics and "categories" in report.metrics:
-                cats = report.metrics["categories"]
-                print(f"   Complexity: {cats.get('complexity', 0)} | Anti-Patterns: {cats.get('anti_pattern', 0)} | OOP/Cohesion: {cats.get('oop_cohesion', 0)} | Contracts: {cats.get('contract', 0)}")
 
-            if report.issues:
-                print("\n📋 Detected Issues & Recommendations:")
-                for issue in report.issues[:30]:  # Cap output display
-                    icon = "❌" if issue.severity == "error" else "⚠️"
-                    rel_f = os.path.relpath(issue.file_path, os.getcwd()) if os.path.isabs(issue.file_path) else issue.file_path
-                    print(f"  {icon} [{issue.category.upper()}] {rel_f}:{issue.line} ({issue.symbol})")
-                    print(f"     Problem: {issue.message}")
-                    print(f"     Action:  {issue.suggestion}")
-
-                if len(report.issues) > 30:
-                    print(f"\n  ... and {len(report.issues) - 30} more issues (use --json for complete list)")
-
-            if not report.clean:
-                sys.exit(1)
-
-    elif args.command == "git":
-        repo_dir = os.path.abspath(args.path)
-        if args.action == "hook":
-            if args.subaction == "install":
-                ok, msg = install_git_hook(repo_dir, strict=getattr(args, "strict", False))
-                icon = "✅" if ok else "❌"
-                print(f"{icon} {msg}")
-                if not ok:
-                    sys.exit(1)
-            elif args.subaction == "uninstall":
-                ok, msg = uninstall_git_hook(repo_dir)
-                icon = "✅" if ok else "❌"
-                print(f"{icon} {msg}")
-                if not ok:
-                    sys.exit(1)
-        elif args.action == "impact":
-            impact = analyze_git_change_impact(repo_dir, staged_only=args.staged, base_branch=args.base)
-            if args.json:
-                print(json.dumps(impact, indent=2))
-            else:
-                print("\n🔍 [Devrith Git Change Impact Predictor]")
-                print(f"  Risk Level: {impact.get('risk_level')}")
-                print(f"  Modified Files ({len(impact.get('modified_files', []))}):")
-                for f in impact.get("modified_files", []):
-                    print(f"    - {f}")
-                print(f"\n  Affected Clusters: {', '.join(impact.get('affected_clusters', [])) or 'None'}")
-                print(f"  Direct Callers ({len(impact.get('direct_callers', []))}): {', '.join(impact.get('direct_callers', [])[:10]) or 'None'}")
-                print(f"  Recommended Tests ({len(impact.get('recommended_test_files', []))}):")
-                for t in impact.get("recommended_test_files", []):
-                    print(f"    ✓ {t}")
-
-    elif args.command == "serve":
-        run_mcp_server()
-
-    elif args.command in ("report", "sessions"):
-        if args.clear:
-            cleared = clear_sessions(args.path)
-            print(f"🗑️  Cleared {cleared} local session log entry/entries.")
-            return
-
-        summary = generate_session_summary(project_root=args.path, limit=args.limit)
-        if args.json:
-            print(json.dumps(summary, indent=2, default=str))
-        elif args.markdown:
-            print(format_session_report_markdown(summary, project_filter=args.path))
-        elif args.export:
-            md_content = format_session_report_markdown(summary, project_filter=args.path)
-            with open(args.export, "w", encoding="utf-8") as f:
-                f.write(md_content)
-            print(f"✅ Real-world test report exported to {args.export} ({summary.get('total_sessions')} sessions)")
-        else:
-            print(format_session_report_terminal(summary))
-
-    elif args.command == "update":
-        res = run_self_update(check_only=args.check, tag=args.tag, as_json=args.json)
-        if not args.check and not res.get("success", True):
-            sys.exit(1)
-
+def _handle_decouple(args: argparse.Namespace) -> None:
+    sym_list = [s.strip() for s in args.symbols.split(",")]
+    res = _execute_cli_decouple(args, sym_list)
+    if res.get("success"):
+        _print_decouple_success(res)
     else:
-        if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
-            res = generate_digest(root_dir=sys.argv[1])
-            print(res["digest"])
-        else:
-            parser.print_help()
+        _print_decouple_failure(res)
+
+
+def _print_check_success(res: Dict[str, Any]) -> None:
+    print(f"✅ [arch-sidecar check] Clean! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)")
+    print(f"   Target: {res.get('file')} | 0 errors | {res.get('warnings', 0)} warnings")
+    for issue in res.get("issues", []):
+        if issue.get("severity") != "WARNING":
+            continue
+        print(f"   [WARN] Line {issue.get('line')}: {issue.get('message')}")
+        if issue.get("recommendation"):
+            print(f"          ↳ Fix: {issue.get('recommendation')}")
+
+
+def _print_check_failure(res: Dict[str, Any]) -> None:
+    print(f"❌ [arch-sidecar check] Preflight Issues Found! Health Score: {res.get('health_score')}/1.0 ({res.get('duration_ms')}ms)", file=sys.stderr)
+    print(f"   Target: {res.get('file')} | {res.get('errors')} error(s) | {res.get('warnings')} warning(s)", file=sys.stderr)
+    for issue in res.get("issues", []):
+        sev = issue.get("severity")
+        print(f"   [{sev}] Line {issue.get('line')}: {issue.get('message')}", file=sys.stderr)
+        if issue.get("recommendation"):
+            print(f"          ↳ Fix: {issue.get('recommendation')}", file=sys.stderr)
+    sys.exit(1)
+
+
+def _handle_check(args: argparse.Namespace) -> None:
+    if getattr(args, "fix", False):
+        run_ruff_autofix([args.file], project_root=args.root)
+
+    enable_ruff = bool(getattr(args, "ruff", False) or getattr(args, "fix", False))
+    res = check_code_health(args.file, project_root=args.root, enable_ruff=enable_ruff)
+    if args.json:
+        print(json.dumps(res, indent=2))
+        return
+
+    if res.get("success"):
+        _print_check_success(res)
+    else:
+        _print_check_failure(res)
+
+
+def _handle_cluster(args: argparse.Namespace) -> None:
+    graph = build_repository_dependency_graph(args.path)
+    clusters = partition_into_subsystems(graph)
+    if args.json:
+        print(json.dumps(clusters, indent=2))
+        return
+    repo_name = os.path.basename(os.path.abspath(args.path))
+    print(format_cluster_map_terminal(clusters, repo_name))
+
+
+def _handle_impact(args: argparse.Namespace) -> None:
+    impact = predict_change_impact(args.target, root_dir=args.path)
+    if args.json:
+        print(json.dumps(impact, indent=2))
+        return
+    if not impact.get("success"):
+        print(f"❌ Impact analysis failed: {impact.get('error')}", file=sys.stderr)
+        sys.exit(1)
+    print(format_change_impact_terminal(impact))
+
+
+def _tally_audit_issues(issues: List[QualityIssue]) -> Tuple[int, int, Dict[str, int]]:
+    errors = 0
+    warnings = 0
+    categories = {"complexity": 0, "anti_pattern": 0, "oop_cohesion": 0, "contract": 0}
+    for i in issues:
+        if i.severity == "error":
+            errors += 1
+        elif i.severity == "warning":
+            warnings += 1
+        if i.category in categories:
+            categories[i.category] += 1
+    return errors, warnings, categories
+
+
+def _build_audit_file_report(target: str, strict: bool) -> QualityReport:
+    issues = audit_file(target)
+    errors, warnings, categories = _tally_audit_issues(issues)
+    is_clean = len(issues) == 0 if strict else (errors == 0)
+    score_val = max(0.0, 100.0 - ((errors * 10) + (warnings * 2)))
+    return QualityReport(
+        total_files=1,
+        total_issues=len(issues),
+        error_count=errors,
+        warning_count=warnings,
+        clean=is_clean,
+        score=score_val,
+        issues=issues,
+        metrics={"categories": categories},
+    )
+
+
+def _run_audit_target(target: str, args: argparse.Namespace) -> QualityReport:
+    if args.staged or args.diff:
+        return audit_git_changeset(target, staged_only=args.staged, base_branch=args.diff, strict=args.strict)
+    if os.path.isfile(target):
+        return _build_audit_file_report(target, args.strict)
+    return audit_repository(target, strict=args.strict)
+
+
+def _print_audit_issues(issues: List[QualityIssue]) -> None:
+    if not issues:
+        return
+    print("\n📋 Detected Issues & Recommendations:")
+    cwd = os.getcwd()
+    for issue in issues[:30]:
+        icon = "❌" if issue.severity == "error" else "⚠️"
+        rel_f = os.path.relpath(issue.file_path, cwd) if os.path.isabs(issue.file_path) else issue.file_path
+        print(f"  {icon} [{issue.category.upper()}] {rel_f}:{issue.line} ({issue.symbol})")
+        print(f"     Problem: {issue.message}")
+        print(f"     Action:  {issue.suggestion}")
+
+    if len(issues) > 30:
+        print(f"\n  ... and {len(issues) - 30} more issues (use --json for complete list)")
+
+
+def _print_audit_report(report: QualityReport) -> None:
+    status_icon = "✅" if report.clean else "⚠️"
+    print(
+        f"\n{status_icon} [Devrith Code Craft Audit] Score: {report.score}/100 | "
+        f"Files: {report.total_files} | Issues: {report.total_issues} "
+        f"(Errors: {report.error_count}, Warnings: {report.warning_count})"
+    )
+    if report.metrics and "categories" in report.metrics:
+        cats = report.metrics["categories"]
+        print(
+            f"   Complexity: {cats.get('complexity', 0)} | Anti-Patterns: {cats.get('anti_pattern', 0)} | "
+            f"OOP/Cohesion: {cats.get('oop_cohesion', 0)} | Contracts: {cats.get('contract', 0)}"
+        )
+    _print_audit_issues(report.issues)
+    if not report.clean:
+        sys.exit(1)
+
+
+def _handle_audit(args: argparse.Namespace) -> None:
+    target = os.path.abspath(args.path)
+    report = _run_audit_target(target, args)
+    if args.json:
+        print(json.dumps(report.to_dict(), indent=2))
+    else:
+        _print_audit_report(report)
+
+
+def _handle_git_hook(repo_dir: str, args: argparse.Namespace) -> None:
+    if args.subaction == "uninstall":
+        ok, msg = uninstall_git_hook(repo_dir)
+    else:
+        ok, msg = install_git_hook(repo_dir, strict=getattr(args, "strict", False))
+    icon = "✅" if ok else "❌"
+    print(f"{icon} {msg}")
+    if not ok:
+        sys.exit(1)
+
+
+def _handle_git_impact(repo_dir: str, args: argparse.Namespace) -> None:
+    impact = analyze_git_change_impact(repo_dir, staged_only=args.staged, base_branch=args.base)
+    if args.json:
+        print(json.dumps(impact, indent=2))
+        return
+
+    print("\n🔍 [Devrith Git Change Impact Predictor]")
+    print(f"  Risk Level: {impact.get('risk_level')}")
+    print(f"  Modified Files ({len(impact.get('modified_files', []))}):")
+    for f in impact.get("modified_files", []):
+        print(f"    - {f}")
+    print(f"\n  Affected Clusters: {', '.join(impact.get('affected_clusters', [])) or 'None'}")
+    print(f"  Direct Callers ({len(impact.get('direct_callers', []))}): {', '.join(impact.get('direct_callers', [])[:10]) or 'None'}")
+    print(f"  Recommended Tests ({len(impact.get('recommended_test_files', []))}):")
+    for t in impact.get("recommended_test_files", []):
+        print(f"    ✓ {t}")
+
+
+def _handle_git(args: argparse.Namespace) -> None:
+    repo_dir = os.path.abspath(args.path)
+    if args.action == "hook":
+        _handle_git_hook(repo_dir, args)
+    elif args.action == "impact":
+        _handle_git_impact(repo_dir, args)
+
+
+def _handle_serve(args: argparse.Namespace) -> None:
+    run_mcp_server()
+
+
+def _handle_report(args: argparse.Namespace) -> None:
+    if args.clear:
+        cleared = clear_sessions(args.path)
+        print(f"🗑️  Cleared {cleared} local session log entry/entries.")
+        return
+
+    summary = generate_session_summary(project_root=args.path, limit=args.limit)
+    if args.json:
+        print(json.dumps(summary, indent=2, default=str))
+    elif args.markdown:
+        print(format_session_report_markdown(summary, project_filter=args.path))
+    elif args.export:
+        md_content = format_session_report_markdown(summary, project_filter=args.path)
+        with open(args.export, "w", encoding="utf-8") as f:
+            f.write(md_content)
+        print(f"✅ Real-world test report exported to {args.export} ({summary.get('total_sessions')} sessions)")
+    else:
+        print(format_session_report_terminal(summary))
+
+
+def _handle_update(args: argparse.Namespace) -> None:
+    res = run_self_update(check_only=args.check, tag=args.tag, as_json=args.json)
+    if not args.check and not res.get("success", True):
+        sys.exit(1)
+
+
+def _handle_default(parser: argparse.ArgumentParser) -> None:
+    if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):
+        res = generate_digest(root_dir=sys.argv[1])
+        print(res["digest"])
+    else:
+        parser.print_help()
+
+
+_COMMAND_HANDLERS = {
+    "feature": _handle_feature,
+    "workflow": _handle_workflow,
+    "plan": _handle_plan,
+    "uncertainty": _handle_uncertainty,
+    "digest": _handle_digest,
+    "locate": _handle_locate,
+    "decouple": _handle_decouple,
+    "check": _handle_check,
+    "cluster": _handle_cluster,
+    "impact": _handle_impact,
+    "audit": _handle_audit,
+    "git": _handle_git,
+    "serve": _handle_serve,
+    "report": _handle_report,
+    "sessions": _handle_report,
+    "update": _handle_update,
+}
+
+
+def main() -> None:
+    parser = build_cli_parser()
+    args = parser.parse_args()
+
+    handler = _COMMAND_HANDLERS.get(args.command)
+    if handler:
+        handler(args)
+    else:
+        _handle_default(parser)
+
 
 if __name__ == "__main__":
     main()

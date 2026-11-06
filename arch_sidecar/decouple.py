@@ -239,20 +239,24 @@ def _is_typevar_assign(node: ast.AST, used_names: Set[str]) -> bool:
     return any(isinstance(t, ast.Name) and t.id in used_names for t in node.targets)
 
 
-def _append_unique(target_list: List[str], candidates: List[str], seen: Set[str]) -> None:
+def _filter_unseen_imports(candidates: List[str], seen: Set[str]) -> List[str]:
+    unseen: List[str] = []
     for stmt in candidates:
         if stmt not in seen:
-            target_list.append(stmt)
+            unseen.append(stmt)
             seen.add(stmt)
+    return unseen
 
 
-def _append_type_checking_block(extracted_imports: List[str], tc_imports: List[str]) -> None:
+def _build_type_checking_block(extracted_imports: List[str], tc_imports: List[str]) -> List[str]:
     if not tc_imports:
-        return
+        return []
     has_typing = any("import typing as t" in imp or "from typing import" in imp for imp in extracted_imports)
+    parts: List[str] = []
     if not has_typing:
-        extracted_imports.append("import typing as t")
-    extracted_imports.append("if t.TYPE_CHECKING:\n    " + "\n    ".join(tc_imports))
+        parts.append("import typing as t")
+    parts.append("if t.TYPE_CHECKING:\n    " + "\n    ".join(tc_imports))
+    return parts
 
 
 def find_relevant_imports(
@@ -279,16 +283,19 @@ def find_relevant_imports(
 
     for node in source_tree.body:
         if isinstance(node, ast.Import):
-            _append_unique(extracted_imports, _extract_import_stmts(node, source_lines, used_names, wildcard_modules), seen)
+            stmts = _extract_import_stmts(node, source_lines, used_names, wildcard_modules)
+            extracted_imports.extend(_filter_unseen_imports(stmts, seen))
         elif isinstance(node, ast.ImportFrom):
-            _append_unique(extracted_imports, _extract_import_from_stmts(node, source_lines, used_names, unexplained), seen)
+            stmts = _extract_import_from_stmts(node, source_lines, used_names, unexplained)
+            extracted_imports.extend(_filter_unseen_imports(stmts, seen))
 
-    type_checking_imports: List[str] = []
-    _append_unique(type_checking_imports, _extract_type_checking_imports(source_tree, used_names), seen)
-    _append_type_checking_block(extracted_imports, type_checking_imports)
+    type_checking_imports = _filter_unseen_imports(
+        _extract_type_checking_imports(source_tree, used_names), seen
+    )
+    extracted_imports.extend(_build_type_checking_block(extracted_imports, type_checking_imports))
 
     typevar_stmts = [ast.unparse(n) for n in source_tree.body if _is_typevar_assign(n, used_names)]
-    _append_unique(extracted_imports, typevar_stmts, seen)
+    extracted_imports.extend(_filter_unseen_imports(typevar_stmts, seen))
     return extracted_imports
 
 
@@ -308,32 +315,47 @@ def _is_typing_construct_value(val: Optional[ast.AST]) -> bool:
     return fn_id in _TYPING_CONSTRUCT_NAMES
 
 
-def _record_assign_constants(
+def _extract_assign_constants(
     node: ast.Assign,
     extracted_symbols: Set[str],
-    remaining_constants: Dict[str, str],
-) -> bool:
+) -> Tuple[bool, List[str]]:
     target_names = [t.id for t in node.targets if isinstance(t, ast.Name)]
     if any(name in extracted_symbols for name in target_names):
-        return False
-    if not _is_typing_construct_value(node.value):
-        for name in target_names:
-            remaining_constants[name] = "module_constant"
-    return True
+        return False, []
+    if _is_typing_construct_value(node.value):
+        return True, []
+    return True, target_names
 
 
-def _record_ann_assign_constant(
+def _extract_ann_assign_constant(
     node: ast.AnnAssign,
     extracted_symbols: Set[str],
-    remaining_constants: Dict[str, str],
-) -> bool:
+) -> Tuple[bool, List[str]]:
     if not isinstance(node.target, ast.Name):
-        return True
+        return True, []
     if node.target.id in extracted_symbols:
-        return False
-    if not _is_typing_construct_value(node.value):
-        remaining_constants[node.target.id] = "module_constant"
-    return True
+        return False, []
+    if _is_typing_construct_value(node.value):
+        return True, []
+    return True, [node.target.id]
+
+
+def _classify_module_node(
+    node: ast.AST,
+    extracted_symbols: Set[str],
+) -> Tuple[bool, Optional[Tuple[str, str]], List[str]]:
+    if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+        if node.name in extracted_symbols:
+            return False, None, []
+        kind = "class" if isinstance(node, ast.ClassDef) else "function"
+        return True, (node.name, kind), []
+    if isinstance(node, ast.Assign):
+        keep, consts = _extract_assign_constants(node, extracted_symbols)
+        return keep, None, consts
+    if isinstance(node, ast.AnnAssign):
+        keep, consts = _extract_ann_assign_constant(node, extracted_symbols)
+        return keep, None, consts
+    return True, None, []
 
 
 def _partition_remaining_module_body(
@@ -345,18 +367,15 @@ def _partition_remaining_module_body(
     remaining_nodes: List[ast.AST] = []
 
     for node in from_tree.body:
-        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-            if node.name not in extracted_symbols:
-                remaining_callables[node.name] = "class" if isinstance(node, ast.ClassDef) else "function"
-                remaining_nodes.append(node)
-        elif isinstance(node, ast.Assign):
-            if _record_assign_constants(node, extracted_symbols, remaining_constants):
-                remaining_nodes.append(node)
-        elif isinstance(node, ast.AnnAssign):
-            if _record_ann_assign_constant(node, extracted_symbols, remaining_constants):
-                remaining_nodes.append(node)
-        else:
-            remaining_nodes.append(node)
+        keep, callable_info, consts = _classify_module_node(node, extracted_symbols)
+        if not keep:
+            continue
+        remaining_nodes.append(node)
+        if callable_info:
+            c_name, c_kind = callable_info
+            remaining_callables[c_name] = c_kind
+        for c_name in consts:
+            remaining_constants[c_name] = "module_constant"
 
     return remaining_callables, remaining_constants, remaining_nodes
 
@@ -450,7 +469,8 @@ def _check_node_route_decorators(node: ast.AST) -> List[Dict[str, Any]]:
     hazards: List[Dict[str, Any]] = []
     for dec in getattr(node, "decorator_list", []):
         if isinstance(dec, ast.Call) and isinstance(dec.func, ast.Attribute) and dec.func.attr == "route":
-            app_name = dec.func.value.id if isinstance(dec.func.value, ast.Name) else "app"
+            func_val = dec.func.value
+            app_name = func_val.id if isinstance(func_val, ast.Name) else "app"
             hazards.append({
                 "symbol": getattr(node, "name", ""),
                 "type": "flask_route_decorator",
@@ -550,6 +570,22 @@ def _collect_local_definitions(from_tree: ast.Module) -> Tuple[Dict[str, List[as
     return local_defs, def_order
 
 
+def _find_next_dependencies(used: Set[str], def_order: List[str], closure_set: Set[str]) -> List[str]:
+    return [dep for dep in def_order if dep in used and dep not in closure_set]
+
+
+def _order_closure_symbols(
+    initial_symbols: List[str],
+    def_order: List[str],
+    closure_set: Set[str],
+) -> List[str]:
+    ordered = list(dict.fromkeys(initial_symbols))
+    for sym in def_order:
+        if sym in closure_set and sym not in ordered:
+            ordered.append(sym)
+    return ordered
+
+
 def _expand_closure_dependencies(
     initial_symbols: List[str],
     local_defs: Dict[str, List[ast.AST]],
@@ -564,16 +600,11 @@ def _expand_closure_dependencies(
         if not nodes:
             continue
         used = get_used_names_in_nodes(nodes) - BUILTIN_NAMES
-        for dep in def_order:
-            if dep in used and dep not in closure_set:
-                closure_set.add(dep)
-                queue.append(dep)
+        for dep in _find_next_dependencies(used, def_order, closure_set):
+            closure_set.add(dep)
+            queue.append(dep)
 
-    ordered = list(dict.fromkeys(initial_symbols))
-    for sym in def_order:
-        if sym in closure_set and sym not in ordered:
-            ordered.append(sym)
-    return ordered
+    return _order_closure_symbols(initial_symbols, def_order, closure_set)
 
 
 def compute_minimal_safe_closure(
@@ -686,6 +717,33 @@ def compute_relative_import_path(from_file: str, to_file: str, project_root: str
     return to_mod
 
 
+def _extract_function_params(args: ast.arguments) -> Set[str]:
+    params: Set[str] = set()
+    pos_args = getattr(args, "posonlyargs", [])
+    for arg in pos_args + args.args + args.kwonlyargs:
+        params.add(arg.arg)
+    vararg_node = args.vararg
+    if vararg_node:
+        params.add(vararg_node.arg)
+    kwarg_node = args.kwarg
+    if kwarg_node:
+        params.add(kwarg_node.arg)
+    return params
+
+
+def _extract_fn_assigned_locals_and_globals(node: ast.AST) -> Tuple[Set[str], Set[str]]:
+    declared_globals: Set[str] = set()
+    assigned_locals: Set[str] = set()
+    for sub in ast.walk(node):
+        if isinstance(sub, (ast.Global, ast.Nonlocal)):
+            declared_globals.update(sub.names)
+        elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
+            assigned_locals.add(sub.id)
+        elif isinstance(sub, ast.ExceptHandler) and sub.name:
+            assigned_locals.add(sub.name)
+    return assigned_locals, declared_globals
+
+
 class _SharedStateTransformer(ast.NodeTransformer):
     """
     Rewrites reads and writes of shared host module symbols (`shared_symbols`)
@@ -704,25 +762,8 @@ class _SharedStateTransformer(ast.NodeTransformer):
         return self.shared_symbols - shadowed
 
     def _compute_fn_shadows(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> Set[str]:
-        params: Set[str] = set()
-        for arg in getattr(node.args, "posonlyargs", []) + node.args.args + node.args.kwonlyargs:
-            params.add(arg.arg)
-        if node.args.vararg:
-            params.add(node.args.vararg.arg)
-        if node.args.kwarg:
-            params.add(node.args.kwarg.arg)
-
-        declared_globals: Set[str] = set()
-        assigned_locals: Set[str] = set()
-        for sub in ast.walk(node):
-            if isinstance(sub, (ast.Global, ast.Nonlocal)):
-                for g in sub.names:
-                    declared_globals.add(g)
-            elif isinstance(sub, ast.Name) and isinstance(sub.ctx, ast.Store):
-                assigned_locals.add(sub.id)
-            elif isinstance(sub, ast.ExceptHandler) and sub.name:
-                assigned_locals.add(sub.name)
-
+        params = _extract_function_params(node.args)
+        assigned_locals, declared_globals = _extract_fn_assigned_locals_and_globals(node)
         return params | (assigned_locals - declared_globals - self.desync_symbols)
 
     def _transform_fn(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> ast.AST:
@@ -953,20 +994,30 @@ def _collect_needed_import_deps(
     return deps
 
 
+def _init_alias_cycle_queue(
+    projected_to_deps: Set[str],
+    rel_from: str,
+    rel_to: str,
+) -> Tuple[Optional[List[str]], List[Tuple[str, List[str]]], Set[str]]:
+    queue: List[Tuple[str, List[str]]] = []
+    visited: Set[str] = set()
+    for dep in sorted(projected_to_deps):
+        if dep == rel_from:
+            return [rel_from, rel_to, rel_from], queue, visited
+        queue.append((dep, [rel_from, rel_to, dep]))
+        visited.add(dep)
+    return None, queue, visited
+
+
 def _find_alias_cycle_bfs(
     graph_edges: Dict[str, Set[str]],
     projected_to_deps: Set[str],
     rel_from: str,
-    rel_to: str
+    rel_to: str,
 ) -> Optional[List[str]]:
-    queue: List[Tuple[str, List[str]]] = []
-    visited: Set[str] = set()
-
-    for dep in sorted(projected_to_deps):
-        if dep == rel_from:
-            return [rel_from, rel_to, rel_from]
-        queue.append((dep, [rel_from, rel_to, dep]))
-        visited.add(dep)
+    direct_cycle, queue, visited = _init_alias_cycle_queue(projected_to_deps, rel_from, rel_to)
+    if direct_cycle:
+        return direct_cycle
 
     while queue:
         curr, path = queue.pop(0)
@@ -1062,27 +1113,39 @@ def _load_and_parse_source(
     return from_lines, from_source, from_tree, None
 
 
+def _match_callable_node(
+    node: ast.AST, requested_symbols: Set[str]
+) -> Optional[Tuple[str, ast.AST, int, int]]:
+    if not isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
+        return None
+    if node.name not in requested_symbols:
+        return None
+    dec_lines = [d.lineno for d in getattr(node, "decorator_list", []) if hasattr(d, "lineno")]
+    start_line = (min([node.lineno] + dec_lines) if dec_lines else node.lineno) - 1
+    end_line = getattr(node, "end_lineno", node.lineno)
+    return (node.name, node, start_line, end_line)
+
+
+def _match_assign_node(
+    node: ast.AST, requested_symbols: Set[str]
+) -> Optional[Tuple[str, ast.AST, int, int]]:
+    if isinstance(node, ast.Assign):
+        for t in node.targets:
+            if isinstance(t, ast.Name) and t.id in requested_symbols:
+                return (t.id, node, node.lineno - 1, getattr(node, "end_lineno", node.lineno))
+    elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
+        if node.target.id in requested_symbols:
+            return (node.target.id, node, node.lineno - 1, getattr(node, "end_lineno", node.lineno))
+    return None
+
+
 def _match_node_to_extract(
     node: ast.AST, requested_symbols: Set[str]
 ) -> Optional[Tuple[str, ast.AST, int, int]]:
-    if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef)):
-        if node.name in requested_symbols:
-            dec_lines = [d.lineno for d in getattr(node, "decorator_list", []) if hasattr(d, "lineno")]
-            start_line = (min([node.lineno] + dec_lines) if dec_lines else node.lineno) - 1
-            end_line = getattr(node, "end_lineno", node.lineno)
-            return (node.name, node, start_line, end_line)
-    elif isinstance(node, ast.Assign):
-        for t in node.targets:
-            if isinstance(t, ast.Name) and t.id in requested_symbols:
-                start_line = node.lineno - 1
-                end_line = getattr(node, "end_lineno", node.lineno)
-                return (t.id, node, start_line, end_line)
-    elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-        if node.target.id in requested_symbols:
-            start_line = node.lineno - 1
-            end_line = getattr(node, "end_lineno", node.lineno)
-            return (node.target.id, node, start_line, end_line)
-    return None
+    matched = _match_callable_node(node, requested_symbols)
+    if matched:
+        return matched
+    return _match_assign_node(node, requested_symbols)
 
 
 def _locate_symbols_to_extract(
@@ -1132,76 +1195,74 @@ def _evaluate_alias_cycle(
     }
 
 
+def _format_hazard_error(
+    error_msg: str,
+    remediation: List[str],
+    hazards: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "success": False,
+        "error": error_msg,
+        "framework_hazards": hazards.get("framework_hazards", []),
+        "state_desync_hazards": hazards.get("state_desync_hazards", []),
+        "circular_hazards": hazards.get("circular_hazards", []),
+        "global_state_hazards": hazards.get("global_hazards", []),
+        "secret_warnings": hazards.get("secret_warnings", []),
+        "minimal_safe_closure": hazards.get("safe_closure", []),
+        "remediation": remediation,
+    }
+
+
+def _is_hazard_blocked(items: List[Any], allowed: bool, share_state: bool) -> bool:
+    if not items:
+        return False
+    if allowed:
+        return False
+    if share_state:
+        return False
+    return True
+
+
 def _check_hazard_blocks(
-    framework_hazards: List[Dict[str, Any]],
-    state_desync_hazards: List[Dict[str, Any]],
-    circular_hazards: List[Dict[str, Any]],
-    global_hazards: List[Dict[str, Any]],
-    secret_warnings: List[Dict[str, Any]],
-    safe_closure: List[str],
-    allow_desync: bool,
-    allow_circular: bool,
-    allow_globals: bool,
-    share_state: bool,
-    share_state_hint: str,
+    hazards: Dict[str, Any],
+    flags: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
-    if framework_hazards:
-        return {
-            "success": False,
-            "error": "Refactoring blocked: Framework route / application architecture hazard detected.",
-            "framework_hazards": framework_hazards,
-            "state_desync_hazards": state_desync_hazards,
-            "circular_hazards": circular_hazards,
-            "global_state_hazards": global_hazards,
-            "secret_warnings": secret_warnings,
-            "minimal_safe_closure": safe_closure,
-            "remediation": [h["recommendation"] for h in framework_hazards]
-        }
+    share_state = flags.get("share_state", False)
+    hint = flags.get("share_state_hint", "")
+    safe_closure = hazards.get("safe_closure", [])
+    closure_hint = f"Minimal self-contained symbol closure: {','.join(safe_closure)}"
 
-    if state_desync_hazards and not (allow_desync or share_state):
-        return {
-            "success": False,
-            "error": "Refactoring blocked: Mutable shared module state desynchronization hazard detected.",
-            "state_desync_hazards": state_desync_hazards,
-            "circular_hazards": circular_hazards,
-            "global_state_hazards": global_hazards,
-            "framework_hazards": framework_hazards,
-            "secret_warnings": secret_warnings,
-            "minimal_safe_closure": safe_closure,
-            "remediation": [h["recommendation"] for h in state_desync_hazards] + [share_state_hint]
-        }
+    fw = hazards.get("framework_hazards", [])
+    if fw:
+        return _format_hazard_error(
+            "Refactoring blocked: Framework route / application architecture hazard detected.",
+            [h["recommendation"] for h in fw],
+            hazards,
+        )
 
-    if circular_hazards and not (allow_circular or share_state):
-        return {
-            "success": False,
-            "error": "Refactoring blocked: Circular import hazard detected.",
-            "circular_hazards": circular_hazards,
-            "global_state_hazards": global_hazards,
-            "state_desync_hazards": state_desync_hazards,
-            "framework_hazards": framework_hazards,
-            "secret_warnings": secret_warnings,
-            "minimal_safe_closure": safe_closure,
-            "remediation": [h["recommendation"] for h in circular_hazards] + [
-                f"Minimal self-contained symbol closure: {','.join(safe_closure)}",
-                share_state_hint,
-            ]
-        }
+    desync = hazards.get("state_desync_hazards", [])
+    if _is_hazard_blocked(desync, flags.get("allow_desync", False), share_state):
+        return _format_hazard_error(
+            "Refactoring blocked: Mutable shared module state desynchronization hazard detected.",
+            [h["recommendation"] for h in desync] + [hint],
+            hazards,
+        )
 
-    if global_hazards and not (allow_globals or share_state):
-        return {
-            "success": False,
-            "error": "Refactoring blocked: Unbound module global state / constant detected.",
-            "circular_hazards": circular_hazards,
-            "global_state_hazards": global_hazards,
-            "state_desync_hazards": state_desync_hazards,
-            "framework_hazards": framework_hazards,
-            "secret_warnings": secret_warnings,
-            "minimal_safe_closure": safe_closure,
-            "remediation": [h["recommendation"] for h in global_hazards] + [
-                f"Minimal self-contained symbol closure: {','.join(safe_closure)}",
-                share_state_hint,
-            ]
-        }
+    circ = hazards.get("circular_hazards", [])
+    if _is_hazard_blocked(circ, flags.get("allow_circular", False), share_state):
+        return _format_hazard_error(
+            "Refactoring blocked: Circular import hazard detected.",
+            [h["recommendation"] for h in circ] + [closure_hint, hint],
+            hazards,
+        )
+
+    glob = hazards.get("global_hazards", [])
+    if _is_hazard_blocked(glob, flags.get("allow_globals", False), share_state):
+        return _format_hazard_error(
+            "Refactoring blocked: Unbound module global state / constant detected.",
+            [h["recommendation"] for h in glob] + [closure_hint, hint],
+            hazards,
+        )
     return None
 
 
@@ -1286,42 +1347,43 @@ def _insert_missing_imports(
     )
 
 
-def _build_new_to_source(
-    to_file_existed: bool,
-    existing_to_lines: List[str],
-    to_module_name: str,
-    from_path: str,
-    to_path: str,
-    needed_imports: List[str],
-    shared_runtime_header: str,
-    extracted_code_blocks: List[str],
-    extracted_symbol_names: List[str],
-    sorted_dunder_all: str,
-) -> str:
-    if not to_file_existed:
-        parts = [f'"""\nDecoupled module: {to_module_name}\nExtracted from {os.path.basename(from_path)}\n"""\n']
-        if needed_imports:
-            parts.append("\n".join(needed_imports) + "\n\n")
-        if shared_runtime_header:
-            parts.append(shared_runtime_header)
-        parts.append("\n\n\n".join(extracted_code_blocks) + "\n\n" + sorted_dunder_all)
-        return "".join(parts)
+def _build_fresh_to_source(ctx: Dict[str, Any]) -> str:
+    parts = [f'"""\nDecoupled module: {ctx["to_module_name"]}\nExtracted from {os.path.basename(ctx["from_path"])}\n"""\n']
+    needed_imports = ctx.get("needed_imports", [])
+    if needed_imports:
+        parts.append("\n".join(needed_imports) + "\n\n")
+    hdr = ctx.get("shared_runtime_header", "")
+    if hdr:
+        parts.append(hdr)
+    parts.append("\n\n\n".join(ctx["extracted_code_blocks"]) + "\n\n" + ctx["sorted_dunder_all"])
+    return "".join(parts)
 
+
+def _append_to_existing_source(ctx: Dict[str, Any]) -> str:
+    existing_to_lines = ctx["existing_to_lines"]
     existing_to_text = "".join(existing_to_lines)
+    needed_imports = ctx.get("needed_imports", [])
     missing_imports = [imp for imp in needed_imports if imp not in existing_to_text]
     if missing_imports:
-        rebuilt_existing = _insert_missing_imports(existing_to_lines, missing_imports, to_path)
-        base_to_text = rebuilt_existing.rstrip()
+        rebuilt = _insert_missing_imports(existing_to_lines, missing_imports, ctx["to_path"])
+        base_to_text = rebuilt.rstrip()
     else:
         base_to_text = existing_to_text.rstrip()
 
-    if shared_runtime_header and "_ARCH_SHARED_SYMBOLS" not in base_to_text:
-        base_to_text = base_to_text + "\n\n\n" + shared_runtime_header.rstrip()
-    combined_to = base_to_text + "\n\n\n" + "\n\n\n".join(extracted_code_blocks) + "\n"
-    combined_to, had_all = _upsert_dunder_all_in_source(combined_to, extracted_symbol_names)
+    hdr = ctx.get("shared_runtime_header", "")
+    if hdr and "_ARCH_SHARED_SYMBOLS" not in base_to_text:
+        base_to_text = base_to_text + "\n\n\n" + hdr.rstrip()
+    combined_to = base_to_text + "\n\n\n" + "\n\n\n".join(ctx["extracted_code_blocks"]) + "\n"
+    combined_to, had_all = _upsert_dunder_all_in_source(combined_to, ctx["extracted_symbol_names"])
     if not had_all:
-        combined_to = combined_to.rstrip() + "\n\n" + sorted_dunder_all
+        combined_to = combined_to.rstrip() + "\n\n" + ctx["sorted_dunder_all"]
     return combined_to
+
+
+def _build_new_to_source(ctx: Dict[str, Any]) -> str:
+    if not ctx.get("to_file_existed", False):
+        return _build_fresh_to_source(ctx)
+    return _append_to_existing_source(ctx)
 
 
 def _find_last_import_line(tree: ast.Module) -> int:
@@ -1582,6 +1644,245 @@ def _build_decouple_result_payload(
     return payload
 
 
+def _resolve_shared_host_symbols(
+    share_state: bool,
+    state_desync_hazards: List[Dict[str, Any]],
+    circular_hazards: List[Dict[str, Any]],
+    global_hazards: List[Dict[str, Any]],
+) -> Set[str]:
+    if not share_state:
+        return set()
+    return (
+        {h["symbol"] for h in state_desync_hazards}
+        | {h["symbol"] for h in circular_hazards}
+        | {h["symbol"] for h in global_hazards}
+    )
+
+
+def _prepare_decouple_context(
+    from_file: str,
+    to_file: str,
+    project_root: str,
+    symbol: str | List[str],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    symbols = [symbol] if isinstance(symbol, str) else list(symbol)
+    from_path, to_path, rel_from, rel_to, root_abs = _resolve_refactor_paths(from_file, to_file, project_root)
+    to_file_existed = os.path.exists(to_path)
+
+    from_lines, from_source, from_tree, load_err = _load_and_parse_source(from_path)
+    if load_err:
+        return None, load_err
+    assert from_lines is not None and from_source is not None and from_tree is not None
+
+    nodes_to_extract, found_symbols = _locate_symbols_to_extract(from_tree, set(symbols))
+    missing_symbols = [s for s in symbols if s not in found_symbols]
+    if missing_symbols:
+        return None, f"Symbols not found in {from_path}: {missing_symbols}"
+
+    ctx = {
+        "symbols": symbols,
+        "from_path": from_path,
+        "to_path": to_path,
+        "rel_from": rel_from,
+        "rel_to": rel_to,
+        "root_abs": root_abs,
+        "to_file_existed": to_file_existed,
+        "from_lines": from_lines,
+        "from_source": from_source,
+        "from_tree": from_tree,
+        "nodes_to_extract": nodes_to_extract,
+    }
+    return ctx, None
+
+
+def _detect_and_verify_hazards(
+    ctx: Dict[str, Any],
+    flags: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
+    from_tree = ctx["from_tree"]
+    from_lines = ctx["from_lines"]
+    from_path = ctx["from_path"]
+    nodes_to_extract = ctx["nodes_to_extract"]
+    symbols = ctx["symbols"]
+    share_state = flags.get("share_state", False)
+
+    ast_nodes = [item[1] for item in nodes_to_extract]
+    used_names = get_used_names_in_nodes(ast_nodes)
+    declared_globals = get_declared_globals_in_nodes(ast_nodes)
+    extracted_names_set = {item[0] for item in nodes_to_extract}
+
+    circular_hazards, global_hazards, state_desync_hazards, framework_hazards, secret_warnings = detect_coupling_hazards(
+        from_tree, extracted_names_set, used_names, declared_globals=declared_globals, extracted_nodes=ast_nodes
+    )
+    safe_closure = compute_minimal_safe_closure(from_tree, symbols)
+    share_state_hint = "Re-run with --share-state (or share_state=True) to automatically bind shared mutable globals and remaining host symbols across modules."
+
+    shared_host_symbols = _resolve_shared_host_symbols(
+        share_state, state_desync_hazards, circular_hazards, global_hazards
+    )
+    needed_imports = find_relevant_imports(
+        from_tree,
+        from_lines,
+        used_names - shared_host_symbols,
+        source_path=from_path,
+        project_root=ctx["root_abs"],
+        excluded_names=extracted_names_set | shared_host_symbols,
+    )
+
+    alias_hazard = _evaluate_alias_cycle(
+        from_path, ctx["to_path"], ctx["root_abs"], needed_imports, ctx["to_file_existed"],
+        flags.get("add_backward_compat_alias", True), shared_host_symbols, share_state,
+        symbols, ctx["rel_from"], ctx["rel_to"]
+    )
+    if alias_hazard:
+        circular_hazards.append(alias_hazard)
+
+    hazard_data = {
+        "framework_hazards": framework_hazards,
+        "state_desync_hazards": state_desync_hazards,
+        "circular_hazards": circular_hazards,
+        "global_hazards": global_hazards,
+        "secret_warnings": secret_warnings,
+        "safe_closure": safe_closure,
+        "shared_host_symbols": shared_host_symbols,
+        "needed_imports": needed_imports,
+        "share_state_hint": share_state_hint,
+    }
+    block = _check_hazard_blocks(hazard_data, flags)
+    if block:
+        return None, block
+    return hazard_data, None
+
+
+def _generate_decoupled_sources(
+    ctx: Dict[str, Any],
+    hazard_data: Dict[str, Any],
+    flags: Dict[str, Any],
+) -> Tuple[Optional[Dict[str, Any]], Optional[str]]:
+    share_state = flags.get("share_state", False)
+    shared_host_symbols = hazard_data["shared_host_symbols"]
+    desync_syms = {h["symbol"] for h in hazard_data["state_desync_hazards"]}
+    nodes_to_extract = ctx["nodes_to_extract"]
+    from_lines = ctx["from_lines"]
+    to_path = ctx["to_path"]
+    from_path = ctx["from_path"]
+    root_abs = ctx["root_abs"]
+    to_file_existed = ctx["to_file_existed"]
+
+    extracted_code_blocks, line_ranges_to_remove = _extract_source_code_blocks(
+        nodes_to_extract, from_lines, share_state, shared_host_symbols, desync_syms
+    )
+    to_module_name = os.path.splitext(os.path.basename(to_path))[0]
+    extracted_symbol_names = list(dict.fromkeys(item[0] for item in nodes_to_extract))
+    all_syms_str = ", ".join(f'"{s}"' for s in sorted(set(extracted_symbol_names)))
+    sorted_dunder_all = f"__all__ = [{all_syms_str}]\n"
+
+    shared_runtime_header = _build_shared_runtime_header_if_needed(
+        share_state, shared_host_symbols, to_path, from_path, root_abs
+    )
+    existing_to_lines = _load_existing_to_lines(to_path, to_file_existed)
+
+    to_ctx = {
+        "to_file_existed": to_file_existed,
+        "existing_to_lines": existing_to_lines,
+        "to_module_name": to_module_name,
+        "from_path": from_path,
+        "to_path": to_path,
+        "needed_imports": hazard_data["needed_imports"],
+        "shared_runtime_header": shared_runtime_header,
+        "extracted_code_blocks": extracted_code_blocks,
+        "extracted_symbol_names": extracted_symbol_names,
+        "sorted_dunder_all": sorted_dunder_all,
+    }
+    new_to_source = _build_new_to_source(to_ctx)
+
+    import_target = compute_relative_import_path(from_path, to_path, project_root=root_abs)
+    new_from_source, updated_from_lines = _build_updated_from_source(
+        from_lines=from_lines,
+        from_tree=ctx["from_tree"],
+        line_ranges_to_remove=line_ranges_to_remove,
+        import_target=import_target,
+        extracted_symbol_names=extracted_symbol_names,
+        add_backward_compat_alias=flags.get("add_backward_compat_alias", True),
+        to_module_name=to_module_name,
+        sorted_dunder_all=sorted_dunder_all,
+    )
+
+    syntax_err = _verify_ast_syntaxes(new_to_source, to_path, new_from_source, from_path)
+    if syntax_err:
+        return None, syntax_err
+
+    sources_data = {
+        "new_to_source": new_to_source,
+        "new_from_source": new_from_source,
+        "updated_from_lines": updated_from_lines,
+        "existing_to_lines": existing_to_lines,
+        "extracted_symbol_names": extracted_symbol_names,
+        "import_target": import_target,
+    }
+    return sources_data, None
+
+
+def _finalize_decouple_run(
+    ctx: Dict[str, Any],
+    sources_data: Dict[str, Any],
+    hazard_data: Dict[str, Any],
+    flags: Dict[str, Any],
+    t_start: float,
+) -> Dict[str, Any]:
+    rel_from = ctx["rel_from"]
+    rel_to = ctx["rel_to"]
+    to_file_existed = ctx["to_file_existed"]
+    from_source = ctx["from_source"]
+    existing_to_lines = sources_data["existing_to_lines"]
+    new_from_source = sources_data["new_from_source"]
+    new_to_source = sources_data["new_to_source"]
+
+    pre_sources = {rel_from: from_source}
+    if to_file_existed:
+        pre_sources[rel_to] = "".join(existing_to_lines)
+    post_sources = {rel_from: new_from_source, rel_to: new_to_source}
+    ruff_gate = run_differential_ruff(pre_sources=pre_sources, post_sources=post_sources)
+
+    combined_diff = _generate_diffs(
+        rel_from, rel_to, ctx["from_lines"], sources_data["updated_from_lines"],
+        existing_to_lines, new_to_source, to_file_existed
+    )
+
+    test_result, rolled_back, error_msg = _execute_and_verify(
+        flags.get("run_tests"), flags.get("dry_run", False), ctx["to_path"],
+        new_to_source, ctx["from_path"], new_from_source,
+        from_source, existing_to_lines, to_file_existed,
+        flags.get("ruff_cleanup", False), ctx["root_abs"]
+    )
+
+    duration_ms = (time.perf_counter() - t_start) * 1000
+    is_success = test_result is None or bool(test_result.get("passed", True))
+
+    return _build_decouple_result_payload(
+        is_success=is_success,
+        extracted_symbol_names=sources_data["extracted_symbol_names"],
+        rel_from=rel_from,
+        rel_to=rel_to,
+        import_target=sources_data["import_target"],
+        created_new_module=not to_file_existed,
+        shared_host_symbols=hazard_data["shared_host_symbols"],
+        share_state=flags.get("share_state", False),
+        duration_ms=duration_ms,
+        combined_diff=combined_diff,
+        ruff_gate=ruff_gate,
+        test_result=test_result,
+        rolled_back=rolled_back,
+        circular_hazards=hazard_data["circular_hazards"],
+        global_hazards=hazard_data["global_hazards"],
+        state_desync_hazards=hazard_data["state_desync_hazards"],
+        framework_hazards=hazard_data["framework_hazards"],
+        secret_warnings=hazard_data["secret_warnings"],
+        safe_closure=hazard_data["safe_closure"],
+        error_msg=error_msg,
+    )
+
+
 def prefactor_decouple(
     symbol: str | List[str],
     from_file: str,
@@ -1605,147 +1906,31 @@ def prefactor_decouple(
     and executes headless test gates with transactional rollback.
     """
     t_start = time.perf_counter()
-    symbols = [symbol] if isinstance(symbol, str) else list(symbol)
-    from_path, to_path, rel_from, rel_to, root_abs = _resolve_refactor_paths(from_file, to_file, project_root)
-    to_file_existed = os.path.exists(to_path)
+    ctx, prep_err = _prepare_decouple_context(from_file, to_file, project_root, symbol)
+    if prep_err:
+        return {"success": False, "error": prep_err}
+    assert ctx is not None
 
-    from_lines, from_source, from_tree, load_err = _load_and_parse_source(from_path)
-    if load_err:
-        return {"success": False, "error": load_err}
-    assert from_lines is not None and from_source is not None and from_tree is not None
+    flags = {
+        "add_backward_compat_alias": add_backward_compat_alias,
+        "run_tests": run_tests,
+        "dry_run": dry_run,
+        "allow_circular": allow_circular,
+        "allow_globals": allow_globals,
+        "allow_desync": allow_desync,
+        "share_state": share_state,
+        "ruff_cleanup": ruff_cleanup,
+    }
 
-    nodes_to_extract, found_symbols = _locate_symbols_to_extract(from_tree, set(symbols))
-    missing_symbols = [s for s in symbols if s not in found_symbols]
-    if missing_symbols:
-        return {"success": False, "error": f"Symbols not found in {from_path}: {missing_symbols}"}
-
-    ast_nodes = [item[1] for item in nodes_to_extract]
-    used_names = get_used_names_in_nodes(ast_nodes)
-    declared_globals = get_declared_globals_in_nodes(ast_nodes)
-    extracted_names_set = {item[0] for item in nodes_to_extract}
-
-    circular_hazards, global_hazards, state_desync_hazards, framework_hazards, secret_warnings = detect_coupling_hazards(
-        from_tree, extracted_names_set, used_names, declared_globals=declared_globals, extracted_nodes=ast_nodes
-    )
-    safe_closure = compute_minimal_safe_closure(from_tree, symbols)
-    share_state_hint = "Re-run with --share-state (or share_state=True) to automatically bind shared mutable globals and remaining host symbols across modules."
-
-    desync_syms = {h["symbol"] for h in state_desync_hazards}
-    shared_host_symbols: Set[str] = set()
-    if share_state:
-        shared_host_symbols = (
-            desync_syms
-            | {h["symbol"] for h in circular_hazards}
-            | {h["symbol"] for h in global_hazards}
-        )
-
-    needed_imports = find_relevant_imports(
-        from_tree,
-        from_lines,
-        used_names - shared_host_symbols,
-        source_path=from_path,
-        project_root=root_abs,
-        excluded_names=extracted_names_set | shared_host_symbols,
-    )
-
-    alias_hazard = _evaluate_alias_cycle(
-        from_path, to_path, root_abs, needed_imports, to_file_existed,
-        add_backward_compat_alias, shared_host_symbols, share_state,
-        symbols, rel_from, rel_to
-    )
-    if alias_hazard:
-        circular_hazards.append(alias_hazard)
-
-    hazard_block = _check_hazard_blocks(
-        framework_hazards, state_desync_hazards, circular_hazards, global_hazards,
-        secret_warnings, safe_closure, allow_desync, allow_circular, allow_globals,
-        share_state, share_state_hint
-    )
+    hazard_data, hazard_block = _detect_and_verify_hazards(ctx, flags)
     if hazard_block:
         return hazard_block
+    assert hazard_data is not None
 
-    extracted_code_blocks, line_ranges_to_remove = _extract_source_code_blocks(
-        nodes_to_extract, from_lines, share_state, shared_host_symbols, desync_syms
-    )
-
-    to_module_name = os.path.splitext(os.path.basename(to_path))[0]
-    extracted_symbol_names = list(dict.fromkeys(item[0] for item in nodes_to_extract))
-    all_syms_str = ", ".join(f'"{s}"' for s in sorted(set(extracted_symbol_names)))
-    sorted_dunder_all = f"__all__ = [{all_syms_str}]\n"
-
-    shared_runtime_header = _build_shared_runtime_header_if_needed(
-        share_state, shared_host_symbols, to_path, from_path, root_abs
-    )
-    existing_to_lines = _load_existing_to_lines(to_path, to_file_existed)
-
-    new_to_source = _build_new_to_source(
-        to_file_existed=to_file_existed,
-        existing_to_lines=existing_to_lines,
-        to_module_name=to_module_name,
-        from_path=from_path,
-        to_path=to_path,
-        needed_imports=needed_imports,
-        shared_runtime_header=shared_runtime_header,
-        extracted_code_blocks=extracted_code_blocks,
-        extracted_symbol_names=extracted_symbol_names,
-        sorted_dunder_all=sorted_dunder_all,
-    )
-
-    import_target = compute_relative_import_path(from_path, to_path, project_root=root_abs)
-    new_from_source, updated_from_lines = _build_updated_from_source(
-        from_lines=from_lines,
-        from_tree=from_tree,
-        line_ranges_to_remove=line_ranges_to_remove,
-        import_target=import_target,
-        extracted_symbol_names=extracted_symbol_names,
-        add_backward_compat_alias=add_backward_compat_alias,
-        to_module_name=to_module_name,
-        sorted_dunder_all=sorted_dunder_all,
-    )
-
-    syntax_err = _verify_ast_syntaxes(new_to_source, to_path, new_from_source, from_path)
+    sources_data, syntax_err = _generate_decoupled_sources(ctx, hazard_data, flags)
     if syntax_err:
         return {"success": False, "error": syntax_err}
+    assert sources_data is not None
 
-    pre_sources = {rel_from: from_source}
-    if to_file_existed:
-        pre_sources[rel_to] = "".join(existing_to_lines)
-    post_sources = {rel_from: new_from_source, rel_to: new_to_source}
-    ruff_gate = run_differential_ruff(pre_sources=pre_sources, post_sources=post_sources)
-
-    combined_diff = _generate_diffs(
-        rel_from, rel_to, from_lines, updated_from_lines,
-        existing_to_lines, new_to_source, to_file_existed
-    )
-
-    test_result, rolled_back, error_msg = _execute_and_verify(
-        run_tests, dry_run, to_path, new_to_source, from_path, new_from_source,
-        from_source, existing_to_lines, to_file_existed, ruff_cleanup, root_abs
-    )
-
-    duration_ms = (time.perf_counter() - t_start) * 1000
-    is_success = test_result is None or bool(test_result.get("passed", True))
-
-    return _build_decouple_result_payload(
-        is_success=is_success,
-        extracted_symbol_names=extracted_symbol_names,
-        rel_from=rel_from,
-        rel_to=rel_to,
-        import_target=import_target,
-        created_new_module=not to_file_existed,
-        shared_host_symbols=shared_host_symbols,
-        share_state=share_state,
-        duration_ms=duration_ms,
-        combined_diff=combined_diff,
-        ruff_gate=ruff_gate,
-        test_result=test_result,
-        rolled_back=rolled_back,
-        circular_hazards=circular_hazards,
-        global_hazards=global_hazards,
-        state_desync_hazards=state_desync_hazards,
-        framework_hazards=framework_hazards,
-        secret_warnings=secret_warnings,
-        safe_closure=safe_closure,
-        error_msg=error_msg,
-    )
+    return _finalize_decouple_run(ctx, sources_data, hazard_data, flags, t_start)
 

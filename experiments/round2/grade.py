@@ -4,10 +4,13 @@ Usage: python3 grade.py /tmp/round2_runs > grades.json
 """
 import ast
 import json
+import logging
 import os
 import re
 import subprocess
 import sys
+
+logger = logging.getLogger(__name__)
 
 def sh(cmd, cwd, env=None):
     e = dict(os.environ)
@@ -25,7 +28,8 @@ def top_defs(path):
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 out[n.name] = out.get(n.name, 0) + 1
         return out
-    except Exception:
+    except (SyntaxError, OSError) as e:
+        logger.debug("Failed parsing %s: %s", path, e)
         return {}
 
 def pytest_summary(out):
@@ -93,6 +97,7 @@ def main(root):
         try:
             checks, extra = g(d)
         except Exception as e:
+            logger.debug("Grading failed for %s: %s", d, e)
             checks, extra = {"grader_crashed": False}, {"error": repr(e)}
         score = sum(checks.values()) / max(1, len(checks))
         res[name] = {"checks": checks, "score": round(score, 3), "report_exists": os.path.exists(os.path.join(d, "REPORT.md")), **extra}

@@ -3,8 +3,10 @@ import re
 import json
 import shutil
 import subprocess
+import logging
 from typing import Set, Optional, List, Dict, Any
 
+logger = logging.getLogger(__name__)
 
 # Default directories that contain generated assets, caches, dependencies, or dist bundles
 DEFAULT_IGNORED_DIRS: Set[str] = {
@@ -63,47 +65,66 @@ DEFAULT_IGNORED_FILES: Set[str] = {
     "composer.lock",
 }
 
+
+def _is_hidden_dir(part: str) -> bool:
+    return part.startswith(".") and part not in {".", "..", ".github"}
+
+
+def _is_ignored_dir_part(part: str, is_parent: bool, ignored_dirs: Set[str]) -> bool:
+    if part in ignored_dirs or part.endswith(".egg-info"):
+        return True
+    if is_parent and _is_hidden_dir(part):
+        return True
+    return False
+
+
+def _is_minified_filename(filename: str) -> bool:
+    if filename.endswith(".min.js") or filename.endswith(".min.css"):
+        return True
+    return ".bundle." in filename
+
+
+def _is_ignored_filename(filename: str) -> bool:
+    if filename in DEFAULT_IGNORED_FILES:
+        return True
+    _, ext = os.path.splitext(filename)
+    if ext.lower() in DEFAULT_IGNORED_EXTENSIONS:
+        return True
+    return _is_minified_filename(filename)
+
+
 def is_ignored_path(rel_path: str, ignored_dirs: Set[str] = DEFAULT_IGNORED_DIRS) -> bool:
     """Checks whether a relative file or directory path touches an ignored folder or pattern."""
     normalized = rel_path.replace("\\", "/").strip("/")
     parts = normalized.split("/")
-    
-    # Check if any parent or self matches an ignored dir
-    for part in parts:
-        if part in ignored_dirs or part.endswith(".egg-info"):
+
+    total_parts = len(parts)
+    for idx, part in enumerate(parts):
+        is_parent = total_parts > 1 and idx < total_parts - 1
+        if _is_ignored_dir_part(part, is_parent, ignored_dirs):
             return True
-        if part.startswith(".") and part not in {".", "..", ".github"}:
-            # Ignore hidden directories by default except .github
-            if len(parts) > 1 and part != parts[-1]:
-                return True
 
-    filename = parts[-1]
-    if filename in DEFAULT_IGNORED_FILES:
-        return True
+    return _is_ignored_filename(parts[-1])
 
-    _, ext = os.path.splitext(filename)
-    if ext.lower() in DEFAULT_IGNORED_EXTENSIONS:
-        return True
-    
-    # Check for minified patterns like foo.min.js
-    if filename.endswith(".min.js") or filename.endswith(".min.css") or ".bundle." in filename:
-        return True
 
+def _has_long_line(file_obj: Any, max_lines: int) -> bool:
+    for i, line in enumerate(file_obj):
+        if i >= max_lines:
+            break
+        if len(line) > 800:
+            return True
     return False
+
 
 def is_minified_or_binary(filepath: str, max_check_lines: int = 15) -> bool:
     """Detects if a file is minified code (very long lines) or binary content."""
     try:
         with open(filepath, "r", encoding="utf-8", errors="replace") as f:
-            for i, line in enumerate(f):
-                if i >= max_check_lines:
-                    break
-                # If a line exceeds 800 characters, it's overwhelmingly minified bundle code
-                if len(line) > 800:
-                    return True
-        return False
-    except (OSError, UnicodeDecodeError):
+            return _has_long_line(f, max_check_lines)
+    except (OSError, UnicodeDecodeError) as e:
+        logger.debug("Failed reading %s: %s", filepath, e)
         return True
+
 
 def estimate_tokens(text: str) -> int:
     """Quick and reliable heuristic for token count (~4 characters per token)."""
@@ -143,6 +164,38 @@ def find_biome_binary() -> Optional[str]:
     return None
 
 
+def _extract_oxlint_span(labels: Any) -> Dict[str, Any]:
+    if labels and isinstance(labels, list) and isinstance(labels[0], dict):
+        return labels[0].get("span", {}) or {}
+    return {}
+
+
+def _parse_oxlint_entry(diag: Dict[str, Any]) -> Dict[str, Any]:
+    labels = diag.get("labels", [])
+    span = _extract_oxlint_span(labels)
+    code = diag.get("code") or "oxlint"
+    msg = diag.get("message") or ""
+    sev = diag.get("severity") or "warning"
+    return {
+        "code": code,
+        "message": msg,
+        "severity": sev.upper(),
+        "line": span.get("line", 1),
+        "column": span.get("column", 1),
+        "help": diag.get("help", ""),
+    }
+
+
+def _parse_oxlint_data(raw_stdout: str) -> List[Dict[str, Any]]:
+    if not raw_stdout.strip():
+        return []
+    data = json.loads(raw_stdout)
+    if not isinstance(data, dict):
+        return []
+    diagnostics = data.get("diagnostics", [])
+    return [_parse_oxlint_entry(diag) for diag in diagnostics if isinstance(diag, dict)]
+
+
 def run_oxlint_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
     """
     Executes oxlint on a TypeScript/JavaScript file and parses JSON diagnostics.
@@ -159,26 +212,43 @@ def run_oxlint_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
             text=True,
             timeout=10,
         )
-        if not res.stdout.strip():
-            return []
-        data = json.loads(res.stdout)
-        diagnostics = data.get("diagnostics", []) if isinstance(data, dict) else []
-        
-        parsed: List[Dict[str, Any]] = []
-        for diag in diagnostics:
-            labels = diag.get("labels", [])
-            span = labels[0].get("span", {}) if labels else {}
-            parsed.append({
-                "code": diag.get("code") or "oxlint",
-                "message": diag.get("message") or "",
-                "severity": (diag.get("severity") or "warning").upper(),
-                "line": span.get("line", 1),
-                "column": span.get("column", 1),
-                "help": diag.get("help", ""),
-            })
-        return parsed
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return _parse_oxlint_data(res.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as e:
+        logger.debug("Oxlint execution failed on %s: %s", file_path, e)
         return []
+
+
+def _extract_biome_line(location: Any) -> int:
+    if isinstance(location, dict):
+        path_info = location.get("path")
+        if isinstance(path_info, dict):
+            return path_info.get("line", 1)
+    return 1
+
+
+def _parse_biome_entry(diag: Dict[str, Any]) -> Dict[str, Any]:
+    location = diag.get("location", {})
+    line_num = _extract_biome_line(location)
+    code = diag.get("category") or "biome"
+    msg = diag.get("description") or ""
+    sev = diag.get("severity") or "warning"
+    return {
+        "code": code,
+        "message": msg,
+        "severity": sev.upper(),
+        "line": line_num,
+        "column": 1,
+    }
+
+
+def _parse_biome_data(raw_stdout: str) -> List[Dict[str, Any]]:
+    if not raw_stdout.strip():
+        return []
+    data = json.loads(raw_stdout)
+    if not isinstance(data, dict):
+        return []
+    diagnostics = data.get("diagnostics", [])
+    return [_parse_biome_entry(diag) for diag in diagnostics if isinstance(diag, dict)]
 
 
 def run_biome_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
@@ -197,24 +267,9 @@ def run_biome_check(file_path: str, cwd: str = ".") -> List[Dict[str, Any]]:
             text=True,
             timeout=10,
         )
-        if not res.stdout.strip():
-            return []
-        data = json.loads(res.stdout)
-        diagnostics = data.get("diagnostics", []) if isinstance(data, dict) else []
-        
-        parsed: List[Dict[str, Any]] = []
-        for diag in diagnostics:
-            location = diag.get("location", {})
-            position = location.get("path", {}).get("line", 1) if isinstance(location.get("path"), dict) else 1
-            parsed.append({
-                "code": diag.get("category") or "biome",
-                "message": diag.get("description") or "",
-                "severity": (diag.get("severity") or "warning").upper(),
-                "line": position,
-                "column": 1,
-            })
-        return parsed
-    except (OSError, subprocess.SubprocessError, json.JSONDecodeError):
+        return _parse_biome_data(res.stdout)
+    except (OSError, subprocess.SubprocessError, json.JSONDecodeError) as e:
+        logger.debug("Biome execution failed on %s: %s", file_path, e)
         return []
 
 
@@ -244,7 +299,7 @@ def run_ruff_autofix(file_paths: List[str], project_root: str = ".") -> bool:
                     capture_output=True,
                     timeout=5,
                 )
-            except (OSError, subprocess.SubprocessError):
+            except (OSError, subprocess.SubprocessError) as e:
+                logger.debug("Ruff autofix failed on %s: %s", p, e)
                 success = False
     return success
-

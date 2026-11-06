@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "arch-sidecar"
-version = "0.1.0"
+version = "0.4.0"
 description = "Universal Architectural Sidecar & Context Decoupling Engine (MCP + CLI)"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -13,6 +13,7 @@ dependencies = []
 [project.scripts]
 arch-sidecar = "arch_sidecar.cli:main"
 prefactor = "arch_sidecar.cli:main"
+devrith = "arch_sidecar.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]

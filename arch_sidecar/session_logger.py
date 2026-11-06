@@ -19,8 +19,11 @@ import time
 import uuid
 import platform
 import subprocess
+import logging
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_GLOBAL_DIR = os.path.expanduser("~/.devrith")
@@ -75,8 +78,91 @@ def _get_git_info(repo_dir: str) -> Dict[str, Any]:
             "commit": commit,
             "dirty": is_dirty,
         }
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed extracting git info for %s: %s", repo_dir, e)
         return {}
+
+
+def _sanitize_preflight(preflight: Optional[Any]) -> Optional[Dict[str, Any]]:
+    """Normalize preflight results into a consistent summary dictionary."""
+    if not preflight:
+        return None
+    if isinstance(preflight, list):
+        total_err = sum(p.get("errors", 0) for p in preflight if isinstance(p, dict))
+        total_warn = sum(p.get("warnings", 0) for p in preflight if isinstance(p, dict))
+        return {
+            "files_checked": len(preflight),
+            "errors": total_err,
+            "warnings": total_warn,
+            "passed": total_err == 0,
+        }
+    if isinstance(preflight, dict):
+        err = preflight.get("errors", 0)
+        return {
+            "files_checked": 1,
+            "errors": err,
+            "warnings": preflight.get("warnings", 0),
+            "passed": err == 0,
+        }
+    return None
+
+
+def _sanitize_test_run(test_run: Optional[Any]) -> Optional[Dict[str, Any]]:
+    """Normalize test execution metrics into a summary dictionary."""
+    if not test_run or not isinstance(test_run, dict):
+        return None
+    passed = bool(test_run.get("passed", False))
+    return {
+        "command": test_run.get("command"),
+        "passed": passed,
+        "returncode": test_run.get("returncode", 0 if passed else 1),
+        "passed_count": test_run.get("passed_count", 0),
+        "failed_count": test_run.get("failed_count", 0),
+        "duration_ms": test_run.get("duration_ms"),
+    }
+
+
+def _sanitize_ledger(verification_ledger: Optional[Any]) -> Optional[Dict[str, Any]]:
+    """Normalize verification ledger status and residual risk lists."""
+    if not verification_ledger or not isinstance(verification_ledger, dict):
+        return None
+    stat = verification_ledger.get("statically_verified", []) or []
+    runt = verification_ledger.get("runtime_verified", []) or []
+    unver = verification_ledger.get("unverified_or_residual_risks", []) or []
+    return {
+        "statically_verified_count": len(stat),
+        "runtime_verified_count": len(runt),
+        "unverified_risks_count": len(unver),
+        "statically_verified": stat[:5],
+        "runtime_verified": runt[:5],
+        "unverified_risks": unver[:5],
+    }
+
+
+def _write_session_records(record: Dict[str, Any], root_abs: str) -> None:
+    """Persist session record to global and project-local JSONL logs."""
+    # 1. Write to global user storage (skip un-isolated pytest runs so unit tests don't pollute user telemetry)
+    is_unisolated_pytest = (
+        "PYTEST_CURRENT_TEST" in os.environ and "DEVRITH_SESSIONS_DIR" not in os.environ
+    )
+    if not is_unisolated_pytest:
+        target_global_dir = os.environ.get("DEVRITH_SESSIONS_DIR", DEFAULT_GLOBAL_DIR)
+        os.makedirs(target_global_dir, exist_ok=True)
+        global_file = os.path.join(target_global_dir, "sessions.jsonl")
+        with open(global_file, "a", encoding="utf-8") as f:
+            f.write(json.dumps(record) + "\n")
+
+    # 2. Write to project-local storage if accessible
+    if not os.path.isdir(root_abs):
+        return
+    try:
+        proj_devrith_dir = os.path.join(root_abs, ".devrith")
+        os.makedirs(proj_devrith_dir, exist_ok=True)
+        proj_file = os.path.join(proj_devrith_dir, "sessions.jsonl")
+        with open(proj_file, "a", encoding="utf-8") as pf:
+            pf.write(json.dumps(record) + "\n")
+    except OSError as e:
+        logger.debug("Failed writing project session to %s: %s", root_abs, e)
 
 
 def record_session(
@@ -109,53 +195,6 @@ def record_session(
         root_abs = os.path.abspath(project_root) if os.path.exists(project_root) else os.getcwd()
         project_name = os.path.basename(root_abs) if root_abs else "unknown"
 
-        # Sanitize preflight summary
-        preflight_summary = None
-        if preflight:
-            if isinstance(preflight, list):
-                total_err = sum(p.get("errors", 0) for p in preflight if isinstance(p, dict))
-                total_warn = sum(p.get("warnings", 0) for p in preflight if isinstance(p, dict))
-                preflight_summary = {
-                    "files_checked": len(preflight),
-                    "errors": total_err,
-                    "warnings": total_warn,
-                    "passed": total_err == 0,
-                }
-            elif isinstance(preflight, dict):
-                preflight_summary = {
-                    "files_checked": 1,
-                    "errors": preflight.get("errors", 0),
-                    "warnings": preflight.get("warnings", 0),
-                    "passed": preflight.get("errors", 0) == 0,
-                }
-
-        # Sanitize test run summary
-        test_summary = None
-        if test_run and isinstance(test_run, dict):
-            test_summary = {
-                "command": test_run.get("command"),
-                "passed": bool(test_run.get("passed", False)),
-                "returncode": test_run.get("returncode", 0 if test_run.get("passed") else 1),
-                "passed_count": test_run.get("passed_count", 0),
-                "failed_count": test_run.get("failed_count", 0),
-                "duration_ms": test_run.get("duration_ms"),
-            }
-
-        # Sanitize ledger summary
-        ledger_summary = None
-        if verification_ledger and isinstance(verification_ledger, dict):
-            stat = verification_ledger.get("statically_verified", []) or []
-            runt = verification_ledger.get("runtime_verified", []) or []
-            unver = verification_ledger.get("unverified_or_residual_risks", []) or []
-            ledger_summary = {
-                "statically_verified_count": len(stat),
-                "runtime_verified_count": len(runt),
-                "unverified_risks_count": len(unver),
-                "statically_verified": stat[:5],
-                "runtime_verified": runt[:5],
-                "unverified_risks": unver[:5],
-            }
-
         record = {
             "session_id": session_id,
             "timestamp": datetime.now(timezone.utc).isoformat(),
@@ -170,40 +209,103 @@ def record_session(
             "target_files": target_files or [],
             "target_symbols": target_symbols or [],
             "estimated_tokens": estimated_tokens,
-            "preflight": preflight_summary,
-            "test_run": test_summary,
-            "verification_ledger": ledger_summary,
+            "preflight": _sanitize_preflight(preflight),
+            "test_run": _sanitize_test_run(test_run),
+            "verification_ledger": _sanitize_ledger(verification_ledger),
             "error": str(error) if error else None,
             "caller": caller,
             "env": {
                 "python": platform.python_version(),
                 "os": platform.system().lower(),
-                "sidecar_version": "0.3.0",
+                "sidecar_version": "0.4.0",
             },
             "extra": extra or {},
         }
 
-        # 1. Write to global user storage
-        target_global_dir = os.environ.get("DEVRITH_SESSIONS_DIR", DEFAULT_GLOBAL_DIR)
-        os.makedirs(target_global_dir, exist_ok=True)
-        global_file = os.path.join(target_global_dir, "sessions.jsonl")
-        with open(global_file, "a", encoding="utf-8") as f:
-            f.write(json.dumps(record) + "\n")
-
-        # 2. Write to project-local storage if accessible
-        try:
-            if os.path.isdir(root_abs):
-                proj_devrith_dir = os.path.join(root_abs, ".devrith")
-                os.makedirs(proj_devrith_dir, exist_ok=True)
-                proj_file = os.path.join(proj_devrith_dir, "sessions.jsonl")
-                with open(proj_file, "a", encoding="utf-8") as pf:
-                    pf.write(json.dumps(record) + "\n")
-        except Exception:
-            pass
-
+        _write_session_records(record, root_abs)
         return session_id
-    except Exception:
+    except Exception as e:
+        logger.debug("Failed recording session: %s", e)
         return None
+
+
+def _is_synthetic_tmp_session(rec: Dict[str, Any]) -> bool:
+    """Return True if the session record originated from a temporary test/benchmark harness."""
+    root = str(rec.get("project_root") or "")
+    return (
+        root.startswith("/tmp/tmp")
+        or root.startswith("/tmp/pytest")
+        or root.startswith("/tmp/bench")
+    )
+
+
+def _parse_session_line(line: str) -> Optional[Dict[str, Any]]:
+    """Parse a single JSONL session line safely."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        rec = json.loads(line)
+        if isinstance(rec, dict) and rec.get("session_id"):
+            return rec
+    except (ValueError, TypeError) as e:
+        logger.debug("Failed parsing session line: %s", e)
+    return None
+
+
+def _read_records_from_file(fpath: str) -> Dict[str, Dict[str, Any]]:
+    """Read session records from a jsonl file."""
+    records: Dict[str, Dict[str, Any]] = {}
+    if not os.path.exists(fpath):
+        return records
+    try:
+        with open(fpath, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+    except OSError as e:
+        logger.debug("Failed reading sessions from %s: %s", fpath, e)
+        return records
+
+    for line in lines:
+        rec = _parse_session_line(line)
+        if rec:
+            records[rec["session_id"]] = rec
+    return records
+
+
+def _get_session_file_paths(project_root: Optional[str] = None) -> List[str]:
+    """Collect candidate session file paths to inspect."""
+    files_to_check: List[str] = []
+    if project_root:
+        proj_abs = os.path.abspath(project_root)
+        proj_file = os.path.join(proj_abs, ".devrith", "sessions.jsonl")
+        if os.path.exists(proj_file):
+            files_to_check.append(proj_file)
+
+    target_global_dir = os.environ.get("DEVRITH_SESSIONS_DIR", DEFAULT_GLOBAL_DIR)
+    global_file = os.path.join(target_global_dir, "sessions.jsonl")
+    if os.path.exists(global_file):
+        files_to_check.append(global_file)
+    return files_to_check
+
+
+def _filter_sessions(
+    records: List[Dict[str, Any]],
+    project_root: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Filter records by synthetic tmp status and project root."""
+    if "DEVRITH_SESSIONS_DIR" not in os.environ and not (
+        project_root and os.path.abspath(project_root).startswith("/tmp/")
+    ):
+        records = [r for r in records if not _is_synthetic_tmp_session(r)]
+
+    if project_root:
+        norm_proj = os.path.abspath(project_root)
+        proj_base = os.path.basename(norm_proj)
+        records = [
+            r for r in records
+            if r.get("project_root") == norm_proj or r.get("project_name") == proj_base
+        ]
+    return records
 
 
 def load_sessions(
@@ -216,50 +318,15 @@ def load_sessions(
     Returns newest sessions first.
     """
     records_by_id: Dict[str, Dict[str, Any]] = {}
-    files_to_check: List[str] = []
+    for fpath in _get_session_file_paths(project_root):
+        records_by_id.update(_read_records_from_file(fpath))
 
-    # Check project-specific first if provided
-    if project_root:
-        proj_abs = os.path.abspath(project_root)
-        proj_file = os.path.join(proj_abs, ".devrith", "sessions.jsonl")
-        if os.path.exists(proj_file):
-            files_to_check.append(proj_file)
-
-    # Check global file
-    target_global_dir = os.environ.get("DEVRITH_SESSIONS_DIR", DEFAULT_GLOBAL_DIR)
-    global_file = os.path.join(target_global_dir, "sessions.jsonl")
-    if os.path.exists(global_file):
-        files_to_check.append(global_file)
-
-    for fpath in files_to_check:
-        try:
-            with open(fpath, "r", encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        rec = json.loads(line)
-                        sid = rec.get("session_id")
-                        if sid:
-                            records_by_id[sid] = rec
-                    except Exception:
-                        continue
-        except Exception:
-            continue
-
-    records = list(records_by_id.values())
-
-    # Filter by project if requested and reading from global
-    if project_root:
-        norm_proj = os.path.abspath(project_root)
-        records = [
-            r for r in records
-            if r.get("project_root") == norm_proj or r.get("project_name") == os.path.basename(norm_proj)
-        ]
-
-    # Sort descending by timestamp
+    records = _filter_sessions(list(records_by_id.values()), project_root)
     records.sort(key=lambda r: r.get("timestamp", ""), reverse=True)
+
+    if limit and limit > 0:
+        return records[:limit]
+    return records
 
     if limit and limit > 0:
         records = records[:limit]
@@ -455,27 +522,29 @@ def format_session_report_terminal(summary: Dict[str, Any]) -> str:
     return "\n".join(out)
 
 
+def _clear_single_file(fpath: str) -> int:
+    """Safely count and delete a single session log file."""
+    if not os.path.exists(fpath):
+        return 0
+    try:
+        with open(fpath, "r", encoding="utf-8") as f:
+            count = sum(1 for _ in f)
+        os.remove(fpath)
+        return count
+    except Exception as e:
+        logger.debug("Failed to clear session file %s: %s", fpath, e)
+        return 0
+
+
 def clear_sessions(project_root: Optional[str] = None) -> int:
     """Clear session log file(s). Returns number of sessions deleted."""
     total_cleared = 0
     if project_root:
         proj_file = os.path.join(os.path.abspath(project_root), ".devrith", "sessions.jsonl")
-        if os.path.exists(proj_file):
-            try:
-                count = sum(1 for _ in open(proj_file, "r", encoding="utf-8"))
-                os.remove(proj_file)
-                total_cleared += count
-            except Exception:
-                pass
+        total_cleared += _clear_single_file(proj_file)
 
     target_global_dir = os.environ.get("DEVRITH_SESSIONS_DIR", DEFAULT_GLOBAL_DIR)
     global_file = os.path.join(target_global_dir, "sessions.jsonl")
-    if os.path.exists(global_file):
-        try:
-            count = sum(1 for _ in open(global_file, "r", encoding="utf-8"))
-            os.remove(global_file)
-            total_cleared += count
-        except Exception:
-            pass
+    total_cleared += _clear_single_file(global_file)
 
     return total_cleared

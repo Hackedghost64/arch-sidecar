@@ -208,3 +208,56 @@ def test_short_symbol_names_do_not_match_substrings_and_single_file_uncertainty(
     finally:
         os.remove(tpath)
 
+
+def test_semantic_docstring_and_rare_term_ranking():
+    """Rare task domain terms in docstring/code rank preflight guard symbols correctly."""
+    res = plan_adaptive_retrieval("prevent hallucinated variable names before running tests", ".")
+    assert "check_code_health" in res["selected_symbols"] or "ScopeAnalyzer" in res["selected_symbols"]
+    guard_decisions = [
+        d for d in res["ranking"]
+        if d["file"] == "arch_sidecar/guard.py" and d["name"] in ("check_code_health", "ScopeAnalyzer")
+    ]
+    assert len(guard_decisions) > 0
+    assert guard_decisions[0]["score"] >= 35
+    assert "semantic/docstring matches" in guard_decisions[0]["reason"]
+
+
+def test_polyglot_typescript_and_dart_planning(tmp_path):
+    """plan_adaptive_retrieval indexes, scores, and ranks TypeScript and Dart symbols in a polyglot project."""
+    ts_code = '''
+export interface UserSession {
+    token: string;
+}
+
+export class AuthService {
+    login(username: string): UserSession {
+        return { token: "secret" };
+    }
+}
+'''
+    dart_code = '''
+class AuthTokenStorage {
+    void saveToken(String token) {}
+}
+'''
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "auth_service.ts").write_text(ts_code.strip(), encoding="utf-8")
+
+    lib_dir = tmp_path / "lib"
+    lib_dir.mkdir()
+    (lib_dir / "token_storage.dart").write_text(dart_code.strip(), encoding="utf-8")
+
+    res = plan_adaptive_retrieval(
+        task="Refactor AuthService and AuthTokenStorage in auth_service.ts and token_storage.dart",
+        root_dir=str(tmp_path),
+    )
+
+    symbols = res["selected_symbols"]
+    assert "AuthService" in symbols or any("AuthService" in s for s in symbols)
+    assert "AuthTokenStorage" in symbols or any("AuthTokenStorage" in s for s in symbols)
+
+    ranked_files = {c["file"] for c in res["ranking"]}
+    assert any("auth_service.ts" in f for f in ranked_files)
+    assert any("token_storage.dart" in f for f in ranked_files)
+

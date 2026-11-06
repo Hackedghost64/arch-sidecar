@@ -28,7 +28,7 @@ from .session_logger import (
 )
 
 SERVER_NAME = "arch-sidecar"
-SERVER_VERSION = "0.3.0"
+SERVER_VERSION = "0.4.0"
 PROTOCOL_VERSION = "2024-11-05"
 
 TOOLS = [

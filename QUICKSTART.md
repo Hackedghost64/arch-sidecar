@@ -5,30 +5,72 @@ Devrith (`arch-sidecar`) acts as an architectural co-processor for AI coding age
 
 ---
 
-## 1. Installation
+## 1. Installation & Updates
 
-### From Source (Current Beta)
+Devrith can be installed via an automated zero-friction shell installer, modern Python package managers, or directly from source.
+
+### A. One-Liner Install / Update (Linux / macOS / WSL)
+Installs or updates both `arch-sidecar` and its short alias `devrith` into `~/.local/bin` using an isolated environment (`uv` or standard Python `venv`):
 ```bash
-git clone https://github.com/divyamm/arch-sidecar.git
+curl -fsSL https://raw.githubusercontent.com/Hackedghost64/arch-sidecar/main/install.sh | bash
+```
+
+### B. Install a Specific Release Tag (e.g., `v0.4.0`)
+```bash
+DEVRITH_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/Hackedghost64/arch-sidecar/main/install.sh | bash
+```
+
+### C. Via `uv`, `pipx`, or `pip`
+```bash
+# Recommended for uv users
+uv tool install git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+
+# Or via pipx
+pipx install git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+
+# Or via standard pip
+pip install --upgrade git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+```
+
+### D. Self-Update Anytime from the CLI
+Once installed, Devrith can update itself directly:
+```bash
+# Check if an update is available without touching your installation
+arch-sidecar update --check   # or: devrith update --check
+
+# Self-update to the latest release
+arch-sidecar update           # or: devrith update
+```
+
+### E. From Source (Development Mode)
+```bash
+git clone https://github.com/Hackedghost64/arch-sidecar.git
 cd arch-sidecar
 pip install -e .
 ```
 
-Verify the installation:
+### Verify the Installation
 ```bash
 arch-sidecar --version
-# arch-sidecar 0.3.0 (Devrith Engine)
+# arch-sidecar 0.4.0 (Devrith Engine)
+
+# Or via the short alias:
+devrith --version
+# arch-sidecar 0.4.0 (Devrith Engine)
 ```
+> [!NOTE]
+> `devrith` and `arch-sidecar` are symlinked aliases to the exact same CLI binary and MCP engine.
 
 ---
 
 ## 2. Connect to Your AI Coding Agent
 
-Devrith exposes a native Model Context Protocol (MCP) server so your agent can automatically call architectural tools.
+Devrith exposes a native Model Context Protocol (MCP) server so your agent can automatically call architectural tools. Either `arch-sidecar serve` or `devrith serve` can be used interchangeably.
 
 ### Claude Code CLI
 ```bash
 claude mcp add devrith arch-sidecar serve
+# or: claude mcp add devrith devrith serve
 ```
 
 ### Cursor (`~/.cursor/mcp.json` or `.cursor/mcp.json`)
@@ -52,27 +94,36 @@ agy mcp add devrith arch-sidecar serve
 
 ## 3. The 3 Primary Workflows
 
-### A. Implementing Features (`feature_workflow`)
+### A. Implementing Features (`feature_workflow` / `arch-sidecar feature`)
 Instead of having an agent wander through 10+ files with `view_file` and `grep`:
 
 ```bash
-# 1. Orientation: Returns targeted 1-indexed source & companion test context in <300ms
+# 1. Orientation: Returns targeted 1-indexed source & companion test context in <300ms across 6 languages
 arch-sidecar feature "Add write_table method to HelpFormatter in formatting.py" /path/to/repo
 
-# 2. Verification: Runs AST scope/import preflight and targeted pytest suite
+# 2. Verification: Runs AST scope/import preflight and targeted test suite
 arch-sidecar feature "Add write_table method to HelpFormatter in formatting.py" /path/to/repo --verify
 ```
+*Features:*
+- **Polyglot Adaptive Retrieval:** First-class surgical context across Python, TypeScript/JS, Go, Rust, Dart/Flutter, and Kotlin/Java.
+- **Rare-Term IDF Scoring:** Prioritizes unique domain identifiers with up to `+45` relevance boost while down-weighting generic CRUD verbs (`get`, `set`, `handle`).
+- **Cross-Boundary Linking:** Automatically connects backend API endpoints and frontend/mobile files that share HTTP routes or environment variables.
 
-### B. Safe Refactoring & Symbol Extraction (`workflow`)
+### B. Safe Refactoring & Multi-Symbol Extraction (`workflow` / `decouple`)
 Deterministic AST symbol relocation with transactional rollback on test failure:
 
 ```bash
+# Move one or more symbols atomically across files
 arch-sidecar workflow "Extract HelpFormatter out of formatting.py into _formatter.py" /path/to/repo \
   --from src/click/formatting.py \
   --to src/click/_formatter.py \
   --symbols HelpFormatter,measure_table \
   --test "pytest tests/test_formatting.py"
 ```
+*Features:*
+- **Atomic Multi-Symbol Extraction:** Relocate multiple symbols (`HelpFormatter,measure_table` or `["fn1", "fn2"]`) in one clean transaction.
+- **Hazard Tracking:** Detects `local_dependencies_referenced` (remaining private helpers in the source file) before extraction.
+- **Transactional Rollback:** If test gates or preflight checks fail, all modified files are restored to their exact pristine state.
 
 ### C. Architectural Impact & Hazard Detection (`plan` / `decouple`)
 Detect circular import hazards, dynamic reflection sites (`getattr`, `eval`), and caller blast radius before editing:
@@ -125,13 +176,15 @@ The agent will query the local session store and render the live telemetry dashb
 
 ## 6. Language Capabilities Scope
 
-To maintain complete transparency:
-- **Full Capabilities (Tier 1 — Full Support):** Currently **Python (`.py`)** is the primary language with full end-to-end capabilities:
-  - 1-indexed targeted context & companion test fast-paths (`feature_workflow`).
-  - Deterministic AST symbol decoupling without burning LLM tokens (`workflow`).
-  - Free Variable mathematical analysis ($FV = \text{Loaded} \setminus \text{Bound}$).
-  - Circular import cycle detection and prevention.
-  - Sub-15ms lexical scope and hallucinated identifier preflight checks (`check`).
-  - Transactional rollback on test failure.
-- **Architectural Orientation (Tier 2 — Skeleton & Digest):** **TypeScript, JavaScript, Kotlin, Java, C, C++, Go, Rust, and Dart** have full Architectural Digest support (`arch-sidecar digest` / `get_architecture_digest`), providing sub-100ms structural signature outlines while aggressively pruning `node_modules/`, `build/`, `dist/`, `CMakeFiles/`, `.gradle/`, and minified files.
+Devrith provides transparent, evidence-backed capabilities across modern languages:
+
+- **Tier 1 (First-Class Polyglot Support):**
+  - **Python (`.py`):** 1-indexed targeted context, AST free-variable ($FV$) analysis, circular import defense, AST codemods, scope preflight, and transactional rollback.
+  - **TypeScript & JavaScript (`.ts`, `.tsx`, `.js`, `.jsx`):** In-process AST parsing, surgical context extraction, route/environment linking, multi-symbol decoupling, import cycle analysis, and lexical preflight.
+  - **Go (`.go`):** AST parsing, surgical function/struct context, route/env linking, import cycle checks, and multi-symbol relocation.
+  - **Rust (`.rs`):** In-process syntax analysis, attribute & item extraction, route/env linking, and multi-symbol relocation.
+  - **Dart & Flutter (`.dart`):** Surgical context, nearest `pubspec.yaml` discovery, companion test path mapping, and multi-symbol relocation.
+  - **Kotlin & Java (`.kt`, `.kts`, `.java`):** AST parsing, surgical class/method context, route/env linking, and multi-symbol relocation.
+- **Tier 2 (Architectural Orientation & Digest):**
+  - **C & C++ (`.c`, `.h`, `.cpp`, `.hpp`):** Architectural Digest (`arch-sidecar digest` / `get_architecture_digest`), providing sub-100ms structural signature outlines while pruning `CMakeFiles/`, `.o`, `.a`, and build artifacts.
 

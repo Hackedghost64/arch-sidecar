@@ -214,3 +214,49 @@ func TestHTTPServer(t *testing.T) {
         assert "server_test.go" in res["impact_map"]["related_tests"]
         assert "go test" in res["impact_map"]["inferred_test_command"]
 
+
+def test_feature_workflow_cross_boundary_routes_and_env(tmp_path):
+    server_code = """import os
+
+@app.post("/v1/checkin")
+def checkin():
+    secret = os.environ.get("CHECKIN_SECRET")
+    return {"status": "ok", "secret": secret}
+"""
+    client_code = """async function checkinClient() {
+    const secret = process.env.CHECKIN_SECRET;
+    const response = await fetch("/v1/checkin", {
+        headers: { "Authorization": secret }
+    });
+    return response.json();
+}
+"""
+    server_file = tmp_path / "server.py"
+    client_file = tmp_path / "client.ts"
+    server_file.write_text(server_code, encoding="utf-8")
+    client_file.write_text(client_code, encoding="utf-8")
+
+    res = run_feature_workflow("update checkin endpoint", project_root=str(tmp_path))
+
+    assert res["success"] is True
+    assert res["primary_file"] == "server.py"
+    impact = res["impact_map"]
+    assert "cross_boundary_links" in impact
+    cb_links = impact["cross_boundary_links"]
+    assert len(cb_links) >= 2
+
+    route_links = [l for l in cb_links if l["kind"] == "route" and l["token"] == "/v1/checkin"]
+    assert len(route_links) >= 1
+    assert route_links[0]["file"] == "client.ts"
+    assert "/v1/checkin" in route_links[0]["snippet"]
+
+    env_links = [l for l in cb_links if l["kind"] == "env_var" and l["token"] == "CHECKIN_SECRET"]
+    assert len(env_links) >= 1
+    assert env_links[0]["file"] == "client.ts"
+    assert "CHECKIN_SECRET" in env_links[0]["snippet"]
+
+    assert "- **Cross-Boundary Links (Routes / Env):**" in res["context"]
+    assert "/v1/checkin" in res["context"]
+    assert "CHECKIN_SECRET" in res["context"]
+
+

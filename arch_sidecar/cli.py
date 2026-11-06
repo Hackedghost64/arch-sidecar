@@ -2,7 +2,11 @@ import argparse
 import json
 import sys
 import os
+import re
+import subprocess
+from typing import Tuple, List, Dict, Any, Optional
 
+from . import __version__
 from .digest import generate_digest
 from .quality import audit_file, audit_repository, QualityReport
 from .git_ops import (
@@ -36,6 +40,175 @@ from .session_logger import (
     clear_sessions,
 )
 
+
+def parse_semver(tag: str) -> Tuple[int, ...]:
+    """Parse a git tag or version string into a comparable numeric tuple."""
+    nums = re.findall(r"\d+", tag)
+    return tuple(int(x) for x in nums)
+
+
+def _clean_tag_ref(line: str) -> Optional[str]:
+    """Extract tag name from git ls-remote ref line."""
+    if not line or "refs/tags/" not in line:
+        return None
+    ref = line.split("refs/tags/")[-1].strip()
+    return ref[:-3] if ref.endswith("^{}") else ref
+
+
+def parse_git_tags(git_output: str) -> List[str]:
+    """Extract and sort git tags from git ls-remote output in ascending semver order."""
+    tags = []
+    for line in git_output.splitlines():
+        tag = _clean_tag_ref(line.strip())
+        if tag and tag not in tags:
+            tags.append(tag)
+    tags.sort(key=parse_semver)
+    return tags
+
+
+def fetch_remote_tags(
+    repo_url: str = "https://github.com/Hackedghost64/arch-sidecar.git",
+    timeout: int = 10,
+) -> List[str]:
+    """Query remote repository tags via git ls-remote."""
+    cmd = ["git", "ls-remote", "--tags", "--refs", repo_url]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        if proc.returncode == 0 and proc.stdout:
+            return parse_git_tags(proc.stdout)
+    except (subprocess.SubprocessError, OSError):
+        return []
+    return []
+
+
+def get_update_status(
+    repo_url: str = "https://github.com/Hackedghost64/arch-sidecar.git",
+) -> Dict[str, Any]:
+    """Compare installed __version__ with remote git tags."""
+    tags = fetch_remote_tags(repo_url)
+    latest_tag = tags[-1] if tags else None
+    latest_ver = latest_tag.lstrip("v") if latest_tag else __version__
+    has_update = parse_semver(latest_ver) > parse_semver(__version__)
+    return {
+        "current_version": __version__,
+        "latest_version": latest_ver,
+        "latest_tag": latest_tag,
+        "update_available": has_update,
+        "remote_reachable": latest_tag is not None,
+    }
+
+
+def find_local_repo_root() -> Optional[str]:
+    """Find root directory if arch-sidecar is executing within its source git repository."""
+    pkg_dir = os.path.dirname(os.path.abspath(__file__))
+    candidate = os.path.dirname(pkg_dir)
+    return candidate if os.path.isdir(os.path.join(candidate, ".git")) else None
+
+
+def install_via_local_git(repo_root: str) -> Tuple[bool, str]:
+    """Update local working copy via fast-forward git pull and editable pip install."""
+    pull = subprocess.run(
+        ["git", "pull", "--ff-only"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+    if pull.returncode != 0:
+        err = pull.stderr.strip() or pull.stdout.strip()
+        return False, f"git pull failed: {err}"
+    reinstall = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-e", ".", "--no-build-isolation"],
+        cwd=repo_root,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    if reinstall.returncode != 0:
+        return False, f"editable install failed: {reinstall.stderr.strip()}"
+    return True, "Successfully updated via local git pull and editable install."
+
+
+def install_via_pip(target_url: str) -> Tuple[bool, str]:
+    """Install or upgrade package directly from git URL via pip."""
+    proc = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "--upgrade", target_url],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    if proc.returncode != 0:
+        err = proc.stderr.strip() or proc.stdout.strip()
+        return False, f"pip install failed: {err}"
+    return True, f"Successfully installed {target_url}."
+
+
+def _print_update_status(status: Dict[str, Any]) -> None:
+    """Format update check results for terminal display."""
+    print("\n🔍 [Devrith Self-Update Check]")
+    print(f"  Current Version:  {status['current_version']}")
+    print(f"  Latest Version:   {status['latest_version']}")
+    if status["update_available"]:
+        print("  Update Available: Yes 🚀 (Run 'arch-sidecar update' or 'devrith update' to upgrade)")
+    elif not status.get("remote_reachable"):
+        print("  Update Available: Unknown (Offline / GitHub unreachable)")
+    else:
+        print("  Update Available: No (Already on latest version)")
+
+
+def _report_update_result(
+    success: bool,
+    message: str,
+    current_ver: str,
+    target_ver: str,
+    as_json: bool,
+) -> Dict[str, Any]:
+    """Output installation result and format return payload."""
+    payload = {
+        "success": success,
+        "current_version": current_ver,
+        "target_version": target_ver,
+        "message": message,
+    }
+    if as_json:
+        print(json.dumps(payload, indent=2))
+    elif success:
+        print(f"\n✅ [Devrith Self-Update] {message}")
+    else:
+        print(f"\n❌ [Devrith Self-Update] {message}", file=sys.stderr)
+    return payload
+
+
+def run_self_update(
+    check_only: bool = False,
+    tag: Optional[str] = None,
+    as_json: bool = False,
+) -> Dict[str, Any]:
+    """
+    Self-update arch-sidecar (Devrith) to the latest release from GitHub.
+    """
+    status = get_update_status()
+    if check_only:
+        if as_json:
+            print(json.dumps(status, indent=2))
+        else:
+            _print_update_status(status)
+        return status
+
+    base_repo = "https://github.com/Hackedghost64/arch-sidecar.git"
+    target_url = f"git+{base_repo}@{tag}" if tag else f"git+{base_repo}"
+    local_root = find_local_repo_root()
+
+    if local_root and not tag:
+        ok, msg = install_via_local_git(local_root)
+        if ok:
+            return _report_update_result(True, msg, status["current_version"], status["latest_version"], as_json)
+
+    ok, msg = install_via_pip(target_url)
+    target_ver = tag if tag else status["latest_version"]
+    return _report_update_result(ok, msg, status["current_version"], target_ver, as_json)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="arch-sidecar",
@@ -44,7 +217,7 @@ def main():
     parser.add_argument(
         "--version", "-v",
         action="version",
-        version="arch-sidecar 0.3.0 (Devrith Engine)",
+        version=f"arch-sidecar {__version__} (Devrith Engine)",
         help="Show version and exit"
     )
     subparsers = parser.add_subparsers(dest="command", help="Subcommand to execute")
@@ -188,6 +361,28 @@ def main():
     report_parser.add_argument("--export", "-o", help="Save the Markdown report to a file on disk (e.g. REAL_WORLD_REPORT.md)")
     report_parser.add_argument("--limit", "-l", type=int, default=20, help="Maximum number of recent sessions to include (default: 20)")
     report_parser.add_argument("--clear", action="store_true", help="Clear local session logs")
+
+    # Command: update (Self-Update arch-sidecar / Devrith)
+    p_update = subparsers.add_parser(
+        "update",
+        help="Self-update arch-sidecar (Devrith) to the latest release from GitHub",
+    )
+    p_update.add_argument(
+        "--check",
+        action="store_true",
+        help="Only check for latest version on GitHub without installing",
+    )
+    p_update.add_argument(
+        "--tag",
+        type=str,
+        default=None,
+        help="Install a specific git tag or branch (e.g., v0.4.0, main)",
+    )
+    p_update.add_argument(
+        "--json",
+        action="store_true",
+        help="Output update status as JSON",
+    )
 
     args = parser.parse_args()
 
@@ -589,6 +784,11 @@ def main():
             print(f"✅ Real-world test report exported to {args.export} ({summary.get('total_sessions')} sessions)")
         else:
             print(format_session_report_terminal(summary))
+
+    elif args.command == "update":
+        res = run_self_update(check_only=args.check, tag=args.tag, as_json=args.json)
+        if not args.check and not res.get("success", True):
+            sys.exit(1)
 
     else:
         if len(sys.argv) > 1 and not sys.argv[1].startswith("-"):

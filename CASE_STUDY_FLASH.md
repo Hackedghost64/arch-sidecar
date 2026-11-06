@@ -101,3 +101,67 @@ In modern agentic coding loops, an agent executes tens of sequential tool calls.
    For straightforward edits or read-only surveys, adding a separate CLI tool introduces discovery steps (`--help`, CLI invocations) that add tokens without a proportional speedup.
 3. **The Recommended Integration Mode:**
    Rather than asking an LLM to discover CLI commands via bash, `arch-sidecar` should be exposed as an **MCP server** inside the agent's native system prompt. This eliminates the 4–6 turns agents spent checking `--help` flags.
+
+---
+
+## 4. Real-World Polyglot A/B Benchmark (v0.4.0 — 37,005 LOC Polyglot Repositories)
+
+**Evaluator Model:** Google Gemini 3.8 Flash (`flash`)  
+**Methodology:** Head-to-head A/B evaluation across two independent polyglot codebases totaling **37,005 LOC and 162 files**. Subagents were dispatched in isolated workspaces with identical task descriptions: Arm A received the Devrith architectural co-processor (`arch-sidecar feature`), while Arm B operated as a vanilla baseline agent relying on standard shell commands and file inspection tools.
+
+### Combined Proof Summary
+
+| Metric | Arm B (WITHOUT Devrith) | Arm A (WITH Devrith v0.4.0) | Delta / Efficiency Gain |
+|---|---|---|---|
+| **Total Tool Calls** | 60 tool calls | **18 tool calls** | **-70.0% (-42 calls / 3.33x reduction)** |
+| **Wall-Clock Latency** | 10m 32s (632s) | **6m 19s (379s)** | **-40.0% (-253s faster)** |
+| **Manual Exploratory Reads** | 28 file reads + 32 bash exploratory commands | **0 file reads** | **100% elimination of exploratory reading** |
+| **Feature Context Retrieval Latency** | N/A (iterative exploration) | **< 600 ms** (593ms & 264.56ms) | Instantaneous 1-indexed target context |
+| **Task Completion & Test Pass Rate** | 100% | **100%** | Zero regressions |
+
+---
+
+### Detailed Test Audits & Verifiable Transcript Trail
+
+#### Test 1: `anime-cli` (20,704 LOC, 89 files — Python, TypeScript/JS, Kotlin)
+- **Task:** Implement cross-boundary watchlist count aggregation and CLI command integration.
+- **Arm A (WITH Devrith, Transcript `230749ca-392c-4e34-a273-734801815bed`):**
+  - **Tool Calls:** 7 calls
+  - **Exploratory `read_file` Calls:** 0
+  - **Timestamps:** 05:10:02Z → 05:13:53Z (3m 51s)
+  - **Devrith Preflight & Context Runtime:** `arch-sidecar feature` executed in **593ms**
+  - **Action Flow:** Single `arch-sidecar feature` call returned the 1-indexed target function, cross-file caller references, and companion test suite. Agent executed direct edits and verification immediately.
+- **Arm B (WITHOUT Devrith, Transcript `75ae3553-13c7-4fd2-b5de-031a5003e598`):**
+  - **Tool Calls:** 34 calls
+  - **Timestamps:** 05:10:07Z → 05:16:01Z (5m 54s)
+  - **Action Flow:** Agent required extensive recursive `find`, `grep`, and repetitive file reads across 89 files before identifying symbol locations and test dependencies.
+
+#### Test 2: `movie-app` (16,301 LOC, 73 files — Python, Dart/Flutter, Kotlin, Java)
+- **Task:** Cross-layer route and state integration between backend API endpoints and mobile client state.
+- **Arm A (WITH Devrith, Transcript `e0307448-68aa-4eaf-bc71-5dced1911b1c`):**
+  - **Tool Calls:** 11 calls
+  - **Exploratory `read_file` Calls:** 0
+  - **Timestamps:** 05:10:09Z → 05:12:37Z (2m 28s)
+  - **Devrith Preflight & Context Runtime:** `arch-sidecar feature` executed in **264.56ms**
+  - **Action Flow:** Polyglot route & environment linking automatically bridged the backend endpoint and the corresponding Flutter Dart client and test paths. Zero exploratory reads required.
+- **Arm B (WITHOUT Devrith, Transcript `e34df53c-5c0b-402f-9e48-216328fc6bb1`):**
+  - **Tool Calls:** 26 calls (21 `run_command`, 4 `read_file`, 1 `manage_task`)
+  - **Timestamps:** 05:16:25Z → 05:21:03Z (4m 38s)
+  - **Action Flow:** Iterative manual searching across directories, manual grep through Flutter UI widgets, and trial-and-error debugging.
+
+---
+
+### Reproducible CLI Verification Commands
+
+To reproduce the v0.4.0 feature workflow benchmarks on any polyglot repository:
+
+```bash
+# 1. Benchmark adaptive polyglot retrieval on anime-cli (Python, TS, Kotlin)
+arch-sidecar feature "Add watchlist aggregation command" /path/to/anime-cli
+
+# 2. Benchmark cross-boundary route & env linking on movie-app (Python, Dart/Flutter, Java)
+arch-sidecar feature "Connect /v1/movies/top route to mobile feed" /path/to/movie-app
+
+# 3. Verify AST preflight, scope, and test execution in <300ms
+arch-sidecar feature "Connect /v1/movies/top route to mobile feed" /path/to/movie-app --verify
+```

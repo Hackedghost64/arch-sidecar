@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-brightgreen.svg)](https://www.python.org/)
 [![Model Context Protocol](https://img.shields.io/badge/MCP-Compatible-purple.svg)](https://modelcontextprotocol.io)
-[![Tests Passing](https://img.shields.io/badge/tests-72%20passed-success.svg)](tests/)
+[![Tests Passing](https://img.shields.io/badge/tests-119%20passed-success.svg)](tests/)
 [![Empirical Case Study](https://img.shields.io/badge/Case%20Study-Documented-orange.svg)](CASE_STUDY.md)
 
 > `arch-sidecar` (Devrith Engine) provides **architecture-aware context retrieval**, **feature implementation planning**, **deterministic AST refactoring**, and **static scope/import preflight verification** for AI coding agents.
@@ -12,8 +12,66 @@
 > ⚡ **Quickstart Guide:** [5-Minute Onboarding & MCP Setup](QUICKSTART.md)  
 > 📖 **Read the empirical benchmarks (wins, losses, & boundaries):** [CASE_STUDY.md](CASE_STUDY.md) · [CASE_STUDY_FLASH.md](CASE_STUDY_FLASH.md) · [BENCHMARK_REPORT](benchmark/FINDINGS.md)
 
+---
+
+## ⚡ Quick Install & Update
+
+Install `arch-sidecar` (and its alias `devrith`) in seconds with zero friction:
+
+### One-Liner Install / Update (Linux / macOS / WSL)
+Installs or upgrades `arch-sidecar` and `devrith` directly into `~/.local/bin` using isolated virtual environments (`uv` or standard Python `venv`):
+```bash
+curl -fsSL https://raw.githubusercontent.com/Hackedghost64/arch-sidecar/main/install.sh | bash
+```
+
+### Install a Specific Release Tag (e.g., `v0.4.0`)
+```bash
+DEVRITH_REF=v0.4.0 curl -fsSL https://raw.githubusercontent.com/Hackedghost64/arch-sidecar/main/install.sh | bash
+```
+
+### Via `uv`, `pipx`, or `pip`
+```bash
+uv tool install git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+# or
+pipx install git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+# or
+pip install --upgrade git+https://github.com/Hackedghost64/arch-sidecar.git@v0.4.0
+```
+
+### Self-Update Anytime from CLI
+```bash
+arch-sidecar update          # or: devrith update
+arch-sidecar update --check  # check if a newer release tag is available
+```
+
+> [!TIP]
+> Both `arch-sidecar` and `devrith` are installed as identical entry points. Use whichever you prefer in your terminal, shell scripts, or agent configurations.
+
+---
+
+## 🚀 What's New in v0.4.0
+
+The `v0.4.0` release expands Devrith into a full-spectrum **6-language polyglot architectural co-processor**, drastically reducing agent context consumption and trial-and-error exploration across modern full-stack, mobile, and systems repositories.
+
+- **6-Language Polyglot Adaptive Retrieval (`planner.py` & `context.py`):** First-class surgical context and symbol-level docstring indexing across **Python**, **TypeScript/JavaScript** (`.ts`, `.tsx`, `.js`, `.jsx`), **Go** (`.go`), **Rust** (`.rs`), **Dart/Flutter** (`.dart`, `pubspec.yaml`), and **Kotlin/Java** (`.kt`, `.kts`, `.java`). Operates via lightweight in-process AST parsers with **zero external binaries or background daemon processes**.
+- **Rare-Term IDF Scoring:** Intelligent term weighting down-weights generic, ubiquitous CRUD verbs (`get`, `set`, `handle`, `process`, `fetch`, `execute`) and boosts domain-specific, rare identifiers up to **`+45`**, preventing search dilution and pinpointing exact target files and symbols.
+- **Cross-Boundary Route & Environment Linking (`feature_workflow.py`):** Automatically bridges backend endpoints and frontend/mobile client files that share HTTP routes (e.g. `/v1/...`, `/api/...`) or environment variables (`os.environ`, `process.env`, `Platform.environment`). Modifying an API route automatically pulls in the corresponding frontend consumer for cross-layer consistency.
+- **Atomic Multi-Symbol Polyglot Decoupling (`polyglot_decouple.py`):** Extract multiple symbols atomically (`["fn1", "fn2"]` or comma-separated) across supported languages in a single transaction with automatic import migration, re-export shims, and `local_dependencies_referenced` hazard tracking. Includes full transactional rollback if tests fail.
+- **Real-World Polyglot A/B Benchmark (37,005 LOC across `anime-cli` & `movie-app`):**
+  - **70.0% reduction in agent tool calls** (**18 vs. 60** calls)
+  - **40.0% faster wall-clock completion** (**6m 19s vs. 10m 32s**)
+  - **0 manual exploratory file reads** (down from 28 exploratory reads in the control arm)
+
+---
+
 > [!IMPORTANT]
-> **Key Empirical Results from Pre-Registered Multi-Repo Benchmarks (`Werkzeug`, `Flask`, `Click`, `Requests`):**
+> **Key Empirical Results from Pre-Registered Multi-Repo Benchmarks:**
+> - **Polyglot A/B Benchmark (37,005 LOC across `anime-cli` & `movie-app`):**
+>   - **70.0% reduction in agent tool calls** (**18 vs. 60** calls; 3.33x efficiency gain).
+>   - **40.0% faster wall-clock completion** (**6m 19s vs. 10m 32s**).
+>   - **0 manual exploratory file reads** (down from 28 exploratory reads in the control arm).
+>   - *Task 1 (`anime-cli`, 20,704 LOC, 89 files — Python, TypeScript/JS, Kotlin):* Arm A (WITH Devrith): 7 tool calls, 0 `read_file`, 3m 51s, `arch-sidecar feature` runtime 593ms. Arm B (WITHOUT Devrith): 34 tool calls, 5m 54s.
+>   - *Task 2 (`movie-app`, 16,301 LOC, 73 files — Python, Dart/Flutter, Kotlin, Java):* Arm A (WITH Devrith): 11 tool calls, 0 `read_file`, 2m 28s, `arch-sidecar feature` runtime 264.56ms. Arm B (WITHOUT Devrith): 26 tool calls, 4m 38s.
 > - **Held-Out Hazard Recall (`pallets/werkzeug`, $N = 73$):** Caught **82.9% (29/35)** of breaking structural hazards before code touches disk or tests execute (95% Wilson CI: **[67.3%, 91.9%]**; **96.7%** adjudicated after correcting for filesystem-scan harness artifacts).
 > - **False Rejection Rate:** **18.4% (7/38)** on held-out codebases due to conservative relative-import cycle detection (`from . import <submodule>`), and **8.7% (2/23)** on `Flask`.
 > - **In-Memory Preflight vs. Staged Test Ladder:** Devrith preflight runs in **~274 ms** in-memory with zero disk writes and zero git rollbacks, compared to **~6,285 ms** for the staged post-apply control ladder and **~10.2s** for full pytest execution.
@@ -23,7 +81,7 @@
 > - **Where it wins:** Multi-slice mechanical extractions (`decouple` avoids repeated `view_file` re-reads after line shifts: **0 `view_file` calls vs. 13–14** in our `god_app.py` modularization smoke test), complex multi-file `@overload` refactorings (**-26.9% tokens, -22.9% wall time** on `requests`), and catching silent cross-module `global` state desynchronization (`global x` / `global counter`) that passes `ruff`/`pyflakes` and syntax checks.
 > - **Where a bare agent beats it:** When a file fits in a single `view_file` call (<800 lines) and the user forces extraction of a function with entangled mutable module state (`bot_tick` in `god_app.py`), `arch-sidecar decouple` blocks the unsafe move but does not auto-generate a state proxy—resulting in **30 median tool calls (`664k` proxy input tokens) for Devrith vs. 12 median tool calls (`346k` proxy input tokens) for the Bare agent** (`n = 3` runs per arm). See [Section 8 of CASE_STUDY.md](CASE_STUDY.md#8-stress-testing-on-entangled-monoliths-god_apppy-wins-losses-and-known-boundaries) for the full data.
 > - **Known static analysis boundaries:** Static AST analysis cannot resolve runtime reflection (`getattr`, `eval`, `exec`, `globals()`, `importlib`—flagged via `uncertainty`), runtime monkeypatching (`unittest.mock.patch`), or import-time I/O side effects (e.g., module-level `sqlite3.connect()`).
-> - **Language scope:** Full AST codemods (`decouple`, `workflow`) and scope preflight (`check`) are **Python-only**. TypeScript/JS supports AST tokenization, skeleton digests, and circular import cycle detection. Kotlin/Java, C/C++, Go, Rust, and Dart support fast Architectural Digest (`digest`) skeleton generation.
+> - **Language scope:** Surgical context retrieval, route & environment linking, and atomic multi-symbol decoupling (`polyglot_decouple`) support **Python, TypeScript/JavaScript, Go, Rust, Dart/Flutter, and Kotlin/Java**. In-depth AST free-variable ($FV$) scope analysis is currently Python-first. C/C++ supports fast Architectural Digest (`digest`) skeleton generation.
 
 ---
 
@@ -48,11 +106,11 @@
 
 ## ⚡ Core CLI & MCP Commands
 
-### 1. Feature Implementation (`arch-sidecar feature`)
-Delivers 1-indexed target function bodies, cross-file caller dependencies, and companion test suites in <300ms, eliminating 65% of agent turns. Add `--verify` to run compiler-grade scope preflight and automated pytest verification.
+### 1. Feature Implementation (`arch-sidecar feature` / `devrith feature`)
+Delivers 1-indexed target function bodies, cross-file caller dependencies, companion test suites, and cross-boundary route/environment linking in <300ms across 6 supported languages, eliminating 65–70% of agent turns. Employs rare-term IDF scoring to boost domain-specific identifiers up to `+45` while down-weighting generic CRUD verbs. Add `--verify` to run compiler-grade scope preflight and automated test verification.
 
-### 2. Deterministic Refactoring (`arch-sidecar workflow`)
-End-to-end refactoring pipeline: plans context, audits dynamic reflection sites, checks circular import hazards, extracts AST symbols, verifies pytest suite, and executes atomic transactional rollback if tests fail.
+### 2. Deterministic Refactoring & Symbol Decoupling (`arch-sidecar workflow` / `decouple`)
+End-to-end refactoring pipeline: plans context, audits dynamic reflection sites, checks circular import hazards, extracts single or multiple symbols atomically (`["fn1", "fn2"]`), tracks `local_dependencies_referenced`, verifies test suites, and executes atomic transactional rollback if tests fail.
 
 ### 3. Code Craft, OOP & Anti-Pattern Audit (`arch-sidecar audit`)
 Compiler-grade AST audit that prevents LLMs from introducing procedural spaghetti, deep nesting, silent exception swallows, parameter mutations, and broken return contracts:
@@ -92,24 +150,34 @@ Prompt your AI agent:
 - *"Show me the Devrith real-world test report"*
 - *"Export our benchmark test report to REAL_WORLD_REPORT.md"*
 
+### 6. Zero-Friction Self-Update (`arch-sidecar update` / `devrith update`)
+Keep your Devrith installation up to date with a single command:
+```bash
+# Check if an update is available without modifying local files
+arch-sidecar update --check
+
+# Self-update to the latest release
+arch-sidecar update
+```
+
 ---
 
 ## 🌐 Language Support & Capabilities Scope
 
-Devrith is built to be an honest, evidence-backed tool. We differentiate between **Tier 1 (Full Capabilities)** and **Tier 2 (Architectural Orientation)**:
+Devrith provides evidence-backed architectural assistance across modern programming languages:
 
-| Language | Architectural Digest (`digest`) | Junk / Build Pruning | Fast-Path Feature Workflow (`feature`) | Deterministic Codemods (`workflow`) | Scope & Import DAG Preflight (`check`) | Support Tier |
+| Language | Architectural Digest (`digest`) | Junk / Build Pruning | Fast-Path Feature Workflow (`feature`) | Deterministic Codemods (`workflow` / `decouple`) | Scope & Import DAG Preflight (`check`) | Support Tier |
 |:---|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Python** (`.py`) | **✅ Full** (<100ms) | **✅ Full** | **✅ Full** (1-indexed + tests) | **✅ Full** ($FV$ Analysis) | **✅ Full** (Sub-15ms) | **Tier 1 (Full Capabilities)** |
-| **TypeScript & JS** (`.ts`, `.tsx`, `.js`) | **✅ Full** (<100ms) | **✅ Full** (`node_modules`, `dist`) | 🔄 In Progress | 🔄 v0.4 (Babel/oxc) | 🔄 v0.4 (Babel/oxc) | **Tier 2 (Orientation)** |
-| **Kotlin & Java** (`.kt`, `.java`) | **✅ Full** (<100ms) | **✅ Full** (`build`, `.gradle`) | 🔄 Roadmap | 🔄 Roadmap | 🔄 Roadmap | **Tier 2 (Orientation)** |
-| **C & C++** (`.c`, `.h`, `.cpp`, `.hpp`) | **✅ Full** (<100ms) | **✅ Full** (`CMakeFiles`, `.o`, `.a`) | 🔄 Roadmap | 🔄 Roadmap | 🔄 Roadmap | **Tier 2 (Orientation)** |
-| **Go, Rust & Dart** (`.go`, `.rs`, `.dart`) | **✅ Full** (<100ms) | **✅ Full** (`target`, `.dart_tool`) | 🔄 Roadmap | 🔄 Roadmap | 🔄 Roadmap | **Tier 2 (Orientation)** |
+| **Python** (`.py`) | **✅ Full** (<100ms) | **✅ Full** | **✅ Full** (1-indexed + tests) | **✅ Full** ($FV$ Analysis) | **✅ Full** (Sub-15ms) | **Tier 1 (First-Class)** |
+| **TypeScript & JS** (`.ts`, `.tsx`, `.js`, `.jsx`) | **✅ Full** (<100ms) | **✅ Full** (`node_modules`, `dist`) | **✅ Full** (Surgical context + routes) | **✅ Full** (Multi-symbol mover) | **✅ Full** (Cycle & lexical checks) | **Tier 1 (First-Class)** |
+| **Go** (`.go`) | **✅ Full** (<100ms) | **✅ Full** (`vendor`, `bin`) | **✅ Full** (Surgical context + routes) | **✅ Full** (Multi-symbol mover) | **✅ Full** (Import cycle checks) | **Tier 1 (First-Class)** |
+| **Rust** (`.rs`) | **✅ Full** (<100ms) | **✅ Full** (`target/`) | **✅ Full** (Surgical context + routes) | **✅ Full** (Multi-symbol mover) | **✅ Full** (Module tree checks) | **Tier 1 (First-Class)** |
+| **Dart & Flutter** (`.dart`) | **✅ Full** (<100ms) | **✅ Full** (`.dart_tool`, `build/`) | **✅ Full** (Pubspec discovery + tests) | **✅ Full** (Multi-symbol mover) | **✅ Full** (Dependency analysis) | **Tier 1 (First-Class)** |
+| **Kotlin & Java** (`.kt`, `.kts`, `.java`) | **✅ Full** (<100ms) | **✅ Full** (`build/`, `.gradle/`) | **✅ Full** (Surgical context + routes) | **✅ Full** (Multi-symbol mover) | **✅ Full** (Package & class checks) | **Tier 1 (First-Class)** |
+| **C & C++** (`.c`, `.h`, `.cpp`, `.hpp`) | **✅ Full** (<100ms) | **✅ Full** (`CMakeFiles`, `.o`, `.a`) | 🔄 Orientation | 🔄 Roadmap | 🔄 Roadmap | **Tier 2 (Orientation)** |
 
-### Why Are Deep Capabilities Python-First?
-Deep features (`feature_workflow`, deterministic refactoring, free variable analysis, circular dependency defense) require compiler-grade AST parsing. Python includes a zero-dependency, standard library compiler (`ast`) that allows Devrith to run in <2ms without heavy external binaries. 
-
-Expanding deterministic AST refactoring to TypeScript/JavaScript (via `oxc`/`@babel/parser`) and Go/Rust/JVM is actively planned for v0.4+.
+### Zero-Dependency Polyglot Architecture
+In `v0.4.0`, Devrith natively implements multi-language AST parsers for TypeScript/JavaScript, Go, Rust, Dart/Flutter, and Kotlin/Java with **0 external binary dependencies** or daemon processes. Surgical context extraction, cross-boundary route/environment linking, and atomic multi-symbol decoupling execute in milliseconds directly within the local process.
 
 ---
 

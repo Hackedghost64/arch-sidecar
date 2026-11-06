@@ -45,6 +45,7 @@ __all__ = [
     "format_session_report_markdown",
     "format_session_report_terminal",
     "clear_sessions",
+    "__version__",
 ]
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"

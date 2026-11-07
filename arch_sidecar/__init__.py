@@ -16,6 +16,14 @@ from .uncertainty import (
 from .workflow import run_workflow, WorkflowStage
 from .guard import check_code_health
 from .feature_workflow import run_feature_workflow
+from .fault_localizer import (
+    ASTCanonicalRepairCache,
+    localize_pytest_faults,
+    parse_pytest_traceback_targets,
+    canonicalize_ast_line,
+    decanonicalize_ast_line,
+    extract_function_params,
+)
 from .session_logger import (
     record_session,
     load_sessions,
@@ -39,6 +47,12 @@ __all__ = [
     "WorkflowStage",
     "check_code_health",
     "run_feature_workflow",
+    "ASTCanonicalRepairCache",
+    "localize_pytest_faults",
+    "parse_pytest_traceback_targets",
+    "canonicalize_ast_line",
+    "decanonicalize_ast_line",
+    "extract_function_params",
     "record_session",
     "load_sessions",
     "generate_session_summary",

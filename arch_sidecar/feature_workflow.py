@@ -11,6 +11,7 @@ from .utils import DEFAULT_IGNORED_DIRS, is_ignored_path, is_minified_or_binary,
 from .context import SymbolFinder, find_references_in_file
 from .uncertainty import scan_file_uncertainty, ConfidenceLevel
 from .guard import check_code_health, resolve_local_module_path
+from .fault_localizer import ASTCanonicalRepairCache, localize_pytest_faults
 from .session_logger import record_session
 from .ts_ast import parse_ts_js_ast
 from .go_ast import parse_go_ast
@@ -744,6 +745,97 @@ def _score_files_and_symbols(
     return file_scores, scored_symbols
 
 
+def _should_run_pytest_fault_localizer(
+    verify: bool,
+    intent: Dict[str, Any],
+    target_symbols: Optional[List[str]],
+    scored_symbols: List[Dict[str, Any]],
+    test_files: List[Tuple[str, str]],
+) -> bool:
+    if verify or target_symbols or intent.get("explicit_files") or not test_files:
+        return False
+    if intent.get("category") != "validation_or_bugfix":
+        return False
+    top_score = scored_symbols[0]["score"] if scored_symbols else 0.0
+    return top_score < 65.0
+
+
+def _boost_or_insert_fault_symbol(
+    rel_f: str,
+    sym_name: str,
+    analyzer: Any,
+    scored_symbols: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    updated: List[Dict[str, Any]] = []
+    found = False
+    for item in scored_symbols:
+        if item["file"] == rel_f and item["name"] == sym_name:
+            copied = dict(item)
+            copied["score"] = round(copied["score"] + 150.0, 1)
+            updated.append(copied)
+            found = True
+        else:
+            updated.append(item)
+    if found:
+        return updated
+    sym_info = analyzer.symbols.get(sym_name)
+    if not sym_info:
+        return updated
+    return updated + [{
+        "name": sym_name,
+        "short_name": sym_name.split(".")[-1],
+        "file": rel_f,
+        "type": sym_info["type"],
+        "start_line": sym_info["start_line"],
+        "end_line": sym_info["end_line"],
+        "signature": sym_info["signature"],
+        "score": 150.0,
+        "info": sym_info,
+    }]
+
+
+def _apply_pytest_fault_boost(
+    root_abs: str,
+    file_analyzers: Dict[str, Any],
+    file_scores: Dict[str, float],
+    scored_symbols: List[Dict[str, Any]],
+) -> Tuple[Dict[str, float], List[Dict[str, Any]]]:
+    """Boost file and symbol scores using pytest failure traceback localization."""
+    faults = localize_pytest_faults(root_abs, file_analyzers)
+    if not faults:
+        return file_scores, scored_symbols
+    next_scores = dict(file_scores)
+    next_symbols = list(scored_symbols)
+    for hit in faults:
+        rel_f = hit["file"]
+        sym_name = hit["symbol"]
+        if rel_f not in file_analyzers:
+            continue
+        next_scores[rel_f] = next_scores.get(rel_f, 0.0) + 150.0
+        next_symbols = _boost_or_insert_fault_symbol(rel_f, sym_name, file_analyzers[rel_f], next_symbols)
+    next_symbols.sort(key=lambda x: (-x["score"], x["file"], x["start_line"]))
+    return next_scores, next_symbols
+
+
+def _collect_canonical_repair_suggestions(
+    anchor_symbols: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Check anchor symbols against the deterministic AST canonical repair cache."""
+    cache = ASTCanonicalRepairCache()
+    if not cache.rules:
+        return []
+    suggestions: List[Dict[str, Any]] = []
+    for anc in anchor_symbols:
+        code = anc.get("info", {}).get("code", "")
+        if not code:
+            continue
+        hit = cache.lookup_repair(code, anc["short_name"], start_line=anc["start_line"])
+        if hit:
+            hit["file"] = anc["file"]
+            suggestions.append(hit)
+    return suggestions
+
+
 def _choose_primary_file(ranked_files: List[Tuple[str, float]]) -> Optional[str]:
     if not ranked_files:
         return None
@@ -1206,6 +1298,11 @@ def _build_implementation_plan(plan_ctx: Dict[str, Any]) -> List[str]:
             plan_ctx.get("inferred_test_cmd"),
         )
     )
+    for repair in plan_ctx.get("canonical_repairs", []):
+        plan.append(
+            f"5. **Deterministic AST Repair Cache Hit (`{repair['function']}` L{repair['line_number']}):** "
+            f"Replace `{repair['buggy_line']}` with `{repair['suggested_line'].strip()}`."
+        )
     return plan
 
 
@@ -1756,9 +1853,15 @@ def run_feature_workflow(
     file_scores, scored_symbols = _score_files_and_symbols(
         file_analyzers, intent, query_keywords, target_symbols
     )
+    if _should_run_pytest_fault_localizer(verify, intent, target_symbols, scored_symbols, test_files):
+        file_scores, scored_symbols = _apply_pytest_fault_boost(
+            root_abs, file_analyzers, file_scores, scored_symbols
+        )
+
     primary_file, primary_lines, anchor_symbols = _select_primary_and_anchors(
         file_scores, scored_symbols, file_analyzers, file_lines_map
     )
+    canonical_repairs = _collect_canonical_repair_suggestions(anchor_symbols)
 
     # 3. Dependencies & Impact
     cross_file_dependencies = _find_cross_file_dependencies(
@@ -1788,6 +1891,7 @@ def run_feature_workflow(
         "task": task,
         "project_root": project_root,
         "inferred_test_cmd": inferred_test_cmd,
+        "canonical_repairs": canonical_repairs,
     }
     implementation_plan = _build_implementation_plan(plan_ctx)
 
@@ -1834,10 +1938,12 @@ def run_feature_workflow(
     }
     session_id = _record_feature_session(task, root_abs, session_params)
 
-    return _format_feature_workflow_output(
+    out = _format_feature_workflow_output(
         session_id, overall_success, verify, task, intent, primary_file,
         anchor_symbols, cross_file_dependencies, cross_boundary_links,
         downstream_callers, related_tests, inferred_test_cmd, uncertainty_findings,
         implementation_plan, context_markdown, preflight_results, test_verification,
         statically_verified, runtime_verified, unverified_risks, duration_ms
     )
+    out["canonical_repair_suggestions"] = canonical_repairs
+    return out
